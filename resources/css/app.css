@@ -1,0 +1,92 @@
+@import 'tailwindcss';
+@import 'leaflet/dist/leaflet.css';
+@import 'leaflet-draw/dist/leaflet.draw.css';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-primary: #4CAF50;
+    --color-secondary: #4A90E2;
+    --color-accent: #FDA811;
+    --color-background: #FBFBFB;
+    --color-dark-bg: #1a1a1a;
+    --color-dark-surface: #2d2d2d;
+}
+
+/* Dark mode styles */
+.dark {
+    color-scheme: dark;
+}
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #4CAF50;
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #45a049;
+    background-clip: padding-box;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #4CAF50;
+    background-clip: padding-box;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #5cb85c;
+    background-clip: padding-box;
+}
+
+/* Firefox scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #4CAF50 transparent;
+}
+
+.dark * {
+    scrollbar-color: #4CAF50 transparent;
+}
+
+/* Animated RGB Text Gradient */
+@keyframes rgb-gradient {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+.animated-rgb-text {
+    background: linear-gradient(
+        90deg,
+        #4CAF50 0%,
+        #4A90E2 33%,
+        #FDA811 66%,
+        #4CAF50 100%
+    );
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: rgb-gradient 8s ease infinite;
+}
