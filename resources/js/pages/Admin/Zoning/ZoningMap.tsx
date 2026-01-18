@@ -851,19 +851,6 @@ export default function ZoningMap() {
                                             </option>
                                         ))}
                                     </select>
-                                    {selectedClassificationId && (
-                                        <div className="mt-1.5 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-                                            <p className="text-xs text-blue-800 dark:text-blue-200 font-semibold mb-1">
-                                                Drawing Instructions:
-                                            </p>
-                                            <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-0.5 list-disc list-inside">
-                                                <li>Click on the map to add points (minimum 3 required)</li>
-                                                <li>After 3 points, <strong>keep clicking in different locations</strong> to add more points</li>
-                                                <li><strong>Important:</strong> Click away from the first point to add more vertices</li>
-                                                <li>To finish: <strong>double-click</strong> anywhere, or <strong>click the first point</strong> again, or press <strong>Enter</strong></li>
-                                            </ul>
-                                        </div>
-                                    )}
                                     {loadingClassifications && (
                                         <div className="mt-1.5 flex items-center text-sm text-gray-500 dark:text-gray-400">
                                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
