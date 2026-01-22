@@ -75,6 +75,7 @@ Route::middleware('auth')->group(function () {
 
     // Payment Records routes (staff and admin only)
     Route::prefix('payments')->name('payments.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\PaymentRecordController::class, 'index'])->name('index');
         Route::post('/', [\App\Http\Controllers\PaymentRecordController::class, 'store'])->name('store');
     });
 
@@ -87,6 +88,7 @@ Route::middleware('auth')->group(function () {
 
     // Issued Clearances routes (admin only)
     Route::prefix('clearances')->name('clearances.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\IssuedClearanceController::class, 'index'])->name('index');
         Route::get('/create', [\App\Http\Controllers\IssuedClearanceController::class, 'create'])->name('create');
         Route::post('/', [\App\Http\Controllers\IssuedClearanceController::class, 'store'])->name('store');
         Route::get('/{id}', [\App\Http\Controllers\IssuedClearanceController::class, 'show'])->name('show');

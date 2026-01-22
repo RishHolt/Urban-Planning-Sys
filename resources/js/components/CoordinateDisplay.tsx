@@ -17,12 +17,16 @@ export default function CoordinateDisplay({
 }: CoordinateDisplayProps) {
     const [copied, setCopied] = useState(false);
 
-    if (latitude === null || longitude === null) {
+    // Convert to numbers if they're strings, and check for null/undefined
+    const lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
+    const lng = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
+
+    if (lat === null || lng === null || isNaN(lat) || isNaN(lng)) {
         return null;
     }
 
-    const coordinates = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-    const fullText = `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}`;
+    const coordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    const fullText = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
 
     const handleCopy = async () => {
         try {

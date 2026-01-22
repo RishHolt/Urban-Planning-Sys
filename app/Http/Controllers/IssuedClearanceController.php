@@ -15,11 +15,60 @@ use Inertia\Response;
 class IssuedClearanceController extends Controller
 {
     /**
+     * Display a listing of all issued clearances.
+     */
+    public function index(Request $request): Response
+    {
+        $query = IssuedClearance::with(['clearanceApplication.zone']);
+
+        // Search functionality
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('clearance_no', 'like', "%{$search}%")
+                    ->orWhereHas('clearanceApplication', function ($q) use ($search) {
+                        $q->where('reference_no', 'like', "%{$search}%")
+                            ->orWhere('lot_owner', 'like', "%{$search}%")
+                            ->orWhere('lot_address', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        // Filter by status
+        if ($request->has('status') && $request->status) {
+            $query->where('status', $request->status);
+        }
+
+        $clearances = $query->orderBy('issue_date', 'desc')
+            ->paginate(15)
+            ->through(function ($clearance) {
+                return [
+                    'id' => (string) $clearance->id,
+                    'clearance_no' => $clearance->clearance_no,
+                    'reference_no' => $clearance->clearanceApplication->reference_no,
+                    'lot_owner' => $clearance->clearanceApplication->lot_owner,
+                    'lot_address' => $clearance->clearanceApplication->lot_address,
+                    'issue_date' => $clearance->issue_date->format('Y-m-d'),
+                    'valid_until' => $clearance->valid_until?->format('Y-m-d'),
+                    'status' => $clearance->status,
+                ];
+            });
+
+        return Inertia::render('Admin/Clearance/ClearancesIndex', [
+            'clearances' => $clearances,
+            'filters' => [
+                'search' => $request->search,
+                'status' => $request->status,
+            ],
+        ]);
+    }
+
+    /**
      * Display the specified issued clearance.
      */
     public function show(string $id): Response
     {
-        $clearance = IssuedClearance::with(['clearanceApplication.zone'])
+        $clearance = IssuedClearance::with(['clearanceApplication.zone.classification'])
             ->findOrFail($id);
 
         return Inertia::render('Admin/Clearance/ClearanceDetails', [
@@ -39,8 +88,8 @@ class IssuedClearanceController extends Controller
                     'lot_address' => $clearance->clearanceApplication->lot_address,
                     'lot_owner' => $clearance->clearanceApplication->lot_owner,
                     'zone' => $clearance->clearanceApplication->zone ? [
-                        'name' => $clearance->clearanceApplication->zone->name,
-                        'code' => $clearance->clearanceApplication->zone->code,
+                        'name' => $clearance->clearanceApplication->zone->classification?->name ?? 'N/A',
+                        'code' => $clearance->clearanceApplication->zone->classification?->code ?? 'N/A',
                     ] : null,
                 ],
             ],

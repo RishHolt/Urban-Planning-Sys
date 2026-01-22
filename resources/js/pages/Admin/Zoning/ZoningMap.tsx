@@ -177,7 +177,21 @@ function MapWithDraw({
         // Add selected zone's geometry to featureGroup for editing
         if (selectedZone.geometry) {
             const layer = polygonLayersRef.current.get(selectedZone.id);
-            if (layer && !featureGroup.hasLayer(layer)) {
+            if (layer) {
+                // Remove layer from featureGroup first if it exists (to ensure clean state)
+                if (layer instanceof L.LayerGroup) {
+                    layer.eachLayer((sublayer) => {
+                        if (featureGroup.hasLayer(sublayer)) {
+                            featureGroup.removeLayer(sublayer);
+                        }
+                    });
+                } else {
+                    if (featureGroup.hasLayer(layer)) {
+                        featureGroup.removeLayer(layer);
+                    }
+                }
+                
+                // Add layer to featureGroup for editing
                 if (layer instanceof L.LayerGroup) {
                     layer.eachLayer((sublayer) => {
                         featureGroup.addLayer(sublayer);
@@ -185,6 +199,31 @@ function MapWithDraw({
                 } else {
                     featureGroup.addLayer(layer);
                 }
+                
+                // Force Leaflet Draw to enable edit mode by programmatically clicking the edit button
+                // Leaflet Draw automatically enables edit mode when layers are in featureGroup,
+                // but we need to click the edit button to activate the editing handles
+                setTimeout(() => {
+                    if (drawControl) {
+                        // Try clicking the edit button programmatically
+                        const container = drawControl.getContainer();
+                        if (container) {
+                            // Leaflet Draw uses different class names for edit buttons
+                            // Try multiple selectors to find the edit button
+                            const editButton = container.querySelector('.leaflet-draw-edit-edit, a[title*="Edit"], button[title*="Edit"]') as HTMLElement;
+                            if (editButton) {
+                                editButton.click();
+                            } else {
+                                // Try accessing the edit handler directly through the draw control
+                                const drawControlAny = drawControl as any;
+                                const editToolbar = drawControlAny._toolbars?.edit;
+                                if (editToolbar && typeof editToolbar.reinit === 'function') {
+                                    editToolbar.reinit();
+                                }
+                            }
+                        }
+                    }
+                }, 100);
             }
         }
 
@@ -203,7 +242,7 @@ function MapWithDraw({
             map.off(L.Draw.Event.EDITED, handleDrawEdited as any);
             map.off(L.Draw.Event.DELETED, handleDrawDeleted as any);
         };
-    }, [map, featureGroup, isEditing, selectedZone, onPolygonEdited]);
+    }, [map, featureGroup, isEditing, selectedZone, onPolygonEdited, drawControl]);
 
     return null;
 }
@@ -227,6 +266,7 @@ export default function ZoningMap() {
     const [isDrawing, setIsDrawing] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showZoneDetailsPanel, setShowZoneDetailsPanel] = useState(false);
     const mapCenter: [number, number] = [14.5995, 120.9842]; // Default to Manila
     const mapZoom = 13;
 
@@ -418,6 +458,7 @@ export default function ZoningMap() {
                     if (!shouldProceed) {
                         setSaving(false);
                         setIsEditing(false);
+                        setShowZoneDetailsPanel(true); // Show panel again after canceling
                         await loadAllZonesForMap(); // Reload to reset map
                         return;
                     }
@@ -432,6 +473,7 @@ export default function ZoningMap() {
                 );
                 setSelectedZone(updatedZone);
                 setIsEditing(false);
+                setShowZoneDetailsPanel(true); // Show panel again after editing
                 await loadAllZonesForMap();
                 showSuccess('Zone boundaries updated successfully');
             } catch (error) {
@@ -478,6 +520,7 @@ export default function ZoningMap() {
         if (!selectedZone || !selectedZone.geometry) {
             return;
         }
+        setShowZoneDetailsPanel(false); // Close the panel
         setIsEditing(true);
         setIsDrawing(false);
     };
@@ -647,6 +690,7 @@ export default function ZoningMap() {
                                         isSelected={selectedZone?.id === zone.id}
                                         onSelect={(z) => {
                                             setSelectedZone(z);
+                                            setShowZoneDetailsPanel(true);
                                             setIsDrawing(false);
                                             setIsEditing(false);
                                         }}
@@ -655,26 +699,32 @@ export default function ZoningMap() {
                             )}
                         </div>
                     </div>
-
-                    {/* Zone Details Panel */}
-                    <div className="border-gray-200 dark:border-gray-700 border-t max-h-96 overflow-y-auto">
-                        <ZoneDetailsPanel
-                            zone={selectedZone}
-                            onDrawBoundaries={handleDrawBoundaries}
-                            onEditBoundaries={handleEditBoundaries}
-                            onDelete={handleDeleteZone}
-                            onUpdate={handleUpdateZone}
-                            onClose={() => setSelectedZone(null)}
-                        />
-                    </div>
                 </div>
 
                 {/* Map */}
                 <div className="z-0 relative flex-1">
+                    {/* Floating Zone Details Panel */}
+                    {selectedZone && showZoneDetailsPanel && !isEditing && (
+                        <div className="top-4 left-4 z-[100] absolute flex flex-col bg-white dark:bg-dark-surface shadow-2xl border border-gray-200 dark:border-gray-700 rounded-lg w-80 max-h-[calc(100vh-8rem)] overflow-hidden">
+                            <ZoneDetailsPanel
+                                zone={selectedZone}
+                                onDrawBoundaries={handleDrawBoundaries}
+                                onEditBoundaries={handleEditBoundaries}
+                                onDelete={handleDeleteZone}
+                                onUpdate={handleUpdateZone}
+                                onClose={() => {
+                                    setShowZoneDetailsPanel(false);
+                                    setSelectedZone(null);
+                                }}
+                            />
+                        </div>
+                    )}
                     {!sidebarOpen && (
                         <button
                             onClick={() => setSidebarOpen(true)}
-                            className="top-4 left-4 z-[100] absolute bg-white dark:bg-dark-surface shadow-lg p-2 border border-gray-200 dark:border-gray-700 rounded-lg"
+                            className={`top-4 z-[100] absolute bg-white dark:bg-dark-surface shadow-lg p-2 border border-gray-200 dark:border-gray-700 rounded-lg ${
+                                selectedZone && showZoneDetailsPanel && !isEditing ? 'left-[21rem]' : 'left-4'
+                            }`}
                         >
                             <Plus size={20} />
                         </button>
@@ -711,6 +761,7 @@ export default function ZoningMap() {
                                     variant="outline"
                                     onClick={() => {
                                         setIsEditing(false);
+                                        setShowZoneDetailsPanel(true); // Show panel again after canceling edit
                                         loadAllZonesForMap(); // Reload to reset
                                     }}
                                 >

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { Menu, X, LayoutDashboard, ClipboardList, Map, ListChecks, History, BarChart3, ChevronDown, ChevronRight, FileText, Home } from 'lucide-react';
+import { Menu, X, LayoutDashboard, ClipboardList, Map, ListChecks, History, BarChart3, ChevronDown, ChevronRight, FileText, Home, ClipboardCheck, FileCheck, Receipt } from 'lucide-react';
 import type { SharedData } from '../types';
 
 interface SidebarProps {
@@ -30,6 +30,9 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
             children: [
                 { href: '/admin/zoning/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
                 { href: '/admin/zoning/clearance/applications', icon: ListChecks, label: 'Applications' },
+                { href: '/inspections', icon: ClipboardCheck, label: 'Inspections' },
+                { href: '/clearances', icon: FileCheck, label: 'Issued Clearances' },
+                { href: '/payments', icon: Receipt, label: 'Payment Records' },
                 { href: '/admin/zoning/map', icon: Map, label: 'Zoning Map' },
             ],
         },

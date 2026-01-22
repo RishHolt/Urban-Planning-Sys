@@ -8,13 +8,68 @@ use App\Models\ClearanceApplication;
 use App\Models\PaymentRecord;
 use App\Services\TreasuryService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class PaymentRecordController extends Controller
 {
     public function __construct(
         protected TreasuryService $treasuryService
     ) {}
+
+    /**
+     * Display a listing of all payment records.
+     */
+    public function index(Request $request): Response
+    {
+        $query = PaymentRecord::with('clearanceApplication');
+
+        // Search functionality
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('or_number', 'like', "%{$search}%")
+                    ->orWhere('treasury_ref', 'like', "%{$search}%")
+                    ->orWhereHas('clearanceApplication', function ($q) use ($search) {
+                        $q->where('reference_no', 'like', "%{$search}%")
+                            ->orWhere('lot_owner', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        // Filter by date range
+        if ($request->has('dateFrom') && $request->dateFrom) {
+            $query->whereDate('payment_date', '>=', $request->dateFrom);
+        }
+        if ($request->has('dateTo') && $request->dateTo) {
+            $query->whereDate('payment_date', '<=', $request->dateTo);
+        }
+
+        $payments = $query->orderBy('payment_date', 'desc')
+            ->paginate(15)
+            ->through(function ($payment) {
+                return [
+                    'id' => (string) $payment->id,
+                    'or_number' => $payment->or_number,
+                    'reference_no' => $payment->clearanceApplication->reference_no,
+                    'amount' => number_format($payment->amount, 2),
+                    'payment_date' => $payment->payment_date->format('Y-m-d'),
+                    'treasury_ref' => $payment->treasury_ref,
+                    'application_id' => (string) $payment->application_id,
+                ];
+            });
+
+        return Inertia::render('Admin/Clearance/PaymentRecordsIndex', [
+            'payments' => $payments,
+            'filters' => [
+                'search' => $request->search,
+                'dateFrom' => $request->dateFrom,
+                'dateTo' => $request->dateTo,
+            ],
+        ]);
+    }
 
     /**
      * Store a payment record for an application.

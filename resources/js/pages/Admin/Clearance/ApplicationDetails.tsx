@@ -6,7 +6,7 @@ import PropertyLocation from '../../../components/Applications/PropertyLocation'
 import StatusHistory from '../../../components/StatusHistory';
 import { 
     FileText, MapPin, Calendar, CheckCircle, XCircle, Clock, Building, User, Mail, Phone, 
-    Download, Eye, Shield, CreditCard, Search, AlertCircle, Edit, Send
+    Download, Eye, Shield, CreditCard, Search, AlertCircle, Edit, Send, X
 } from 'lucide-react';
 
 interface Zone {
@@ -661,12 +661,17 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                 )}
 
                 {/* Documents */}
-                {application.documents.length > 0 && (
-                    <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                            <FileText size={20} />
-                            Documents
-                        </h2>
+                <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <FileText size={20} />
+                        Documents
+                    </h2>
+                    {application.documents.length === 0 ? (
+                        <div className="text-center py-8">
+                            <FileText size={48} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                            <p className="text-gray-500 dark:text-gray-400">No documents uploaded yet.</p>
+                        </div>
+                    ) : (
                         <div className="space-y-2">
                             {application.documents.map((doc) => (
                                 <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -695,8 +700,8 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                 </div>
                             ))}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
 
                 {/* History */}
                 {application.history.length > 0 && (
@@ -718,97 +723,151 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
 
                 {/* Status Update Modal */}
                 {showStatusModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white dark:bg-dark-surface rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Update Status</h3>
-                            <form onSubmit={handleStatusUpdate}>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                            New Status
-                                        </label>
-                                        <select
-                                            value={statusData.status}
-                                            onChange={(e) => setStatusData('status', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white"
-                                            required
-                                        >
-                                            <option value="pending">Pending</option>
-                                            <option value="under_review">Under Review</option>
-                                            <option value="for_inspection">For Inspection</option>
-                                            <option value="approved">Approved</option>
-                                            <option value="denied">Denied</option>
-                                        </select>
-                                    </div>
-                                    {statusData.status === 'denied' && (
+                    <div
+                        className="z-50 fixed inset-0 flex justify-center items-center bg-black/50 backdrop-blur-sm"
+                        onClick={() => setShowStatusModal(false)}
+                    >
+                        <div
+                            className="relative flex flex-col bg-white dark:bg-dark-surface shadow-2xl mx-4 rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Header */}
+                            <div className="flex flex-shrink-0 justify-between items-center px-6 py-4 border-gray-200 dark:border-gray-700 border-b">
+                                <div>
+                                    <h2 className="font-bold text-gray-900 dark:text-white text-xl">
+                                        Update Status
+                                    </h2>
+                                    <p className="mt-1 text-gray-500 dark:text-gray-400 text-sm">
+                                        Change the application status
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setShowStatusModal(false)}
+                                    className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+                                    aria-label="Close modal"
+                                >
+                                    <X size={24} className="text-gray-500 dark:text-gray-400" />
+                                </button>
+                            </div>
+
+                            {/* Scrollable Content */}
+                            <div className="flex-1 px-6 py-6 overflow-y-auto">
+                                <form onSubmit={handleStatusUpdate}>
+                                    <div className="space-y-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                Denial Reason
+                                                New Status
+                                            </label>
+                                            <select
+                                                value={statusData.status}
+                                                onChange={(e) => setStatusData('status', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white"
+                                                required
+                                            >
+                                                <option value="pending">Pending</option>
+                                                <option value="under_review">Under Review</option>
+                                                <option value="for_inspection">For Inspection</option>
+                                                <option value="approved">Approved</option>
+                                                <option value="denied">Denied</option>
+                                            </select>
+                                        </div>
+                                        {statusData.status === 'denied' && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                    Denial Reason
+                                                </label>
+                                                <textarea
+                                                    value={statusData.denial_reason}
+                                                    onChange={(e) => setStatusData('denial_reason', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white"
+                                                    rows={3}
+                                                    required
+                                                />
+                                            </div>
+                                        )}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Remarks
                                             </label>
                                             <textarea
-                                                value={statusData.denial_reason}
-                                                onChange={(e) => setStatusData('denial_reason', e.target.value)}
+                                                value={statusData.remarks}
+                                                onChange={(e) => setStatusData('remarks', e.target.value)}
                                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white"
                                                 rows={3}
-                                                required
                                             />
                                         </div>
-                                    )}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                            Remarks
-                                        </label>
-                                        <textarea
-                                            value={statusData.remarks}
-                                            onChange={(e) => setStatusData('remarks', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white"
-                                            rows={3}
-                                        />
                                     </div>
-                                </div>
-                                <div className="flex gap-3 mt-6">
-                                    <Button type="submit" disabled={processing}>
-                                        Update Status
-                                    </Button>
-                                    <Button type="button" variant="outline" onClick={() => setShowStatusModal(false)}>
-                                        Cancel
-                                    </Button>
-                                </div>
-                            </form>
+                                    <div className="flex gap-3 mt-6">
+                                        <Button type="submit" disabled={processing}>
+                                            Update Status
+                                        </Button>
+                                        <Button type="button" variant="outline" onClick={() => setShowStatusModal(false)}>
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 )}
 
                 {/* Document Request Modal */}
                 {showDocumentRequestModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white dark:bg-dark-surface rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Request Documents</h3>
-                            <form onSubmit={handleDocumentRequest}>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                            Message
-                                        </label>
-                                        <textarea
-                                            value={documentRequestData.message}
-                                            onChange={(e) => setDocumentRequestData('message', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white"
-                                            rows={4}
-                                            required
-                                            placeholder="Specify which documents are needed..."
-                                        />
+                    <div
+                        className="z-50 fixed inset-0 flex justify-center items-center bg-black/50 backdrop-blur-sm"
+                        onClick={() => setShowDocumentRequestModal(false)}
+                    >
+                        <div
+                            className="relative flex flex-col bg-white dark:bg-dark-surface shadow-2xl mx-4 rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Header */}
+                            <div className="flex flex-shrink-0 justify-between items-center px-6 py-4 border-gray-200 dark:border-gray-700 border-b">
+                                <div>
+                                    <h2 className="font-bold text-gray-900 dark:text-white text-xl">
+                                        Request Documents
+                                    </h2>
+                                    <p className="mt-1 text-gray-500 dark:text-gray-400 text-sm">
+                                        Request additional documents from the applicant
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setShowDocumentRequestModal(false)}
+                                    className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+                                    aria-label="Close modal"
+                                >
+                                    <X size={24} className="text-gray-500 dark:text-gray-400" />
+                                </button>
+                            </div>
+
+                            {/* Scrollable Content */}
+                            <div className="flex-1 px-6 py-6 overflow-y-auto">
+                                <form onSubmit={handleDocumentRequest}>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Message
+                                            </label>
+                                            <textarea
+                                                value={documentRequestData.message}
+                                                onChange={(e) => setDocumentRequestData('message', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white"
+                                                rows={4}
+                                                required
+                                                placeholder="Specify which documents are needed..."
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="flex gap-3 mt-6">
-                                    <Button type="submit" disabled={processing}>
-                                        Send Request
-                                    </Button>
-                                    <Button type="button" variant="outline" onClick={() => setShowDocumentRequestModal(false)}>
-                                        Cancel
-                                    </Button>
-                                </div>
-                            </form>
+                                    <div className="flex gap-3 mt-6">
+                                        <Button type="submit" disabled={processing}>
+                                            Send Request
+                                        </Button>
+                                        <Button type="button" variant="outline" onClick={() => setShowDocumentRequestModal(false)}>
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 )}
