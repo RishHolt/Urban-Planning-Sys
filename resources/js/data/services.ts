@@ -504,47 +504,51 @@ export const services: Service[] = [
     },
 ];
 
-// CLUP and Zoning Classification API functions
-
-export interface Clup {
-    id: string;
-    referenceNo: string;
-    lguName: string;
-    coverageStartYear: number;
-    coverageEndYear: number;
-    coveragePeriod: string;
-    approvalDate: string | null;
-    approvingBody: string | null;
-    resolutionNo: string | null;
-    status: string;
-    createdAt: string;
-}
+// Zone API functions
 
 export interface ZoningClassification {
     id: string;
-    zoningCode: string;
-    zoneName: string;
-    landUseCategory: string | null;
-    allowedUses: string | null;
-    conditionalUses: string | null;
-    prohibitedUses: string | null;
+    code: string;
+    name: string;
+    description?: string | null;
+    allowed_uses?: string | null;
+    color?: string | null;
+    is_active: boolean;
 }
 
-export interface ZoningPolygon {
+export interface Zone {
     id: string;
-    barangay: string | null;
-    areaSqm: number | null;
-    geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
-    zoningId?: string;
-    zoningCode?: string;
-    zoneName?: string;
+    zoning_classification_id: string;
+    label?: string | null;
+    code: string; // From classification
+    name: string; // From classification
+    description?: string | null; // From classification
+    allowed_uses?: string | null; // From classification
+    geometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon | null;
+    color?: string | null; // From classification
+    is_active: boolean;
+    has_geometry?: boolean;
+    created_at?: string;
+    classification?: ZoningClassification | null;
 }
 
 /**
- * Fetch all CLUPs
+ * Fetch all zones (with optional filters)
  */
-export async function getClups(): Promise<Clup[]> {
-    const response = await fetch('/admin/zoning/clup?perPage=1000', {
+export async function getZones(filters?: {
+    search?: string;
+    status?: 'active' | 'inactive' | 'no_boundaries' | 'with_boundaries';
+}): Promise<Zone[]> {
+    const params = new URLSearchParams();
+    if (filters?.search) {
+        params.append('search', filters.search);
+    }
+    if (filters?.status) {
+        params.append('status', filters.status);
+    }
+
+    const url = `/admin/zoning/zones${params.toString() ? `?${params.toString()}` : ''}`;
+    const response = await fetch(url, {
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
@@ -552,7 +556,7 @@ export async function getClups(): Promise<Clup[]> {
     });
 
     if (!response.ok) {
-        throw new Error('Failed to fetch CLUPs');
+        throw new Error('Failed to fetch zones');
     }
 
     const data = await response.json();
@@ -564,10 +568,10 @@ export async function getClups(): Promise<Clup[]> {
 }
 
 /**
- * Fetch zoning classifications for a CLUP
+ * Fetch a single zone by ID
  */
-export async function getClassifications(clupId: string): Promise<ZoningClassification[]> {
-    const response = await fetch(`/admin/zoning/clup/${clupId}/classifications`, {
+export async function getZone(id: string): Promise<Zone> {
+    const response = await fetch(`/admin/zoning/zones/${id}`, {
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
@@ -575,58 +579,23 @@ export async function getClassifications(clupId: string): Promise<ZoningClassifi
     });
 
     if (!response.ok) {
-        throw new Error('Failed to fetch classifications');
+        throw new Error('Failed to fetch zone');
     }
 
-    return await response.json();
+    const result = await response.json();
+    return result.zone;
 }
 
 /**
- * Fetch polygons for a zoning classification
+ * Create a new zone (geometry optional)
  */
-export async function getPolygons(zoningId: string): Promise<ZoningPolygon[]> {
-    const response = await fetch(`/admin/zoning/clup/classifications/${zoningId}/polygons`, {
-        headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-    });
-
-    if (!response.ok) {
-        throw new Error('Failed to fetch polygons');
-    }
-
-    return await response.json();
-}
-
-/**
- * Fetch all polygons for a CLUP
- */
-export async function getAllPolygonsForClup(clupId: string): Promise<ZoningPolygon[]> {
-    const response = await fetch(`/admin/zoning/clup/${clupId}/polygons`, {
-        headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-    });
-
-    if (!response.ok) {
-        throw new Error('Failed to fetch polygons');
-    }
-
-    return await response.json();
-}
-
-/**
- * Save a new polygon
- */
-export async function savePolygon(data: {
-    zoning_id: string;
-    barangay?: string | null;
-    area_sqm?: number | null;
-    geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
-}): Promise<ZoningPolygon> {
-    const response = await fetch('/admin/zoning/clup/polygons', {
+export async function createZone(data: {
+    zoning_classification_id: string;
+    label?: string | null;
+    geometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon | null;
+    is_active?: boolean;
+}): Promise<Zone> {
+    const response = await fetch('/admin/zoning/zones', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -638,26 +607,35 @@ export async function savePolygon(data: {
     });
 
     if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to save polygon');
+        const errorData = await response.json().catch(() => ({ message: 'Failed to create zone' }));
+        const errorMessage = errorData.message || errorData.error || 'Failed to create zone';
+        
+        // Handle validation errors
+        if (errorData.errors) {
+            const firstError = Object.values(errorData.errors)[0];
+            throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
+        }
+        
+        throw new Error(errorMessage);
     }
 
     const result = await response.json();
-    return result.polygon;
+    return result.zone;
 }
 
 /**
- * Update an existing polygon
+ * Update an existing zone (can update geometry separately)
  */
-export async function updatePolygon(
+export async function updateZone(
     id: string,
     data: {
-        barangay?: string | null;
-        area_sqm?: number | null;
-        geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
+        zoning_classification_id?: string;
+        label?: string | null;
+        geometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon | null;
+        is_active?: boolean;
     }
-): Promise<ZoningPolygon> {
-    const response = await fetch(`/admin/zoning/clup/polygons/${id}`, {
+): Promise<Zone> {
+    const response = await fetch(`/admin/zoning/zones/${id}`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
@@ -669,19 +647,135 @@ export async function updatePolygon(
     });
 
     if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to update polygon');
+        const errorData = await response.json().catch(() => ({ message: 'Failed to update zone' }));
+        const errorMessage = errorData.message || errorData.error || 'Failed to update zone';
+        
+        // Handle validation errors
+        if (errorData.errors) {
+            const firstError = Object.values(errorData.errors)[0];
+            throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
+        }
+        
+        throw new Error(errorMessage);
     }
 
     const result = await response.json();
-    return result.polygon;
+    return result.zone;
 }
 
 /**
- * Delete a polygon
+ * Zoning Classification functions
  */
-export async function deletePolygon(id: string): Promise<void> {
-    const response = await fetch(`/admin/zoning/clup/polygons/${id}`, {
+
+/**
+ * Fetch all zoning classifications
+ */
+export async function getZoningClassifications(activeOnly = false): Promise<ZoningClassification[]> {
+    const params = new URLSearchParams();
+    if (activeOnly) {
+        params.append('active_only', '1');
+    }
+
+    const url = `/admin/zoning/classifications${params.toString() ? `?${params.toString()}` : ''}`;
+    const response = await fetch(url, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch zoning classifications');
+    }
+
+    const result = await response.json();
+    return result.data;
+}
+
+/**
+ * Create a new zoning classification
+ */
+export async function createZoningClassification(data: {
+    code: string;
+    name: string;
+    description?: string | null;
+    allowed_uses?: string | null;
+    color?: string | null;
+    is_active?: boolean;
+}): Promise<ZoningClassification> {
+    const response = await fetch('/admin/zoning/classifications', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to create classification' }));
+        const errorMessage = errorData.message || errorData.error || 'Failed to create classification';
+        
+        if (errorData.errors) {
+            const firstError = Object.values(errorData.errors)[0];
+            throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
+        }
+        
+        throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    return result.classification;
+}
+
+/**
+ * Update an existing zoning classification
+ */
+export async function updateZoningClassification(
+    id: string,
+    data: {
+        code?: string;
+        name?: string;
+        description?: string | null;
+        allowed_uses?: string | null;
+        color?: string | null;
+        is_active?: boolean;
+    }
+): Promise<ZoningClassification> {
+    const response = await fetch(`/admin/zoning/classifications/${id}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to update classification' }));
+        const errorMessage = errorData.message || errorData.error || 'Failed to update classification';
+        
+        if (errorData.errors) {
+            const firstError = Object.values(errorData.errors)[0];
+            throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
+        }
+        
+        throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    return result.classification;
+}
+
+/**
+ * Delete a zone
+ */
+export async function deleteZone(id: string): Promise<void> {
+    const response = await fetch(`/admin/zoning/zones/${id}`, {
         method: 'DELETE',
         headers: {
             'Accept': 'application/json',
@@ -692,6 +786,6 @@ export async function deletePolygon(id: string): Promise<void> {
 
     if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to delete polygon');
+        throw new Error(error.message || 'Failed to delete zone');
     }
 }

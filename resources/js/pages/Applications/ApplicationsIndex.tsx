@@ -39,7 +39,7 @@ export default function ApplicationsIndex({ applications }: ApplicationsIndexPro
                                 View and manage your zoning clearance applications
                             </p>
                         </div>
-                        <Link href="/applications/zoning/create">
+                        <Link href="/clearance-applications/category">
                             <Button variant="primary" size="md" className="flex items-center gap-2">
                                 <Plus size={20} />
                                 New Application
@@ -49,13 +49,13 @@ export default function ApplicationsIndex({ applications }: ApplicationsIndexPro
 
                     <ApplicationsTable<Application>
                         applications={applications}
-                        viewUrl={(id) => `/applications/zoning/${id}`}
+                        viewUrl={(id) => `/clearance-applications/${id}`}
                         columns="user"
                         emptyState={{
                             title: 'No Applications Yet',
                             message: 'You haven\'t submitted any applications. Start by creating a new application.',
                             action: (
-                            <Link href="/applications/zoning/create">
+                            <Link href="/clearance-applications/category">
                                 <Button variant="primary" size="md" className="flex items-center gap-2 mx-auto">
                                     <Plus size={20} />
                                     Create New Application

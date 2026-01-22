@@ -559,7 +559,7 @@ export default function ServiceModal({
                                 // Route based on service ID
                                 const applicationRoute = serviceId === 'housing-beneficiary' 
                                     ? '/applications/housing/create'
-                                    : '/applications/zoning/create';
+                                    : '/clearance-applications/category';
                                 router.visit(applicationRoute);
                             }}
                         >

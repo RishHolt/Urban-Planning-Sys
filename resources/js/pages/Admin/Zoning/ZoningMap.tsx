@@ -5,24 +5,25 @@ import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useLeafletDraw } from '../../../hooks/useLeafletDraw';
 import {
-    getClups,
-    getClassifications,
-    getPolygons,
-    getAllPolygonsForClup,
-    savePolygon,
-    updatePolygon,
-    deletePolygon as deletePolygonService,
-    type Clup,
+    getZones,
+    getZone,
+    createZone,
+    updateZone,
+    deleteZone,
+    getZoningClassifications,
+    createZoningClassification,
+    type Zone,
     type ZoningClassification,
-    type ZoningPolygon,
 } from '../../../data/services';
 import { generatePolygonColor, leafletToGeoJSON, geoJSONToLeaflet, calculatePolygonArea, hslToRgba } from '../../../lib/mapUtils';
-import { showSuccess, showError } from '../../../lib/swal';
-import { Loader2, MapPin, X, Search, Filter } from 'lucide-react';
+import { checkZoneOverlap } from '../../../lib/zoneOverlapDetection';
+import { showSuccess, showError, showConfirm } from '../../../lib/swal';
+import { Loader2, Plus, Search, X } from 'lucide-react';
 import Button from '../../../components/Button';
 import Input from '../../../components/Input';
-import ZoningClassificationCard from '../../../components/ZoningClassificationCard';
-import ZoningClassificationDetailsModal from '../../../components/ZoningClassificationDetailsModal';
+import ZoneCard from '../../../components/Zones/ZoneCard';
+import ZoneDetailsPanel from '../../../components/Zones/ZoneDetailsPanel';
+import CreateZoneModal from '../../../components/Zones/CreateZoneModal';
 
 // Fix for default marker icon in React-Leaflet
 if (typeof window !== 'undefined' && !(L.Icon.Default.prototype as any)._iconUrlFixed) {
@@ -37,110 +38,77 @@ if (typeof window !== 'undefined' && !(L.Icon.Default.prototype as any)._iconUrl
 
 // Map component that uses the draw hook
 function MapWithDraw({
+    selectedZone,
     selectedClassification,
-    polygons,
-    selectedPolygonId,
+    zones,
+    isDrawing,
+    isEditing,
     onPolygonCreated,
     onPolygonEdited,
     onPolygonDeleted,
 }: {
+    selectedZone: Zone | null;
     selectedClassification: ZoningClassification | null;
-    polygons: ZoningPolygon[];
-    selectedPolygonId: string | null;
+    zones: Zone[];
+    isDrawing: boolean;
+    isEditing: boolean;
     onPolygonCreated: (layer: L.Layer) => void;
-    onPolygonEdited: (layers: L.LayerGroup, polygonId: string) => void;
+    onPolygonEdited: (layers: L.LayerGroup) => void;
     onPolygonDeleted: (layers: L.LayerGroup) => void;
 }) {
     const map = useMap();
     const polygonLayersRef = useRef<Map<string, L.Layer>>(new Map());
-    const layerToPolygonIdRef = useRef<Map<L.Layer, string>>(new Map());
-    const isEditingRef = useRef<boolean>(false);
-    const [isEditing, setIsEditing] = useState(false); // State to trigger re-render for tool visibility
+    const layerToZoneIdRef = useRef<Map<L.Layer, string>>(new Map());
 
-    // Get the color for the selected classification
-    const drawColor = selectedClassification 
-        ? generatePolygonColor(selectedClassification.zoningCode || 'UNKNOWN')
-        : '#3388ff';
+    // Get the color for the selected classification or zone
+    const drawColor = selectedClassification?.color || selectedZone?.color || generatePolygonColor(selectedClassification?.code || selectedZone?.code || 'UNKNOWN');
 
     const { featureGroup, drawControl } = useLeafletDraw({
-        enabled: !!selectedClassification || isEditing, // Show when classification selected OR when editing
+        enabled: isDrawing || isEditing,
         drawColor,
         onDrawCreated: (layer) => {
-            if (selectedClassification) {
-                // Mark that we're not editing (this is a new drawing)
-                isEditingRef.current = false;
-                
-                // Layer removal is handled in the hook, but double-check here
+            if (isDrawing && selectedClassification) {
+                // Remove layer immediately (handled in hook, but double-check)
                 if (map && map.hasLayer(layer)) {
                     map.removeLayer(layer);
                 }
-                
-                // Also ensure it's removed from featureGroup
                 if (featureGroup && featureGroup.hasLayer(layer)) {
                     featureGroup.removeLayer(layer);
                 }
-                
-                // Call the handler to save the polygon
-                // The saved polygon will be rendered with correct color
                 onPolygonCreated(layer);
             }
         },
         onDrawDeleted: (layers) => {
-            isEditingRef.current = false;
-            setIsEditing(false); // Hide tools after delete
             onPolygonDeleted(layers);
         },
     });
 
-    // Render existing polygons
+    // Render existing zones on map
     useEffect(() => {
         if (!map) {
             return;
         }
 
-        if (!polygons || polygons.length === 0) {
-            // Clear existing polygons
-            polygonLayersRef.current.forEach((layer) => {
-                try {
-                    if (map.hasLayer(layer)) {
-                        map.removeLayer(layer);
-                    }
-                } catch (error) {
-                    console.error('Error removing layer:', error);
-                }
-            });
-            polygonLayersRef.current.clear();
-            layerToPolygonIdRef.current.clear();
-            return;
-        }
-
-        // Clear existing polygons
+        // Clear existing layers
         polygonLayersRef.current.forEach((layer) => {
-            map.removeLayer(layer);
+            if (map.hasLayer(layer)) {
+                map.removeLayer(layer);
+            }
         });
         polygonLayersRef.current.clear();
-        layerToPolygonIdRef.current.clear();
+        layerToZoneIdRef.current.clear();
 
-        // Ensure featureGroup is completely removed from map to prevent blue layers from showing
-        // This is important when polygons are re-rendered after saving
-        if (featureGroup && map) {
-            featureGroup.clearLayers();
-            if (map.hasLayer(featureGroup)) {
-                map.removeLayer(featureGroup);
-            }
-        }
-
-        // Add polygons to map
-        polygons.forEach((polygon) => {
-            if (!polygon || !polygon.geometry) {
+        // Add all active zones with geometry
+        zones.forEach((zone) => {
+            if (!zone.geometry) {
                 return;
             }
 
             try {
-                const zoningCode = polygon.zoningCode || 'UNKNOWN';
-                const zoneName = polygon.zoneName || 'Unknown Zone';
-                const color = generatePolygonColor(zoningCode);
-                const layer = geoJSONToLeaflet(polygon.geometry, {
+                const color = zone.color || generatePolygonColor(zone.code);
+                const rgbaColor = hslToRgba(color, 0.3);
+
+                const layer = geoJSONToLeaflet(zone.geometry, {
                     color,
                     fillColor: color,
                     fillOpacity: 0.3,
@@ -148,349 +116,94 @@ function MapWithDraw({
                     opacity: 0.8,
                 });
 
-                if (layer && map) {
-                    map.addLayer(layer);
-                    polygonLayersRef.current.set(polygon.id, layer);
-                    layerToPolygonIdRef.current.set(layer, polygon.id);
+                if (layer) {
+                    // Add to map
+                    if (layer instanceof L.LayerGroup) {
+                        layer.addTo(map);
+                    } else {
+                        layer.addTo(map);
+                    }
 
-                    // Add popup with polygon info
+                    // Store reference
+                    polygonLayersRef.current.set(zone.id, layer);
+                    if (layer instanceof L.LayerGroup) {
+                        layer.eachLayer((sublayer) => {
+                            layerToZoneIdRef.current.set(sublayer, zone.id);
+                        });
+                    } else {
+                        layerToZoneIdRef.current.set(layer, zone.id);
+                    }
+
+                    // Add popup
                     const popupContent = `
                         <div class="p-2">
-                            <h3 class="font-semibold text-sm mb-1">${zoneName}</h3>
-                            <p class="text-xs text-gray-600">Code: ${zoningCode}</p>
-                            ${polygon.barangay ? `<p class="text-xs text-gray-600">Barangay: ${polygon.barangay}</p>` : ''}
-                            ${polygon.areaSqm ? `<p class="text-xs text-gray-600">Area: ${polygon.areaSqm.toLocaleString()} m²</p>` : ''}
-                            <div class="mt-2 flex gap-1">
-                                <button 
-                                    class="edit-polygon-btn text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600" 
-                                    data-polygon-id="${polygon.id}"
-                                >
-                                    Edit
-                                </button>
-                                <button 
-                                    class="delete-polygon-btn text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600" 
-                                    data-polygon-id="${polygon.id}"
-                                >
-                                    Delete
-                                </button>
-                            </div>
+                            <strong>${zone.code}</strong><br/>
+                            ${zone.name}
                         </div>
                     `;
-                    layer.bindPopup(popupContent);
-
-                    // Handle edit/delete button clicks
-                    layer.on('popupopen', () => {
-                        const editBtn = document.querySelector(`.edit-polygon-btn[data-polygon-id="${polygon.id}"]`);
-                        const deleteBtn = document.querySelector(`.delete-polygon-btn[data-polygon-id="${polygon.id}"]`);
-
-                        editBtn?.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            
-                            if (featureGroup && map) {
-                                // Mark that we're editing (not drawing)
-                                isEditingRef.current = true;
-                                setIsEditing(true); // Trigger re-render to show tools
-                                
-                                // Stop any active drawing handlers
-                                const drawHandlers = (map as any)._drawHandlers;
-                                if (drawHandlers) {
-                                    Object.keys(drawHandlers).forEach((key) => {
-                                        if (drawHandlers[key] && drawHandlers[key].enabled()) {
-                                            drawHandlers[key].disable();
-                                        }
-                                    });
-                                }
-                                
-                                // Ensure featureGroup is on map (needed for editing)
-                                if (!map.hasLayer(featureGroup)) {
-                                    map.addLayer(featureGroup);
-                                }
-                                
-                                // Remove layer from map first to avoid duplicate
-                                // Then add to featureGroup for editing
-                                if (map.hasLayer(layer)) {
-                                    map.removeLayer(layer);
-                                }
-                                
-                                // Clear featureGroup and add the layer
-                                // Leaflet Draw's edit controls will work with layers in featureGroup
-                                featureGroup.clearLayers();
-                                featureGroup.addLayer(layer);
-                                
-                                // Close the popup
-                                layer.closePopup();
-                                
-                                // Enable Leaflet Draw's edit mode
-                                // Since draw control is always available, handlers should be accessible
-                                const enableEditMode = () => {
-                                    // Method 1: Access handlers via map (most direct)
-                                    const handlers = (map as any)._drawHandlers;
-                                    if (handlers?.edit) {
-                                        handlers.edit.enable();
-                                        return true;
-                                    }
-                                    
-                                    // Method 2: Access via draw control's internal structure
-                                    if (drawControl) {
-                                        const dc = drawControl as any;
-                                        // Try different paths to the edit handler
-                                        if (dc._toolbars?.edit?._modes?.edit?.handler) {
-                                            dc._toolbars.edit._modes.edit.handler.enable();
-                                            return true;
-                                        }
-                                        // Alternative path
-                                        if (dc._toolbars?.edit?._activeMode) {
-                                            dc._toolbars.edit._activeMode.disable();
-                                        }
-                                        if (dc._toolbars?.edit?._modes) {
-                                            const editMode = Object.values(dc._toolbars.edit._modes).find((mode: any) => 
-                                                mode.type === 'edit' || mode.handler?.enabled
-                                            ) as any;
-                                            if (editMode?.handler) {
-                                                editMode.handler.enable();
-                                                return true;
-                                            }
-                                        }
-                                    }
-                                    
-                                    // Method 3: Find and click the edit button in toolbar (fallback)
-                                    const toolbars = document.querySelectorAll('.leaflet-draw-toolbar');
-                                    for (const toolbar of Array.from(toolbars)) {
-                                        const allButtons = toolbar.querySelectorAll('a');
-                                        for (const btn of Array.from(allButtons)) {
-                                            const title = (btn.getAttribute('title') || '').toLowerCase();
-                                            const classes = Array.from(btn.classList).join(' ').toLowerCase();
-                                            
-                                            // Check if this is an edit button
-                                            if ((title.includes('edit') || classes.includes('edit')) 
-                                                && !btn.classList.contains('leaflet-disabled')) {
-                                                (btn as HTMLElement).click();
-                                                return true;
-                                            }
-                                        }
-                                    }
-                                    
-                                    return false;
-                                };
-                                
-                                // Try with multiple delays to account for initialization timing
-                                const tryEnable = (attempt = 0) => {
-                                    if (enableEditMode()) {
-                                        return; // Success!
-                                    }
-                                    
-                                    if (attempt < 4) {
-                                        setTimeout(() => tryEnable(attempt + 1), [50, 100, 200, 500][attempt]);
-                                    } else {
-                                        // Final attempt failed - log debug info
-                                        const handlers = (map as any)._drawHandlers;
-                                        const toolbar = document.querySelector('.leaflet-draw-toolbar');
-                                        console.error('Edit handler not found after all attempts.', {
-                                            hasDrawControl: !!drawControl,
-                                            hasMapHandlers: !!handlers,
-                                            handlerKeys: handlers ? Object.keys(handlers) : [],
-                                            drawControlStructure: drawControl ? {
-                                                hasToolbars: !!(drawControl as any)._toolbars,
-                                                toolbarKeys: (drawControl as any)._toolbars ? Object.keys((drawControl as any)._toolbars) : [],
-                                            } : null,
-                                            hasToolbar: !!toolbar,
-                                            toolbarButtons: toolbar ? Array.from(toolbar.querySelectorAll('a')).map(b => ({
-                                                title: b.getAttribute('title'),
-                                                classes: Array.from(b.classList),
-                                                disabled: b.classList.contains('leaflet-disabled')
-                                            })) : [],
-                                        });
-                                    }
-                                };
-                                
-                                tryEnable();
+                    if (layer instanceof L.LayerGroup) {
+                        layer.eachLayer((sublayer) => {
+                            if (sublayer instanceof L.Polygon) {
+                                sublayer.bindPopup(popupContent);
                             }
                         });
-
-                        deleteBtn?.addEventListener('click', async () => {
-                            if (window.confirm('Are you sure you want to delete this polygon?')) {
-                                try {
-                                    await deletePolygonService(polygon.id);
-                                    map.removeLayer(layer);
-                                    polygonLayersRef.current.delete(polygon.id);
-                                    layerToPolygonIdRef.current.delete(layer);
-                                    showSuccess('Polygon deleted successfully');
-                                    // Trigger refresh
-                                    window.dispatchEvent(new CustomEvent('polygon-deleted', { detail: { id: polygon.id } }));
-                                } catch (error) {
-                                    showError('Failed to delete polygon');
-                                }
-                            }
-                        });
-                    });
+                    } else if (layer instanceof L.Polygon) {
+                        layer.bindPopup(popupContent);
+                    }
                 }
             } catch (error) {
-                console.error('Error adding polygon to map:', error, polygon);
+                console.error(`Error rendering zone ${zone.code}:`, error);
             }
         });
-
-        // Update polygon styles based on selection
-        // Note: Map.forEach signature is (value, key) => void
-        // polygonLayersRef is Map<string (polygonId), L.Layer>
-        polygonLayersRef.current.forEach((layer, polygonId) => {
-            const isSelected = selectedPolygonId === polygonId;
-            
-            // Update styles for polygon layers
-            if (layer instanceof L.Polygon || layer instanceof L.Path) {
-                if (isSelected) {
-                    layer.setStyle({
-                        weight: 4,
-                        opacity: 1,
-                        fillOpacity: 0.5,
-                    });
-                } else {
-                    layer.setStyle({
-                        weight: 2,
-                        opacity: 0.8,
-                        fillOpacity: 0.3,
-                    });
-                }
-            } else if (layer instanceof L.LayerGroup) {
-                // Update styles for all layers in the group
-                const group = layer as L.LayerGroup;
-                group.eachLayer((l) => {
-                    if (l instanceof L.Polygon || l instanceof L.Path) {
-                        if (isSelected) {
-                            l.setStyle({
-                                weight: 4,
-                                opacity: 1,
-                                fillOpacity: 0.5,
-                            });
-                        } else {
-                            l.setStyle({
-                                weight: 2,
-                                opacity: 0.8,
-                                fillOpacity: 0.3,
-                            });
-                        }
-                    }
-                });
-            }
-        });
-
-        // Fit map to show all polygons (only if no polygon is selected)
-        if (!selectedPolygonId && polygons.length > 0 && polygonLayersRef.current.size > 0 && map) {
-            const group = new L.FeatureGroup(Array.from(polygonLayersRef.current.values()));
-            const bounds = group.getBounds();
-            if (bounds.isValid()) {
-                map.fitBounds(bounds.pad(0.1));
-            }
-        }
 
         // Cleanup
         return () => {
             polygonLayersRef.current.forEach((layer) => {
-                map.removeLayer(layer);
+                if (map.hasLayer(layer)) {
+                    map.removeLayer(layer);
+                }
             });
             polygonLayersRef.current.clear();
-            layerToPolygonIdRef.current.clear();
+            layerToZoneIdRef.current.clear();
         };
-    }, [map, polygons, featureGroup]);
+    }, [map, zones]);
 
-    // Keep featureGroup on map (needed for editing), but remove any new drawings immediately
-    // The handleDrawCreated event in the hook will remove newly drawn layers
+    // Handle editing
     useEffect(() => {
-        if (!featureGroup || !map) {
+        if (!map || !featureGroup || !isEditing || !selectedZone) {
             return;
         }
-        
-        // Ensure featureGroup is on map (needed for editing to work)
-        if (!map.hasLayer(featureGroup)) {
-            map.addLayer(featureGroup);
-        }
-        
-        // When polygons are re-rendered (after save/edit), we need to handle layers in featureGroup
-        // If we're editing, keep the layer in featureGroup
-        // If we're not editing, clear featureGroup (new drawings are already removed in handleDrawCreated)
-        if (!isEditingRef.current) {
-            // Only clear if there are layers that shouldn't be there
-            // (This is a safety net - new drawings should already be removed)
-            const timeout = setTimeout(() => {
-                if (!isEditingRef.current) {
-                    // Check if any layers in featureGroup are not being edited
-                    const layers = featureGroup.getLayers();
-                    if (layers.length > 0) {
-                        // These might be leftover - but be careful not to clear during active editing
-                        // The layers will be re-added when edit button is clicked
-                        featureGroup.clearLayers();
-                    }
+
+        // Add selected zone's geometry to featureGroup for editing
+        if (selectedZone.geometry) {
+            const layer = polygonLayersRef.current.get(selectedZone.id);
+            if (layer && !featureGroup.hasLayer(layer)) {
+                if (layer instanceof L.LayerGroup) {
+                    layer.eachLayer((sublayer) => {
+                        featureGroup.addLayer(sublayer);
+                    });
+                } else {
+                    featureGroup.addLayer(layer);
                 }
-            }, 200);
-            return () => clearTimeout(timeout);
-        }
-    }, [map, featureGroup, polygons]);
-
-    // Fit map to selected polygon when selection changes
-    useEffect(() => {
-        if (!map || !selectedPolygonId) {
-            return;
-        }
-
-        const layer = polygonLayersRef.current.get(selectedPolygonId);
-        if (!layer) {
-            return;
-        }
-
-        try {
-            let bounds: L.LatLngBounds | null = null;
-            
-            // Handle different layer types
-            if (layer instanceof L.LayerGroup) {
-                // For LayerGroup (MultiPolygon), get bounds from all layers
-                const group = layer as L.LayerGroup;
-                const layers: L.Layer[] = [];
-                group.eachLayer((l) => {
-                    if (l instanceof L.Polygon || l instanceof L.Path) {
-                        layers.push(l);
-                    }
-                });
-                if (layers.length > 0) {
-                    const featureGroup = new L.FeatureGroup(layers);
-                    bounds = featureGroup.getBounds();
-                }
-            } else if (layer instanceof L.Polygon || layer instanceof L.Path) {
-                bounds = layer.getBounds();
             }
-            
-            if (bounds && bounds.isValid()) {
-                map.fitBounds(bounds.pad(0.1));
-            }
-        } catch (error) {
-            console.error('Error fitting bounds to selected polygon:', error);
-        }
-    }, [map, selectedPolygonId]);
-
-    // Handle draw edited event with polygon ID tracking
-    useEffect(() => {
-        if (!map || !featureGroup) {
-            return;
         }
 
         const handleDrawEdited = (e: L.DrawEvents.Edited) => {
-            const { layers } = e;
-            layers.eachLayer((layer) => {
-                const polygonId = layerToPolygonIdRef.current.get(layer);
-                if (polygonId) {
-                    onPolygonEdited(layers, polygonId);
-                    // Reset editing flag after edit is processed
-                    isEditingRef.current = false;
-                    setIsEditing(false); // Hide tools after edit completes
-                }
-            });
+            onPolygonEdited(e.layers);
         };
 
-        map.on(L.Draw.Event.EDITED as any, handleDrawEdited);
+        const handleDrawDeleted = (e: L.DrawEvents.Deleted) => {
+            onPolygonDeleted(e.layers);
+        };
+
+        map.on(L.Draw.Event.EDITED, handleDrawEdited as any);
+        map.on(L.Draw.Event.DELETED, handleDrawDeleted as any);
 
         return () => {
-            map.off(L.Draw.Event.EDITED as any, handleDrawEdited);
+            map.off(L.Draw.Event.EDITED, handleDrawEdited as any);
+            map.off(L.Draw.Event.DELETED, handleDrawDeleted as any);
         };
-    }, [map, featureGroup, onPolygonEdited]);
+    }, [map, featureGroup, isEditing, selectedZone, onPolygonEdited]);
 
     return null;
 }
@@ -503,115 +216,87 @@ export default function ZoningMap() {
         return true;
     });
 
-    const [clups, setClups] = useState<Clup[]>([]);
-    const [classifications, setClassifications] = useState<ZoningClassification[]>([]);
-    const [polygons, setPolygons] = useState<ZoningPolygon[]>([]);
-    const [selectedClupId, setSelectedClupId] = useState<string>('');
-    const [selectedClassificationId, setSelectedClassificationId] = useState<string>('');
+    const [zones, setZones] = useState<Zone[]>([]);
+    const [allZones, setAllZones] = useState<Zone[]>([]); // All zones for map rendering
+    const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
     const [selectedClassification, setSelectedClassification] = useState<ZoningClassification | null>(null);
-    const [selectedPolygonId, setSelectedPolygonId] = useState<string | null>(null);
+    const [classifications, setClassifications] = useState<ZoningClassification[]>([]);
     const [searchQuery, setSearchQuery] = useState<string>('');
-    const [filterClassificationId, setFilterClassificationId] = useState<string>('');
     const [loading, setLoading] = useState(false);
-    const [loadingClassifications, setLoadingClassifications] = useState(false);
-    const [loadingPolygons, setLoadingPolygons] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [viewingClassification, setViewingClassification] = useState<ZoningClassification | null>(null);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
     const mapCenter: [number, number] = [14.5995, 120.9842]; // Default to Manila
     const mapZoom = 13;
 
-    // Load CLUPs on mount
+    // Load zones and classifications on mount
     useEffect(() => {
-        loadClups();
+        loadZones();
+        loadAllZonesForMap();
+        loadClassifications();
     }, []);
 
-    // Load classifications and all polygons when CLUP is selected
+    // Auto-activate drawing when classification is selected
     useEffect(() => {
-        if (selectedClupId) {
-            loadClassifications(selectedClupId);
-            loadAllPolygons(selectedClupId);
+        if (selectedClassification) {
+            setIsDrawing(true);
+            setIsEditing(false);
+            setSelectedZone(null);
         } else {
-            setClassifications([]);
-            setSelectedClassificationId('');
-            setSelectedClassification(null);
-            setPolygons([]);
-            setFilterClassificationId('');
+            setIsDrawing(false);
         }
-    }, [selectedClupId]);
+    }, [selectedClassification]);
 
-    // Update selected classification when classification dropdown changes (for drawing only)
-    useEffect(() => {
-        if (selectedClassificationId && classifications.length > 0) {
-            const classification = classifications.find((c) => c.id === selectedClassificationId);
-            setSelectedClassification(classification || null);
-        } else {
-            setSelectedClassification(null);
+    const loadClassifications = async () => {
+        try {
+            const data = await getZoningClassifications(true); // Only active
+            setClassifications(data);
+        } catch (error) {
+            console.error('Failed to load classifications:', error);
         }
-    }, [selectedClassificationId, classifications]);
+    };
 
-    // Listen for polygon deletion events
-    useEffect(() => {
-        const handlePolygonDeleted = (event: CustomEvent) => {
-            setPolygons((prev) => prev.filter((p) => p.id !== event.detail.id));
-        };
+    // Load all zones for map rendering
+    const loadAllZonesForMap = async () => {
+        try {
+            const response = await fetch('/api/zones', {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
 
-        window.addEventListener('polygon-deleted', handlePolygonDeleted as EventListener);
-        return () => {
-            window.removeEventListener('polygon-deleted', handlePolygonDeleted as EventListener);
-        };
-    }, []);
+            if (!response.ok) {
+                throw new Error('Failed to load zones');
+            }
 
-    const loadClups = async () => {
+            const result = await response.json();
+            if (result.success && result.zones) {
+                setAllZones(result.zones);
+            }
+        } catch (error) {
+            console.error('Failed to load zones for map:', error);
+        }
+    };
+
+    const loadZones = async () => {
         setLoading(true);
         try {
-            const data = await getClups();
-            setClups(data);
+            const data = await getZones();
+            setZones(data);
         } catch (error) {
-            showError('Failed to load CLUPs');
+            showError('Failed to load zones');
             console.error(error);
         } finally {
             setLoading(false);
         }
     };
 
-    const loadClassifications = async (clupId: string) => {
-        setLoadingClassifications(true);
-        try {
-            const data = await getClassifications(clupId);
-            setClassifications(data);
-            setSelectedClassificationId('');
-        } catch (error) {
-            showError('Failed to load classifications');
-            console.error(error);
-        } finally {
-            setLoadingClassifications(false);
-        }
-    };
-
-    const loadPolygons = async (zoningId: string) => {
-        setLoadingPolygons(true);
-        try {
-            const data = await getPolygons(zoningId);
-            setPolygons(data);
-        } catch (error) {
-            showError('Failed to load polygons');
-            console.error(error);
-        } finally {
-            setLoadingPolygons(false);
-        }
-    };
-
-    const loadAllPolygons = async (clupId: string) => {
-        setLoadingPolygons(true);
-        try {
-            const data = await getAllPolygonsForClup(clupId);
-            setPolygons(data);
-        } catch (error) {
-            showError('Failed to load polygons');
-            console.error(error);
-        } finally {
-            setLoadingPolygons(false);
-        }
+    const handleClassificationCreated = async (newClassification: ZoningClassification) => {
+        setClassifications((prev) => [...prev, newClassification]);
+        setSelectedClassification(newClassification);
+        setShowCreateModal(false);
     };
 
     const handlePolygonCreated = useCallback(
@@ -622,404 +307,449 @@ export default function ZoningMap() {
 
             setSaving(true);
             try {
-                // Debug: Log layer information
-                console.log('Layer received:', {
-                    type: layer.constructor?.name,
-                    hasGetLatLngs: typeof (layer as any).getLatLngs === 'function',
-                    isPolygon: layer instanceof L.Polygon,
-                    isRectangle: layer instanceof L.Rectangle,
-                    isCircle: layer instanceof L.Circle,
-                    layer: layer,
-                });
-
                 const geometry = leafletToGeoJSON(layer);
                 if (!geometry) {
-                    console.error('Failed to convert layer to GeoJSON. Layer details:', layer);
-                    throw new Error('Failed to convert layer to GeoJSON. Please check the console for details.');
+                    throw new Error('Failed to convert layer to GeoJSON');
                 }
 
-                console.log('Geometry converted:', geometry);
+                // Check for overlaps
+                const overlappingZones = checkZoneOverlap(
+                    geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon,
+                    allZones.filter((z) => z.geometry),
+                    '' // No existing zone ID for new zone
+                );
 
-                const area = calculatePolygonArea(geometry as GeoJSON.Polygon);
+                if (overlappingZones.length > 0) {
+                    const overlapList = overlappingZones.map((z) => z.code).join(', ');
+                    const shouldProceed = await showConfirm(
+                        `This zone overlaps with existing zones: ${overlapList}. Do you want to continue?`,
+                        'Zone Overlap Detected',
+                        'Yes, continue',
+                        'Cancel'
+                    );
+                    if (!shouldProceed) {
+                        setSaving(false);
+                        setIsDrawing(false);
+                        return;
+                    }
+                }
 
-                const polygon = await savePolygon({
-                    zoning_id: selectedClassification.id,
-                    barangay: null,
-                    area_sqm: area > 0 ? area : null,
-                    geometry: geometry as GeoJSON.Polygon,
+                // Auto-create zone with classification (label will be auto-generated on backend)
+                const finalGeometry = geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
+                const newZone = await createZone({
+                    zoning_classification_id: selectedClassification.id,
+                    geometry: finalGeometry,
+                    is_active: true,
                 });
 
-                setPolygons((prev) => [...prev, polygon]);
-                showSuccess('Polygon saved successfully');
-                
-                // Note: featureGroup cleanup is handled in MapWithDraw component
-                // No need to do it here since the polygon will be re-rendered with correct color
-            } catch (error) {
-                showError('Failed to save polygon');
-                console.error(error);
+                setZones((prev) => [...prev, newZone]);
+                setSelectedZone(newZone);
+                setSelectedClassification(null); // Clear selection after creating
+                await loadAllZonesForMap();
+                showSuccess(`Zone ${newZone.label} created successfully`);
+                setIsDrawing(false);
+            } catch (error: any) {
+                console.error('Error creating zone:', error);
+                showError(error.message || 'Failed to create zone');
             } finally {
                 setSaving(false);
             }
         },
-        [selectedClassification]
+        [selectedClassification, allZones]
     );
 
     const handlePolygonEdited = useCallback(
-        async (layers: L.LayerGroup, polygonId: string) => {
-            if (!selectedClassification) {
+        async (layers: L.LayerGroup) => {
+            if (!selectedZone || !selectedZone.geometry) {
                 return;
             }
 
             setSaving(true);
             try {
-                let layerToUpdate: L.Layer | null = null;
-
+                // Get the edited geometry from the feature group
+                const editedLayers: L.Layer[] = [];
                 layers.eachLayer((layer) => {
-                    layerToUpdate = layer;
+                    editedLayers.push(layer);
                 });
 
-                if (!layerToUpdate) {
+                if (editedLayers.length === 0) {
                     return;
                 }
 
-                const geometry = leafletToGeoJSON(layerToUpdate);
-                if (!geometry) {
+                // Convert edited layers to geometry
+                const geometries: GeoJSON.Polygon[] = [];
+                for (const layer of editedLayers) {
+                    const geometry = leafletToGeoJSON(layer);
+                    if (geometry && geometry.type === 'Polygon') {
+                        geometries.push(geometry);
+                    }
+                }
+
+                if (geometries.length === 0) {
                     return;
                 }
 
-                const area = calculatePolygonArea(geometry as GeoJSON.Polygon);
+                // Combine into MultiPolygon if multiple, or single Polygon
+                let finalGeometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
+                if (geometries.length === 1) {
+                    finalGeometry = geometries[0];
+                } else {
+                    finalGeometry = {
+                        type: 'MultiPolygon',
+                        coordinates: geometries.map((g) => g.coordinates),
+                    };
+                }
 
-                await updatePolygon(polygonId, {
-                    area_sqm: area > 0 ? area : null,
-                    geometry: geometry as GeoJSON.Polygon,
+                // Check for overlaps
+                const overlappingZones = checkZoneOverlap(
+                    finalGeometry,
+                    allZones.filter((z) => z.geometry && z.id !== selectedZone.id),
+                    selectedZone.id
+                );
+
+                if (overlappingZones.length > 0) {
+                    const overlapList = overlappingZones.map((z) => z.code).join(', ');
+                    const shouldProceed = await showConfirm(
+                        `This zone overlaps with existing zones: ${overlapList}. Do you want to continue?`,
+                        'Zone Overlap Detected',
+                        'Yes, continue',
+                        'Cancel'
+                    );
+                    if (!shouldProceed) {
+                        setSaving(false);
+                        setIsEditing(false);
+                        await loadAllZonesForMap(); // Reload to reset map
+                        return;
+                    }
+                }
+
+                const updatedZone = await updateZone(selectedZone.id, {
+                    geometry: finalGeometry,
                 });
 
-                // Refresh polygons after update
-                await loadPolygons(selectedClassification.id);
-                showSuccess('Polygon updated successfully');
+                setZones((prev) =>
+                    prev.map((z) => (z.id === updatedZone.id ? updatedZone : z))
+                );
+                setSelectedZone(updatedZone);
+                setIsEditing(false);
+                await loadAllZonesForMap();
+                showSuccess('Zone boundaries updated successfully');
             } catch (error) {
-                showError('Failed to update polygon');
+                showError('Failed to update zone boundaries');
                 console.error(error);
             } finally {
                 setSaving(false);
             }
         },
-        [selectedClassification]
+        [selectedZone, allZones]
     );
 
     const handlePolygonDeleted = useCallback(
         async (layers: L.LayerGroup) => {
-            setSaving(true);
-            try {
-                // Note: This is handled by the popup delete button
-                // This callback is for when using the draw control delete tool
-                layers.eachLayer(async (layer) => {
-                    // Find polygon by matching geometry
-                    const geometry = leafletToGeoJSON(layer);
-                    if (!geometry) {
-                        return;
-                    }
-
-                    const polygon = polygons.find((p) => {
-                        // Simple check - in production use better matching
-                        return JSON.stringify(p.geometry) === JSON.stringify(geometry);
-                    });
-
-                    if (polygon) {
-                        await deletePolygonService(polygon.id);
-                        setPolygons((prev) => prev.filter((p) => p.id !== polygon.id));
-                        showSuccess('Polygon deleted successfully');
-                    }
-                });
-            } catch (error) {
-                showError('Failed to delete polygon');
-                console.error(error);
-            } finally {
-                setSaving(false);
+            if (!selectedZone) {
+                return;
             }
+
+            // If zone has no geometry after deletion, set geometry to null
+            const updatedZone = await updateZone(selectedZone.id, {
+                geometry: null,
+            });
+
+            setZones((prev) =>
+                prev.map((z) => (z.id === updatedZone.id ? updatedZone : z))
+            );
+            setSelectedZone(updatedZone);
+            setIsEditing(false);
+            await loadAllZonesForMap();
+            showSuccess('Zone boundaries deleted');
         },
-        [polygons]
+        [selectedZone]
     );
 
-    const handleReset = () => {
-        setSelectedClupId('');
-        setSelectedClassificationId('');
-        setSelectedClassification(null);
-        setClassifications([]);
-        setPolygons([]);
-        setSelectedPolygonId(null);
-        setViewingClassification(null);
-        setSearchQuery('');
-        setFilterClassificationId('');
+    const handleDrawBoundaries = () => {
+        if (!selectedZone) {
+            return;
+        }
+        setIsDrawing(true);
+        setIsEditing(false);
     };
 
-    // Filter polygons based on search and classification filter
-    const filteredPolygons = polygons.filter((polygon) => {
-        const matchesSearch = !searchQuery || 
-            (polygon.zoningCode?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-             polygon.zoneName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             polygon.barangay?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             polygon.id.toLowerCase().includes(searchQuery.toLowerCase()));
-        
-        const matchesFilter = !filterClassificationId || polygon.zoningId === filterClassificationId;
-        
-        return matchesSearch && matchesFilter;
+    const handleEditBoundaries = () => {
+        if (!selectedZone || !selectedZone.geometry) {
+            return;
+        }
+        setIsEditing(true);
+        setIsDrawing(false);
+    };
+
+    const handleDeleteZone = async () => {
+        if (!selectedZone) {
+            return;
+        }
+
+        const confirmed = await showConfirm(
+            `Are you sure you want to delete zone "${selectedZone.code}"? This action cannot be undone.`,
+            'Delete Zone',
+            'Yes, delete it',
+            'Cancel',
+            '#ef4444',
+            'warning'
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            await deleteZone(selectedZone.id);
+            setZones((prev) => prev.filter((z) => z.id !== selectedZone.id));
+            setSelectedZone(null);
+            await loadAllZonesForMap();
+            showSuccess('Zone deleted successfully');
+        } catch (error) {
+            showError('Failed to delete zone');
+            console.error(error);
+        }
+    };
+
+    const handleUpdateZone = async (data: Partial<Zone>) => {
+        if (!selectedZone) {
+            return;
+        }
+
+        try {
+            const updatedZone = await updateZone(selectedZone.id, data);
+            setZones((prev) =>
+                prev.map((z) => (z.id === updatedZone.id ? updatedZone : z))
+            );
+            setSelectedZone(updatedZone);
+            showSuccess('Zone updated successfully');
+        } catch (error) {
+            showError('Failed to update zone');
+            console.error(error);
+        }
+    };
+
+    const filteredZones = zones.filter((zone) => {
+        if (!searchQuery) {
+            return true;
+        }
+        const query = searchQuery.toLowerCase();
+        return (
+            zone.code.toLowerCase().includes(query) ||
+            zone.name.toLowerCase().includes(query)
+        );
     });
-
-    const handleClassificationSelect = (classificationId: string) => {
-        setSelectedClassificationId(classificationId);
-        setSelectedPolygonId(null);
-    };
-
-    const handlePolygonSelect = (polygonId: string) => {
-        setSelectedPolygonId(polygonId === selectedPolygonId ? null : polygonId);
-    };
-
 
     return (
         <div className="flex flex-col bg-background dark:bg-dark-bg w-full min-h-dvh transition-colors">
             <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
             <AdminHeader sidebarOpen={sidebarOpen} />
 
-            <main
-                className={`flex-1 transition-all duration-300 ease-in-out ${
-                    sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
-                } mt-16 overflow-hidden`}
-            >
-                <div className="h-[calc(100vh-4rem)] flex flex-col">
-                    {/* Header Section */}
-                    <div className="px-2 sm:px-4 py-2 sm:py-3">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0 mb-3 sm:mb-4">
-                            <div>
-                                <h1 className="mb-1 font-bold text-gray-900 dark:text-white text-xl sm:text-2xl lg:text-3xl">
-                                    Zoning Map
-                                </h1>
-                                <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
-                                    Manage and visualize zoning classifications on the map
-                                </p>
-                            </div>
-                            {(selectedClupId || selectedClassificationId) && (
-                                <Button onClick={handleReset} variant="outline" size="sm">
-                                    <X className="w-4 h-4 mr-2" />
-                                    Reset
-                                </Button>
-                            )}
+            <main className={`flex-1 transition-all duration-300 ease-in-out ${
+                sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
+            } mt-16`}>
+                <div className="relative flex h-[calc(100vh-4rem)]">
+                {/* Sidebar */}
+                <div
+                    className={`${
+                        sidebarOpen ? 'w-80' : 'w-0'
+                    } transition-all duration-300 overflow-hidden border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-surface flex flex-col`}
+                >
+                    <div className="p-4 border-gray-200 dark:border-gray-700 border-b">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="font-semibold text-gray-900 dark:text-white text-lg">
+                                Zone Management
+                            </h2>
+                            <button
+                                onClick={() => setSidebarOpen(false)}
+                                className="lg:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                            >
+                                <X size={20} />
+                            </button>
                         </div>
 
-                        {/* CLUP and Classification Selection */}
-                        <div className="bg-white dark:bg-dark-surface shadow-lg p-3 sm:p-4 rounded-lg mb-2 sm:mb-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                <div>
-                                    <label className="block mb-1.5 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                                        Select CLUP
-                                    </label>
-                                    <select
-                                        value={selectedClupId}
-                                        onChange={(e) => setSelectedClupId(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
-                                        disabled={loading}
-                                    >
-                                        <option value="">-- Select CLUP --</option>
-                                        {clups.map((clup) => (
-                                            <option key={clup.id} value={clup.id}>
-                                                {clup.lguName} ({clup.coveragePeriod})
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {loading && (
-                                        <div className="mt-1.5 flex items-center text-sm text-gray-500 dark:text-gray-400">
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Loading CLUPs...
-                                        </div>
-                                    )}
-                                </div>
-                                
-                                <div>
-                                    <label className="block mb-1.5 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                                        Zoning Classification <span className="text-xs text-gray-500">(for drawing)</span>
-                                    </label>
-                                    <select
-                                        value={selectedClassificationId}
-                                        onChange={(e) => handleClassificationSelect(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
-                                        disabled={!selectedClupId || loadingClassifications}
-                                    >
-                                        <option value="">-- Select Classification to Draw --</option>
-                                        {classifications.map((classification) => (
-                                            <option key={classification.id} value={classification.id}>
-                                                {classification.zoningCode} - {classification.zoneName}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {loadingClassifications && (
-                                        <div className="mt-1.5 flex items-center text-sm text-gray-500 dark:text-gray-400">
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Loading...
-                                        </div>
-                                    )}
-                                </div>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
+                                    Select Classification
+                                </label>
+                                <select
+                                    value={selectedClassification?.id || ''}
+                                    onChange={(e) => {
+                                        const classification = classifications.find((c) => c.id === e.target.value);
+                                        setSelectedClassification(classification || null);
+                                    }}
+                                    className="bg-white dark:bg-dark-surface px-3 py-2 border border-gray-300 focus:border-transparent dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary w-full text-gray-900 dark:text-white text-sm"
+                                >
+                                    <option value="">Select a classification...</option>
+                                    {classifications.map((classification) => (
+                                        <option key={classification.id} value={classification.id}>
+                                            {classification.code} - {classification.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
+                            <Button
+                                onClick={() => setShowCreateModal(true)}
+                                variant="outline"
+                                className="flex justify-center items-center gap-2 w-full"
+                            >
+                                <Plus size={16} />
+                                Create New Classification
+                            </Button>
+                            {selectedClassification && (
+                                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                    <p className="text-blue-800 dark:text-blue-200 text-sm">
+                                        <strong>Drawing Mode Active</strong><br />
+                                        Selected: {selectedClassification.code} - {selectedClassification.name}
+                                        <br />
+                                        <span className="text-xs">Draw on the map to create a zone</span>
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Split Layout: Polygon Cards (Left) | Map (Right) */}
-                    <div className="flex-1 flex flex-col lg:flex-row overflow-hidden px-2 sm:px-4 gap-2 sm:gap-3 pb-2 sm:pb-4">
-                        {/* Left Sidebar - Polygon Cards */}
-                        <div className="w-full lg:w-64 xl:w-80 bg-white dark:bg-dark-surface shadow-lg flex flex-col flex-shrink-0 rounded-lg overflow-hidden h-48 lg:h-auto">
-                            <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
-                                <h2 className="font-semibold text-gray-900 dark:text-white text-base sm:text-lg mb-2">
-                                    GIS Polygons
-                                </h2>
-                                {selectedClupId && !loadingPolygons && (
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-3">
-                                        {filteredPolygons.length} of {polygons.length} polygon{polygons.length !== 1 ? 's' : ''}
-                                    </p>
-                                )}
-                                
-                                {/* Search and Filter */}
-                                {selectedClupId && polygons.length > 0 && (
-                                    <div className="space-y-2">
-                                        <Input
-                                            type="text"
-                                            placeholder="Search polygons..."
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            icon={<Search className="w-4 h-4" />}
-                                            className="text-sm"
-                                        />
-                                        <select
-                                            value={filterClassificationId}
-                                            onChange={(e) => setFilterClassificationId(e.target.value)}
-                                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
-                                        >
-                                            <option value="">All Classifications</option>
-                                            {classifications.map((classification) => (
-                                                <option key={classification.id} value={classification.id}>
-                                                    {classification.zoningCode} - {classification.zoneName}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-                            </div>
-                            
-                            <div className="flex-1 overflow-y-auto p-3 sm:p-4">
-                                {loadingPolygons ? (
-                                    <div className="flex items-center justify-center py-8">
-                                        <Loader2 className="w-5 h-5 animate-spin text-gray-400 dark:text-gray-500" />
-                                        <span className="ml-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                            Loading...
-                                        </span>
-                                    </div>
-                                ) : !selectedClupId ? (
-                                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                                        <MapPin className="w-12 h-12 mb-2 text-gray-400 dark:text-gray-600" />
-                                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                            Select a CLUP to view polygons
-                                        </p>
-                                    </div>
-                                ) : filteredPolygons.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                            {polygons.length === 0 ? 'No polygons found' : 'No polygons match your search/filter'}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {filteredPolygons.map((polygon) => {
-                                            const zoneRef = `${polygon.zoningCode || 'UNK'}-${polygon.id.slice(0, 8)}`;
-                                            const isSelected = selectedPolygonId === polygon.id;
-                                            const polygonColor = polygon.zoningCode ? generatePolygonColor(polygon.zoningCode) : '#666';
-                                            
-                                            return (
-                                                <div
-                                                    key={polygon.id}
-                                                    onClick={() => handlePolygonSelect(polygon.id)}
-                                                    className={`
-                                                        relative cursor-pointer transition-all duration-200 
-                                                        shadow-lg rounded-lg p-3 border
-                                                        ${isSelected 
-                                                            ? 'ring-2 ring-primary border-primary' 
-                                                            : 'border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-600'
-                                                        }
-                                                    `}
-                                                    style={{
-                                                        backgroundColor: isSelected 
-                                                            ? hslToRgba(polygonColor, 0.15) // 15% opacity when selected
-                                                            : hslToRgba(polygonColor, 0.08), // 8% opacity when not selected
-                                                    }}
-                                                >
-                                                    <div className="font-semibold text-gray-900 dark:text-white text-sm mb-1">
-                                                        Zone Ref: {zoneRef}
-                                                    </div>
-                                                    {polygon.zoneName && (
-                                                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
-                                                            {polygon.zoneName}
-                                                        </div>
-                                                    )}
-                                                    {polygon.zoningCode && (
-                                                        <div className="text-xs text-gray-500 dark:text-gray-500 mb-1">
-                                                            Code: {polygon.zoningCode}
-                                                        </div>
-                                                    )}
-                                                    {polygon.barangay && (
-                                                        <div className="text-xs text-gray-500 dark:text-gray-500">
-                                                            Barangay: {polygon.barangay}
-                                                        </div>
-                                                    )}
-                                                    {polygon.areaSqm && (
-                                                        <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                                            Area: {polygon.areaSqm.toLocaleString()} m²
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                    <div className="flex-1 overflow-y-auto">
+                        {/* Search */}
+                        <div className="p-4 border-gray-200 dark:border-gray-700 border-b">
+                            <div className="relative">
+                                <Search
+                                    size={18}
+                                    className="top-1/2 left-3 absolute text-gray-400 -translate-y-1/2 transform"
+                                />
+                                <Input
+                                    type="text"
+                                    placeholder="Search zones..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-10"
+                                />
                             </div>
                         </div>
 
-                        {/* Right Side - Map */}
-                        <div className="flex-1 flex flex-col bg-white dark:bg-dark-surface min-w-0 shadow-lg rounded-lg overflow-hidden min-h-[400px] lg:min-h-0">
-                            <div className="flex-1 relative">
-                                <MapContainer 
-                                    center={mapCenter} 
-                                    zoom={mapZoom} 
-                                    style={{ height: '100%', width: '100%' }}
-                                    doubleClickZoom={false}
-                                >
-                                    <TileLayer
-                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        {/* Zone List */}
+                        <div className="space-y-2 p-4">
+                            {loading ? (
+                                <div className="flex justify-center items-center py-8">
+                                    <Loader2 size={24} className="text-primary animate-spin" />
+                                </div>
+                            ) : filteredZones.length === 0 ? (
+                                <div className="py-8 text-gray-500 dark:text-gray-400 text-center">
+                                    {searchQuery ? 'No zones found' : 'No zones yet. Create one to get started.'}
+                                </div>
+                            ) : (
+                                filteredZones.map((zone) => (
+                                    <ZoneCard
+                                        key={zone.id}
+                                        zone={zone}
+                                        isSelected={selectedZone?.id === zone.id}
+                                        onSelect={(z) => {
+                                            setSelectedZone(z);
+                                            setIsDrawing(false);
+                                            setIsEditing(false);
+                                        }}
                                     />
-                                    <MapWithDraw
-                                        selectedClassification={selectedClassification}
-                                        polygons={polygons}
-                                        selectedPolygonId={selectedPolygonId}
-                                        onPolygonCreated={handlePolygonCreated}
-                                        onPolygonEdited={handlePolygonEdited}
-                                        onPolygonDeleted={handlePolygonDeleted}
-                                    />
-                                </MapContainer>
-                                {saving && (
-                                    <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-[1000] bg-white dark:bg-dark-surface p-2 sm:p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 flex items-center gap-1.5 sm:gap-2">
-                                        <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin text-primary" />
-                                        <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">Saving...</span>
-                                    </div>
-                                )}
-                            </div>
+                                ))
+                            )}
                         </div>
+                    </div>
+
+                    {/* Zone Details Panel */}
+                    <div className="border-gray-200 dark:border-gray-700 border-t max-h-96 overflow-y-auto">
+                        <ZoneDetailsPanel
+                            zone={selectedZone}
+                            onDrawBoundaries={handleDrawBoundaries}
+                            onEditBoundaries={handleEditBoundaries}
+                            onDelete={handleDeleteZone}
+                            onUpdate={handleUpdateZone}
+                            onClose={() => setSelectedZone(null)}
+                        />
                     </div>
                 </div>
 
-                {/* Classification Details Modal */}
-                <ZoningClassificationDetailsModal
-                    isOpen={!!viewingClassification}
-                    classification={viewingClassification}
-                    onClose={() => setViewingClassification(null)}
-                />
+                {/* Map */}
+                <div className="z-0 relative flex-1">
+                    {!sidebarOpen && (
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="top-4 left-4 z-[100] absolute bg-white dark:bg-dark-surface shadow-lg p-2 border border-gray-200 dark:border-gray-700 rounded-lg"
+                        >
+                            <Plus size={20} />
+                        </button>
+                    )}
+
+                    {(isDrawing || saving) && (
+                        <div className="top-4 right-4 z-[100] absolute bg-white dark:bg-dark-surface shadow-lg p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <div className="flex items-center gap-2">
+                                {saving && <Loader2 size={16} className="animate-spin" />}
+                                <span className="font-medium text-gray-900 dark:text-white text-sm">
+                                    {saving ? 'Saving...' : isDrawing ? 'Drawing mode active' : ''}
+                                </span>
+                                {isDrawing && !saving && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setIsDrawing(false)}
+                                    >
+                                        Cancel
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {isEditing && !saving && (
+                        <div className="top-4 right-4 z-[100] absolute bg-white dark:bg-dark-surface shadow-lg p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-900 dark:text-white text-sm">
+                                    Editing mode active
+                                </span>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setIsEditing(false);
+                                        loadAllZonesForMap(); // Reload to reset
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    <MapContainer
+                        center={mapCenter}
+                        zoom={mapZoom}
+                        style={{ height: '100%', width: '100%', zIndex: 0 }}
+                    >
+                        <TileLayer
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <MapWithDraw
+                            selectedZone={selectedZone}
+                            selectedClassification={selectedClassification}
+                            zones={allZones}
+                            isDrawing={isDrawing}
+                            isEditing={isEditing}
+                            onPolygonCreated={handlePolygonCreated}
+                            onPolygonEdited={handlePolygonEdited}
+                            onPolygonDeleted={handlePolygonDeleted}
+                        />
+                    </MapContainer>
+                </div>
+                </div>
             </main>
+
+            {/* Create Zone Modal */}
+                <CreateZoneModal
+                    isOpen={showCreateModal}
+                    onClose={() => setShowCreateModal(false)}
+                    onSuccess={handleClassificationCreated}
+                />
         </div>
     );
 }

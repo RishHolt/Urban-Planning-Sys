@@ -29,9 +29,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
             label: 'Zoning Clearance',
             children: [
                 { href: '/admin/zoning/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-                { href: '/admin/zoning/applications', icon: ListChecks, label: 'Applications' },
+                { href: '/admin/zoning/clearance/applications', icon: ListChecks, label: 'Applications' },
                 { href: '/admin/zoning/map', icon: Map, label: 'Zoning Map' },
-                { href: '/admin/zoning/clup', icon: FileText, label: 'CLUP' },
             ],
         },
         {

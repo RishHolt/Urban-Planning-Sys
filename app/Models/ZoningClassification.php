@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ZoningClassification extends Model
@@ -16,47 +15,44 @@ class ZoningClassification extends Model
     protected $connection = 'zcs_db';
 
     /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table = 'zoning_classification';
-
-    /**
-     * The primary key for the model.
-     *
-     * @var string
-     */
-    protected $primaryKey = 'zoning_id';
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
      */
     protected $fillable = [
-        'clup_id',
-        'zoning_code',
-        'zone_name',
-        'land_use_category',
+        'code',
+        'name',
+        'description',
         'allowed_uses',
-        'conditional_uses',
-        'prohibited_uses',
+        'color',
+        'is_active',
     ];
 
     /**
-     * Get the CLUP that owns the zoning classification.
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
      */
-    public function clup(): BelongsTo
+    protected function casts(): array
     {
-        return $this->belongsTo(ClupMaster::class, 'clup_id', 'clup_id');
+        return [
+            'is_active' => 'boolean',
+        ];
     }
 
     /**
-     * Get the GIS polygons for the zoning classification.
+     * Get the zones for this classification.
      */
-    public function gisPolygons(): HasMany
+    public function zones(): HasMany
     {
-        return $this->hasMany(ZoningGisPolygon::class, 'zoning_id', 'zoning_id');
+        return $this->hasMany(Zone::class);
+    }
+
+    /**
+     * Scope a query to only include active classifications.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
     }
 }

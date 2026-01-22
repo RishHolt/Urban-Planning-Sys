@@ -3,8 +3,9 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class StoreZoningClassificationRequest extends FormRequest
+class UpdateZoningClassificationRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -21,19 +22,22 @@ class StoreZoningClassificationRequest extends FormRequest
      */
     public function rules(): array
     {
+        $classificationId = $this->route('id');
+
         return [
             'code' => [
+                'sometimes',
                 'required',
                 'string',
                 'max:20',
                 'regex:/^[A-Z0-9\-]+$/i', // Alphanumeric with dashes
-                'unique:zcs_db.zoning_classifications,code',
+                Rule::unique('zcs_db.zoning_classifications', 'code')->ignore($classificationId),
             ],
-            'name' => ['required', 'string', 'max:100'],
+            'name' => ['sometimes', 'required', 'string', 'max:100'],
             'description' => ['nullable', 'string'],
             'allowed_uses' => ['nullable', 'string'],
             'color' => ['nullable', 'string', 'max:20'],
-            'is_active' => ['boolean'],
+            'is_active' => ['sometimes', 'boolean'],
         ];
     }
 

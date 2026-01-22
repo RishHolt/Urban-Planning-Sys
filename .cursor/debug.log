@@ -1,0 +1,8 @@
+{"location":"ZoningMap.tsx:69","message":"onDrawCreated callback fired","data":{"isDrawing":true,"selectedZone":null,"selectedClassification":"2"},"timestamp":1769070675414,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"ZoningMap.tsx:313","message":"Geometry converted","data":{"hasGeometry":true,"geometryType":"Polygon"},"timestamp":1769070675415,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"ZoningMap.tsx:72","message":"Calling onPolygonCreated","data":{"classificationId":"2"},"timestamp":1769070675415,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"ZoningMap.tsx:303","message":"handlePolygonCreated called","data":{"selectedZone":null,"selectedClassification":"2","isDrawing":false},"timestamp":1769070675415,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"ZoningMap.tsx:310","message":"Starting zone creation","data":{"classificationId":"2","classificationCode":"232"},"timestamp":1769070675415,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"ZoningMap.tsx:320","message":"Overlap check complete","data":{"overlappingCount":0},"timestamp":1769070675418,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"ZoningMap.tsx:330","message":"Calling createZone API","data":{"classificationId":"2"},"timestamp":1769070675418,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"ZoningMap.tsx:338","message":"Zone created successfully","data":{"zoneId":"2","zoneLabel":"ZN-23287021"},"timestamp":1769070675654,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}

@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Mail\OtpMail;
 use App\Models\EmailVerification;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class OtpService
@@ -44,7 +43,6 @@ class OtpService
             'attempts' => 0,
             'max_attempts' => 5,
         ]);
-
 
         // Send email synchronously (don't queue OTP emails)
         Mail::to($email)->send(new OtpMail($code, $type));

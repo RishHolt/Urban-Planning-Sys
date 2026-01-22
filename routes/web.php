@@ -2,8 +2,6 @@
 
 use App\Http\Controllers\Admin\AdminAuditLogController;
 use App\Http\Controllers\Admin\AdminHousingBeneficiaryController;
-use App\Http\Controllers\Admin\AdminZoningApplicationController;
-use App\Http\Controllers\Admin\ClupController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\OtpVerificationController;
@@ -11,7 +9,6 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\HousingBeneficiaryController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ZoningApplicationController;
 use App\Http\Middleware\RedirectByRole;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -59,20 +56,68 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
-    // Zoning Application routes
+    // Clearance Application routes (new ERD-based system)
+    Route::prefix('clearance-applications')->name('clearance-applications.')->group(function () {
+        Route::get('/category', function () {
+            return Inertia::render('Applications/ClearanceApplicationCategory');
+        })->name('category');
+        Route::get('/', [\App\Http\Controllers\ClearanceApplicationController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\ClearanceApplicationController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\ClearanceApplicationController::class, 'store'])->name('store');
+        Route::get('/{id}', [\App\Http\Controllers\ClearanceApplicationController::class, 'show'])->name('show');
+    });
+
+    // Zones API for frontend zone detection and map rendering
+    Route::get('/api/zones', [\App\Http\Controllers\Admin\ZoneController::class, 'getAllZones'])->name('zones.all');
+
+    // Prerequisite verification (before application submission)
+    Route::post('/api/verify-prerequisites', [\App\Http\Controllers\PrerequisiteVerificationController::class, 'verify'])->name('prerequisites.verify');
+
+    // Payment Records routes (staff and admin only)
+    Route::prefix('payments')->name('payments.')->group(function () {
+        Route::post('/', [\App\Http\Controllers\PaymentRecordController::class, 'store'])->name('store');
+    });
+
+    // Inspections routes (inspector and admin only)
+    Route::prefix('inspections')->name('inspections.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\InspectionController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\InspectionController::class, 'store'])->name('store');
+        Route::put('/{id}', [\App\Http\Controllers\InspectionController::class, 'update'])->name('update');
+    });
+
+    // Issued Clearances routes (admin only)
+    Route::prefix('clearances')->name('clearances.')->group(function () {
+        Route::get('/create', [\App\Http\Controllers\IssuedClearanceController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\IssuedClearanceController::class, 'store'])->name('store');
+        Route::get('/{id}', [\App\Http\Controllers\IssuedClearanceController::class, 'show'])->name('show');
+    });
+
+    // Legacy Zoning Application routes - Redirect to Clearance Application
     Route::prefix('applications/zoning')->name('applications.zoning.')->group(function () {
-        Route::get('/', [ZoningApplicationController::class, 'index'])->name('index');
-        Route::get('/create', [ZoningApplicationController::class, 'create'])->name('create');
-        Route::post('/', [ZoningApplicationController::class, 'store'])->name('store');
-        Route::get('/success', function (Request $request) {
-            return Inertia::render('Applications/ZoningApplicationSuccess', [
-                'applicationNumber' => $request->query('applicationNumber', ''),
-            ]);
+        Route::get('/', function () {
+            return redirect()->route('clearance-applications.index');
+        })->name('index');
+        Route::get('/create', function (Request $request) {
+            return redirect()->route('clearance-applications.category');
+        })->name('create');
+        Route::post('/', function () {
+            return redirect()->route('clearance-applications.index');
+        })->name('store');
+        Route::get('/success', function () {
+            return redirect()->route('clearance-applications.index');
         })->name('success');
-        Route::get('/{id}', [ZoningApplicationController::class, 'show'])->name('show');
-        Route::post('/{id}/documents', [ZoningApplicationController::class, 'uploadDocuments'])->name('uploadDocuments');
-        Route::post('/{id}/documents/{documentId}/replace', [ZoningApplicationController::class, 'replaceDocument'])->name('replaceDocument');
-        Route::get('/{id}/documents/{documentId}/versions', [ZoningApplicationController::class, 'getDocumentVersions'])->name('getDocumentVersions');
+        Route::get('/{id}', function (string $id) {
+            return redirect()->route('clearance-applications.show', $id);
+        })->name('show');
+        Route::post('/{id}/documents', function (string $id) {
+            return redirect()->route('clearance-applications.show', $id);
+        })->name('uploadDocuments');
+        Route::post('/{id}/documents/{documentId}/replace', function (string $id) {
+            return redirect()->route('clearance-applications.show', $id);
+        })->name('replaceDocument');
+        Route::get('/{id}/documents/{documentId}/versions', function (string $id) {
+            return redirect()->route('clearance-applications.show', $id);
+        })->name('getDocumentVersions');
     });
 
     // Housing Beneficiary Application routes
@@ -122,36 +167,54 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
                 return Inertia::render('Admin/Zoning/ZoningMap');
             })->name('map');
 
-            Route::prefix('applications')->name('applications.')->group(function () {
-                Route::get('/', [AdminZoningApplicationController::class, 'index'])->name('index');
-                Route::get('/{id}', [AdminZoningApplicationController::class, 'show'])->name('show');
-                Route::patch('/{id}/status', [AdminZoningApplicationController::class, 'updateStatus'])->name('updateStatus');
-                Route::patch('/{id}/documents/{documentId}/approve', [AdminZoningApplicationController::class, 'approveDocument'])->name('documents.approve');
-                Route::patch('/{id}/documents/{documentId}/reject', [AdminZoningApplicationController::class, 'rejectDocument'])->name('documents.reject');
-                Route::get('/{id}/documents/{documentId}/versions', [AdminZoningApplicationController::class, 'getDocumentVersions'])->name('documents.versions');
+            // New ERD-based Clearance Applications
+            Route::prefix('clearance')->name('clearance.')->group(function () {
+                Route::prefix('applications')->name('applications.')->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'index'])->name('index');
+                    Route::get('/{id}', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'show'])->name('show');
+                    Route::patch('/{id}/status', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'updateStatus'])->name('updateStatus');
+                    Route::post('/{id}/request-documents', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'requestDocuments'])->name('requestDocuments');
+                });
             });
 
-            Route::prefix('clup')->name('clup.')->group(function () {
-                Route::get('/', [ClupController::class, 'index'])->name('index');
-                Route::get('/create', [ClupController::class, 'create'])->name('create');
-                Route::post('/', [ClupController::class, 'store'])->name('store');
-                Route::get('/{id}', [ClupController::class, 'show'])->name('show');
-                Route::get('/{id}/edit', [ClupController::class, 'edit'])->name('edit');
-                Route::patch('/{id}', [ClupController::class, 'update'])->name('update');
-                Route::delete('/{id}', [ClupController::class, 'destroy'])->name('destroy');
+            // Legacy Zoning Applications - Redirect to new Clearance Applications
+            Route::prefix('applications')->name('applications.')->group(function () {
+                Route::get('/', function () {
+                    return redirect()->route('admin.zoning.clearance.applications.index');
+                })->name('index');
+                Route::get('/{id}', function (string $id) {
+                    return redirect()->route('admin.zoning.clearance.applications.show', $id);
+                })->name('show');
+                Route::patch('/{id}/status', function (string $id) {
+                    return redirect()->route('admin.zoning.clearance.applications.show', $id);
+                })->name('updateStatus');
+                Route::patch('/{id}/documents/{documentId}/approve', function (string $id) {
+                    return redirect()->route('admin.zoning.clearance.applications.show', $id);
+                })->name('documents.approve');
+                Route::patch('/{id}/documents/{documentId}/reject', function (string $id) {
+                    return redirect()->route('admin.zoning.clearance.applications.show', $id);
+                })->name('documents.reject');
+                Route::get('/{id}/documents/{documentId}/versions', function (string $id) {
+                    return redirect()->route('admin.zoning.clearance.applications.show', $id);
+                })->name('documents.versions');
+            });
 
-                // Zoning Classifications
-                Route::get('/{clupId}/classifications', [ClupController::class, 'getClassifications'])->name('classifications.index');
-                Route::post('/classifications', [ClupController::class, 'storeClassification'])->name('classifications.store');
-                Route::patch('/classifications/{id}', [ClupController::class, 'updateClassification'])->name('classifications.update');
-                Route::delete('/classifications/{id}', [ClupController::class, 'destroyClassification'])->name('classifications.destroy');
+            // Zone Management routes
+            Route::prefix('zones')->name('zones.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\ZoneController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\Admin\ZoneController::class, 'store'])->name('store');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'show'])->name('show');
+                Route::patch('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'update'])->name('update');
+                Route::delete('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'destroy'])->name('destroy');
+            });
 
-                // GIS Polygons
-                Route::get('/{clupId}/polygons', [ClupController::class, 'getAllPolygonsForClup'])->name('polygons.all');
-                Route::get('/classifications/{zoningId}/polygons', [ClupController::class, 'getPolygons'])->name('polygons.index');
-                Route::post('/polygons', [ClupController::class, 'storePolygon'])->name('polygons.store');
-                Route::patch('/polygons/{id}', [ClupController::class, 'updatePolygon'])->name('polygons.update');
-                Route::delete('/polygons/{id}', [ClupController::class, 'destroyPolygon'])->name('polygons.destroy');
+            // Zoning Classification Management routes
+            Route::prefix('classifications')->name('classifications.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'store'])->name('store');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'show'])->name('show');
+                Route::patch('/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'update'])->name('update');
+                Route::delete('/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'destroy'])->name('destroy');
             });
         });
 
