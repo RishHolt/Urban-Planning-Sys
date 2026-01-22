@@ -676,7 +676,7 @@ export async function getZoningClassifications(activeOnly = false): Promise<Zoni
         params.append('active_only', '1');
     }
 
-    const url = `/admin/zoning/classifications${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `/admin/zoning/api/classifications${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await fetch(url, {
         headers: {
             'Accept': 'application/json',
@@ -769,6 +769,25 @@ export async function updateZoningClassification(
 
     const result = await response.json();
     return result.classification;
+}
+
+/**
+ * Delete a zoning classification
+ */
+export async function deleteZoningClassification(id: string): Promise<void> {
+    const response = await fetch(`/admin/zoning/classifications/${id}`, {
+        method: 'DELETE',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+        },
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete classification');
+    }
 }
 
 /**

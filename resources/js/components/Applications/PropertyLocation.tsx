@@ -217,6 +217,7 @@ export default function PropertyLocation({
                     longitude={pinLng || undefined}
                     onLocationSelect={handleLocationSelect}
                     error={errors.pin_lat || errors.pin_lng}
+                    zones={zones}
                 />
                 {geocoding && (
                     <div className="flex items-center gap-2 mt-2 text-blue-600 dark:text-blue-400 text-sm">

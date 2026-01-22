@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\RequestDocumentsRequest;
 use App\Models\AuditLog;
-use App\Models\HousingBeneficiaryApplication;
-use App\Models\HousingBeneficiaryStatusHistory;
-use App\Services\HousingBeneficiaryLabelService;
+use App\Models\BeneficiaryApplication;
+use App\Models\AllocationHistory;
+use App\Services\BlacklistService;
+use App\Services\SiteVisitService;
+use App\Services\WaitlistService;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,29 +18,45 @@ use Inertia\Response;
 
 class AdminHousingBeneficiaryController extends Controller
 {
+    public function __construct(
+        protected BlacklistService $blacklistService,
+        protected SiteVisitService $siteVisitService,
+        protected WaitlistService $waitlistService
+    ) {}
+
     /**
      * Display a listing of all housing applications.
      */
     public function index(Request $request): Response
     {
-        $query = HousingBeneficiaryApplication::query();
+        $query = BeneficiaryApplication::with('beneficiary');
 
         // Search functionality
         if ($request->has('search') && $request->search) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('application_number', 'like', "%{$search}%");
+                $q->where('application_no', 'like', "%{$search}%")
+                    ->orWhereHas('beneficiary', function ($q) use ($search) {
+                        $q->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('beneficiary_no', 'like', "%{$search}%");
+                    });
             });
         }
 
         // Filter by status
         if ($request->has('status') && $request->status) {
-            $query->where('status', $request->status);
+            $query->where('application_status', $request->status);
         }
 
-        // Filter by application type
-        if ($request->has('applicationType') && $request->applicationType) {
-            $query->where('application_type', $request->applicationType);
+        // Filter by housing program
+        if ($request->has('housing_program') && $request->housing_program) {
+            $query->where('housing_program', $request->housing_program);
+        }
+
+        // Filter by eligibility status
+        if ($request->has('eligibility_status') && $request->eligibility_status) {
+            $query->where('eligibility_status', $request->eligibility_status);
         }
 
         // Date range filter
@@ -55,17 +72,20 @@ class AdminHousingBeneficiaryController extends Controller
             ->through(function ($application) {
                 return [
                     'id' => (string) $application->id,
-                    'applicationNumber' => $application->application_number,
-                    'applicationType' => HousingBeneficiaryLabelService::getApplicationTypeLabel($application->application_type),
-                    'status' => $application->status,
-                    'submittedAt' => $application->submitted_at?->format('Y-m-d H:i:s'),
-                    'createdAt' => $application->created_at?->format('Y-m-d H:i:s'),
+                    'application_no' => $application->application_no,
+                    'beneficiary' => $application->beneficiary->full_name,
+                    'beneficiary_no' => $application->beneficiary->beneficiary_no,
+                    'housing_program' => $application->housing_program,
+                    'application_status' => $application->application_status,
+                    'eligibility_status' => $application->eligibility_status,
+                    'submitted_at' => $application->submitted_at?->format('Y-m-d H:i:s'),
+                    'created_at' => $application->created_at?->format('Y-m-d H:i:s'),
                 ];
             });
 
         return Inertia::render('Admin/Housing/ApplicationsIndex', [
             'applications' => $applications,
-            'filters' => $request->only(['search', 'status', 'applicationType', 'dateFrom', 'dateTo']),
+            'filters' => $request->only(['search', 'status', 'housing_program', 'eligibility_status', 'dateFrom', 'dateTo']),
         ]);
     }
 
@@ -74,33 +94,30 @@ class AdminHousingBeneficiaryController extends Controller
      */
     public function show(string $id): Response
     {
-        $application = HousingBeneficiaryApplication::with(['documents', 'statusHistory', 'beneficiary', 'household'])
-            ->findOrFail($id);
+        $application = BeneficiaryApplication::with([
+            'beneficiary',
+            'documents',
+            'siteVisits',
+            'waitlistEntry',
+            'allocation',
+            'allocation.history',
+        ])->findOrFail($id);
 
         $this->authorize('view', $application);
 
         // Automatically change status to "under_review" if it's currently "submitted"
-        if ($application->status === 'submitted') {
-            $oldStatus = $application->status;
+        if ($application->application_status === 'submitted') {
+            $oldStatus = $application->application_status;
             $application->update([
-                'status' => 'under_review',
+                'application_status' => 'under_review',
                 'reviewed_by' => auth()->id(),
                 'reviewed_at' => now(),
-            ]);
-
-            HousingBeneficiaryStatusHistory::create([
-                'housing_beneficiary_application_id' => $application->id,
-                'status_from' => $oldStatus,
-                'status_to' => 'under_review',
-                'changed_by' => auth()->id(),
-                'notes' => 'Application moved to review when admin viewed it.',
-                'created_at' => now(),
             ]);
 
             AuditLog::create([
                 'user_id' => auth()->id(),
                 'action' => 'status_updated',
-                'resource_type' => 'housing_beneficiary_application',
+                'resource_type' => 'beneficiary_application',
                 'resource_id' => (string) $application->id,
                 'changes' => [
                     'status_from' => $oldStatus,
@@ -114,52 +131,64 @@ class AdminHousingBeneficiaryController extends Controller
         }
 
         // Format documents
-        $documents = $application->documents()
-            ->where('is_current', true)
-            ->get()
-            ->map(function ($doc) {
-                return [
-                    'id' => $doc->id,
-                    'documentType' => $doc->document_type,
-                    'type' => $doc->type,
-                    'manualId' => $doc->manual_id,
-                    'fileName' => $doc->file_name,
-                    'fileSize' => $doc->file_size,
-                    'mimeType' => $doc->mime_type,
-                    'url' => $doc->file_path ? asset('storage/'.$doc->file_path) : null,
-                    'status' => $doc->status ?? 'pending',
-                    'version' => $doc->version ?? 1,
-                ];
-            });
-
-        // Format status history
-        $statusHistory = $application->statusHistory->map(function ($history) {
+        $documents = $application->documents->map(function ($doc) {
             return [
-                'id' => $history->id,
-                'statusFrom' => $history->status_from,
-                'statusTo' => $history->status_to,
-                'changedBy' => $history->changed_by,
-                'notes' => $history->notes,
-                'createdAt' => $history->created_at?->format('Y-m-d H:i:s'),
+                'id' => (string) $doc->id,
+                'document_type' => $doc->document_type,
+                'file_name' => $doc->file_name,
+                'file_path' => $doc->file_path,
+                'url' => $doc->file_path ? asset('storage/'.$doc->file_path) : null,
+                'verification_status' => $doc->verification_status,
+                'verified_by' => $doc->verified_by,
+                'verified_at' => $doc->verified_at?->format('Y-m-d H:i:s'),
             ];
-        })->sortByDesc('createdAt')->values();
+        });
+
+        // Format site visits
+        $siteVisits = $application->siteVisits->map(function ($visit) {
+            return [
+                'id' => (string) $visit->id,
+                'scheduled_date' => $visit->scheduled_date->format('Y-m-d'),
+                'visit_date' => $visit->visit_date?->format('Y-m-d'),
+                'status' => $visit->status,
+                'address_visited' => $visit->address_visited,
+                'living_conditions' => $visit->living_conditions,
+                'findings' => $visit->findings,
+                'recommendation' => $visit->recommendation,
+                'remarks' => $visit->remarks,
+            ];
+        });
+
+        // Format allocation history
+        $allocationHistory = $application->allocation?->history->map(function ($history) {
+            return [
+                'id' => (string) $history->id,
+                'status' => $history->status,
+                'remarks' => $history->remarks,
+                'updated_by' => $history->updated_by,
+                'updated_at' => $history->updated_at->format('Y-m-d H:i:s'),
+            ];
+        }) ?? collect();
 
         return Inertia::render('Admin/Housing/ApplicationDetails', [
             'application' => [
                 'id' => (string) $application->id,
-                'applicationNumber' => $application->application_number,
-                'applicationType' => HousingBeneficiaryLabelService::getApplicationTypeLabel($application->application_type),
-                'status' => $application->status,
-                'submittedAt' => $application->submitted_at?->format('Y-m-d H:i:s'),
-                'createdAt' => $application->created_at?->format('Y-m-d H:i:s'),
-                'updatedAt' => $application->updated_at?->format('Y-m-d H:i:s'),
+                'application_no' => $application->application_no,
+                'housing_program' => $application->housing_program,
+                'application_reason' => $application->application_reason,
+                'application_status' => $application->application_status,
+                'eligibility_status' => $application->eligibility_status,
+                'eligibility_remarks' => $application->eligibility_remarks,
+                'denial_reason' => $application->denial_reason,
+                'submitted_at' => $application->submitted_at?->format('Y-m-d H:i:s'),
+                'reviewed_at' => $application->reviewed_at?->format('Y-m-d H:i:s'),
+                'approved_at' => $application->approved_at?->format('Y-m-d H:i:s'),
                 'beneficiary' => $application->beneficiary,
-                'household' => $application->household,
-                'applicationNotes' => $application->application_notes,
-                'rejectionReason' => $application->rejection_reason,
-                'adminNotes' => $application->admin_notes,
                 'documents' => $documents,
-                'statusHistory' => $statusHistory,
+                'site_visits' => $siteVisits,
+                'waitlist' => $application->waitlistEntry,
+                'allocation' => $application->allocation,
+                'allocation_history' => $allocationHistory,
             ],
         ]);
     }
@@ -170,75 +199,64 @@ class AdminHousingBeneficiaryController extends Controller
     public function updateStatus(Request $request, string $id): RedirectResponse
     {
         $request->validate([
-            'status' => ['required', 'in:draft,submitted,under_review,approved,rejected'],
-            'notes' => ['nullable', 'string', 'max:2000'],
-            'rejectionReason' => ['nullable', 'required_if:status,rejected', 'string', 'max:1000'],
+            'application_status' => ['required', 'in:submitted,under_review,site_visit_scheduled,site_visit_completed,eligible,not_eligible,waitlisted,allocated,cancelled'],
+            'eligibility_status' => ['sometimes', 'in:pending,eligible,not_eligible'],
+            'eligibility_remarks' => ['nullable', 'string', 'max:2000'],
+            'denial_reason' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $application = HousingBeneficiaryApplication::findOrFail($id);
+        $application = BeneficiaryApplication::findOrFail($id);
         $this->authorize('updateStatus', $application);
 
-        $oldStatus = $application->status;
-        $newStatus = $request->status;
+        $oldStatus = $application->application_status;
+        $newStatus = $request->application_status;
 
-        $application->update([
-            'status' => $newStatus,
+        $updateData = [
+            'application_status' => $newStatus,
             'reviewed_by' => auth()->id(),
             'reviewed_at' => now(),
-            'rejection_reason' => $request->rejectionReason ?? null,
-            'admin_notes' => $request->notes ?? null,
-        ]);
+        ];
 
-        if ($newStatus === 'approved') {
-            $application->update([
-                'approved_by' => auth()->id(),
-                'approved_at' => now(),
-            ]);
+        if ($request->has('eligibility_status')) {
+            $updateData['eligibility_status'] = $request->eligibility_status;
         }
 
-        // Create status history entry
-        HousingBeneficiaryStatusHistory::create([
-            'housing_beneficiary_application_id' => $application->id,
-            'status_from' => $oldStatus,
-            'status_to' => $newStatus,
-            'changed_by' => auth()->id(),
-            'notes' => $request->notes,
-            'created_at' => now(),
-        ]);
+        if ($request->has('eligibility_remarks')) {
+            $updateData['eligibility_remarks'] = $request->eligibility_remarks;
+        }
+
+        if ($request->has('denial_reason')) {
+            $updateData['denial_reason'] = $request->denial_reason;
+        }
+
+        $application->update($updateData);
+
+        // If marked as eligible, add to waitlist
+        if ($newStatus === 'eligible' && $application->eligibility_status === 'eligible') {
+            $this->waitlistService->addToWaitlist($application);
+            $application->update(['application_status' => 'waitlisted']);
+        }
 
         // Log audit
         AuditLog::create([
             'user_id' => auth()->id(),
             'action' => 'status_updated',
-            'resource_type' => 'housing_beneficiary_application',
+            'resource_type' => 'beneficiary_application',
             'resource_id' => (string) $application->id,
             'changes' => [
                 'status_from' => $oldStatus,
                 'status_to' => $newStatus,
-                'notes' => $request->notes,
+                'eligibility_status' => $request->eligibility_status ?? null,
             ],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
 
         // Create notification
-        if ($newStatus === 'approved') {
-            NotificationService::notifyApplicationApproved(
-                $application->user_id,
-                $application->application_number,
-                $application->id
-            );
-        } elseif ($newStatus === 'rejected') {
-            NotificationService::notifyApplicationRejected(
-                $application->user_id,
-                $application->application_number,
-                $request->rejectionReason,
-                $application->id
-            );
-        } else {
+        if ($application->beneficiary->citizen_id) {
             NotificationService::notifyApplicationStatusChange(
-                $application->user_id,
-                $application->application_number,
+                $application->beneficiary->citizen_id,
+                $application->application_no,
                 $oldStatus,
                 $newStatus,
                 $application->id
@@ -251,29 +269,26 @@ class AdminHousingBeneficiaryController extends Controller
     /**
      * Request additional documents from the user.
      */
-    public function requestDocuments(RequestDocumentsRequest $request, string $id): RedirectResponse
+    public function requestDocuments(Request $request, string $id): RedirectResponse
     {
-        $application = HousingBeneficiaryApplication::findOrFail($id);
+        $request->validate([
+            'document_types' => ['required', 'array', 'min:1'],
+            'message' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $application = BeneficiaryApplication::findOrFail($id);
         $this->authorize('view', $application);
 
         // Create notification for document request
-        NotificationService::notifyDocumentRequest(
-            $application->user_id,
-            $application->application_number,
-            $request->documentTypes,
-            $request->message,
-            $application->id
-        );
-
-        // Create status history entry
-        HousingBeneficiaryStatusHistory::create([
-            'housing_beneficiary_application_id' => $application->id,
-            'status_from' => $application->status,
-            'status_to' => $application->status,
-            'changed_by' => auth()->id(),
-            'notes' => 'Additional documents requested: '.implode(', ', $request->documentTypes).'. Message: '.$request->message,
-            'created_at' => now(),
-        ]);
+        if ($application->beneficiary->citizen_id) {
+            NotificationService::notifyDocumentRequest(
+                $application->beneficiary->citizen_id,
+                $application->application_no,
+                $request->document_types,
+                $request->message ?? 'Please upload the requested documents.',
+                $application->id
+            );
+        }
 
         return redirect()->back()->with('success', 'Document request sent to user.');
     }
@@ -283,42 +298,23 @@ class AdminHousingBeneficiaryController extends Controller
      */
     public function approveDocument(Request $request, string $id, string $documentId): RedirectResponse
     {
-        $application = HousingBeneficiaryApplication::findOrFail($id);
+        $application = BeneficiaryApplication::findOrFail($id);
         $document = $application->documents()->findOrFail($documentId);
 
-        $oldStatus = $document->status ?? 'pending';
-        $documentTypeName = HousingBeneficiaryLabelService::getDocumentTypeLabel($document->document_type);
-        $notes = $request->input('notes', '');
-
+        $oldStatus = $document->verification_status;
         $document->update([
-            'status' => 'approved',
-            'reviewed_by' => $request->user()->id,
-            'reviewed_at' => now(),
-            'notes' => $notes,
-        ]);
-
-        $statusHistoryNotes = "Document '{$documentTypeName}' approved";
-        if ($notes) {
-            $statusHistoryNotes .= ": {$notes}";
-        }
-
-        HousingBeneficiaryStatusHistory::create([
-            'housing_beneficiary_application_id' => $application->id,
-            'status_from' => $application->status,
-            'status_to' => $application->status,
-            'changed_by' => $request->user()->id,
-            'notes' => $statusHistoryNotes,
-            'created_at' => now(),
+            'verification_status' => 'verified',
+            'verified_by' => $request->user()->id,
+            'verified_at' => now(),
         ]);
 
         AuditLog::create([
             'user_id' => $request->user()->id,
             'action' => 'document_approved',
-            'resource_type' => 'housing_beneficiary_document',
+            'resource_type' => 'beneficiary_document',
             'resource_id' => (string) $document->id,
             'changes' => [
-                'status' => [$oldStatus => 'approved'],
-                'notes' => $notes,
+                'verification_status' => [$oldStatus => 'verified'],
             ],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
@@ -333,43 +329,29 @@ class AdminHousingBeneficiaryController extends Controller
     public function rejectDocument(Request $request, string $id, string $documentId): RedirectResponse
     {
         $validated = $request->validate([
-            'notes' => ['required', 'string', 'max:1000'],
+            'remarks' => ['required', 'string', 'max:1000'],
         ], [
-            'notes.required' => 'Notes are required when rejecting a document.',
+            'remarks.required' => 'Remarks are required when rejecting a document.',
         ]);
 
-        $application = HousingBeneficiaryApplication::findOrFail($id);
+        $application = BeneficiaryApplication::findOrFail($id);
         $document = $application->documents()->findOrFail($documentId);
 
-        $oldStatus = $document->status ?? 'pending';
-        $documentTypeName = HousingBeneficiaryLabelService::getDocumentTypeLabel($document->document_type);
-
+        $oldStatus = $document->verification_status;
         $document->update([
-            'status' => 'rejected',
-            'reviewed_by' => $request->user()->id,
-            'reviewed_at' => now(),
-            'notes' => $validated['notes'],
-        ]);
-
-        $statusHistoryNotes = "Document '{$documentTypeName}' rejected: {$validated['notes']}";
-
-        HousingBeneficiaryStatusHistory::create([
-            'housing_beneficiary_application_id' => $application->id,
-            'status_from' => $application->status,
-            'status_to' => $application->status,
-            'changed_by' => $request->user()->id,
-            'notes' => $statusHistoryNotes,
-            'created_at' => now(),
+            'verification_status' => 'invalid',
+            'verified_by' => $request->user()->id,
+            'verified_at' => now(),
         ]);
 
         AuditLog::create([
             'user_id' => $request->user()->id,
             'action' => 'document_rejected',
-            'resource_type' => 'housing_beneficiary_document',
+            'resource_type' => 'beneficiary_document',
             'resource_id' => (string) $document->id,
             'changes' => [
-                'status' => [$oldStatus => 'rejected'],
-                'notes' => $validated['notes'],
+                'verification_status' => [$oldStatus => 'invalid'],
+                'remarks' => $validated['remarks'],
             ],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),

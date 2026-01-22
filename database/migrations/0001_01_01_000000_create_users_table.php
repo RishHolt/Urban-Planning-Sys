@@ -22,22 +22,11 @@ return new class extends Migration
     {
         Schema::connection('user_db')->create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('account_no', 50)->nullable()->unique();
-            $table->string('username', 50)->nullable()->unique();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->boolean('email_verified')->default(false);
             $table->string('password');
-            $table->enum('role', ['user', 'staff', 'admin', 'superadmin'])->default('user');
-            // Department codes:
-            // ZCS - Zoning Clearance System
-            // SBR - Subdivision & Building Review
-            // HBR - Housing Beneficiary Registry
-            // OMT - Occupancy Monitoring Tool
-            // IPC - Infrastructure Project Coordination
-            $table->enum('department', ['ZCS', 'SBR', 'HBR', 'OMT', 'IPC'])->nullable();
-            $table->string('position', 100)->nullable();
-            $table->rememberToken();
+            $table->enum('role', ['citizen', 'staff', 'admin', 'inspector', 'developer', 'committee_member'])->default('citizen');
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
 

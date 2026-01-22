@@ -210,7 +210,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         >
             <div className="space-y-6">
                 {/* Header */}
-                <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
+                <section className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
                     <div className="flex items-start justify-between mb-4">
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
@@ -261,64 +261,74 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             </div>
                         </div>
                     )}
-                </div>
+                </section>
 
                 {/* Applicant Information */}
-                <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <section className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                         <User size={20} />
                         Applicant Information
                     </h2>
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Applicant Type</span>
-                            <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white capitalize">
+                            <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Applicant Type
+                            </label>
+                            <p className="text-gray-900 dark:text-white capitalize">
                                 {application.applicant_type.replace('_', ' ')}
                             </p>
                         </div>
                         <div>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Contact Number</span>
-                            <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                            <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Contact Number
+                            </label>
+                            <div className="flex items-center gap-2 text-gray-900 dark:text-white">
                                 <Phone size={14} />
-                                {application.contact_number}
-                            </p>
+                                <span>{application.contact_number}</span>
+                            </div>
                         </div>
                         {application.contact_email && (
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Contact Email</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Contact Email
+                                </label>
+                                <div className="flex items-center gap-2 text-gray-900 dark:text-white">
                                     <Mail size={14} />
-                                    {application.contact_email}
-                                </p>
+                                    <span>{application.contact_email}</span>
+                                </div>
                             </div>
                         )}
                     </div>
-                </div>
+                </section>
 
                 {/* Prerequisites (API Verified) */}
-                <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <section className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                         <Shield size={20} />
                         Prerequisites Verification
                     </h2>
                     <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-6">
+                        <div className="grid gap-4 md:grid-cols-2">
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Tax Declaration Ref No.</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Tax Declaration Ref No.
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     {application.tax_dec_ref_no}
                                 </p>
                             </div>
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Barangay Permit Ref No.</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Barangay Permit Ref No.
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     {application.barangay_permit_ref_no}
                                 </p>
                             </div>
                         </div>
                         {application.externalVerifications.length > 0 && (
                             <div className="mt-4">
-                                <span className="text-sm text-gray-500 dark:text-gray-400 block mb-2">Verification Status</span>
+                                <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Verification Status</label>
                                 <div className="space-y-2">
                                     {application.externalVerifications.map((verification) => (
                                         <div key={verification.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -345,24 +355,28 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             </div>
                         )}
                     </div>
-                </div>
+                </section>
 
                 {/* Property Information */}
-                <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <section className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                         <Building size={20} />
                         Property Information
                     </h2>
-                    <div className="grid grid-cols-2 gap-6 mb-6">
+                    <div className="grid gap-4 md:grid-cols-2 mb-6">
                         <div>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Lot Owner</span>
-                            <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                            <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Lot Owner
+                            </label>
+                            <p className="text-gray-900 dark:text-white">
                                 {application.lot_owner}
                             </p>
                         </div>
                         <div>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Lot Area</span>
-                            <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                            <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Lot Area
+                            </label>
+                            <p className="text-gray-900 dark:text-white">
                                 {application.lot_area_total.toLocaleString()} sqm
                             </p>
                         </div>
@@ -370,46 +384,56 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             <>
                                 {application.subdivision_name && (
                                     <div>
-                                        <span className="text-sm text-gray-500 dark:text-gray-400">Subdivision Name</span>
-                                        <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                        <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Subdivision Name
+                                        </label>
+                                        <p className="text-gray-900 dark:text-white">
                                             {application.subdivision_name}
                                         </p>
                                     </div>
                                 )}
                                 {application.block_no && (
                                     <div>
-                                        <span className="text-sm text-gray-500 dark:text-gray-400">Block No.</span>
-                                        <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                        <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Block No.
+                                        </label>
+                                        <p className="text-gray-900 dark:text-white">
                                             {application.block_no}
                                         </p>
                                     </div>
                                 )}
                                 {application.lot_no && (
                                     <div>
-                                        <span className="text-sm text-gray-500 dark:text-gray-400">Lot No.</span>
-                                        <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                        <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Lot No.
+                                        </label>
+                                        <p className="text-gray-900 dark:text-white">
                                             {application.lot_no}
                                         </p>
                                     </div>
                                 )}
                                 {application.total_lots_planned && (
                                     <div>
-                                        <span className="text-sm text-gray-500 dark:text-gray-400">Total Lots Planned</span>
-                                        <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                        <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Total Lots Planned
+                                        </label>
+                                        <p className="text-gray-900 dark:text-white">
                                             {application.total_lots_planned}
                                         </p>
                                     </div>
                                 )}
                                 <div>
-                                    <span className="text-sm text-gray-500 dark:text-gray-400">Has Subdivision Plan</span>
-                                    <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Has Subdivision Plan
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white">
                                         {application.has_subdivision_plan ? 'Yes' : 'No'}
                                     </p>
                                 </div>
                             </>
                         )}
                     </div>
-                    <div className="col-span-2">
+                    <div className="mt-6">
                         <PropertyLocation
                             mode="view"
                             pinLat={application.pin_lat}
@@ -429,143 +453,180 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             showMap={true}
                         />
                     </div>
-                </div>
+                </section>
 
                 {/* Project Details */}
-                <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <section className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                         <FileText size={20} />
                         Project Details
                     </h2>
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Land Use Type</span>
-                            <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white capitalize">
+                            <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Land Use Type
+                            </label>
+                            <p className="text-gray-900 dark:text-white capitalize">
                                 {application.land_use_type.replace('_', ' ')}
                             </p>
                         </div>
                         <div>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Project Type</span>
-                            <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white capitalize">
+                            <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Project Type
+                            </label>
+                            <p className="text-gray-900 dark:text-white capitalize">
                                 {application.project_type.replace('_', ' ')}
                             </p>
                         </div>
                         {application.building_type && (
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Building Type</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Building Type
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     {application.building_type}
                                 </p>
                             </div>
                         )}
                         <div>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Existing Structure</span>
-                            <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white capitalize">
+                            <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Existing Structure
+                            </label>
+                            <p className="text-gray-900 dark:text-white capitalize">
                                 {application.existing_structure.replace('_', ' ')}
                             </p>
                         </div>
                         {application.number_of_storeys && (
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Number of Storeys</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Number of Storeys
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     {application.number_of_storeys}
                                 </p>
                             </div>
                         )}
                         {application.floor_area_sqm && (
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Floor Area</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Floor Area
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     {application.floor_area_sqm.toLocaleString()} sqm
                                 </p>
                             </div>
                         )}
                         {application.estimated_cost && (
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Estimated Cost</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Estimated Cost
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     ₱{application.estimated_cost.toLocaleString()}
                                 </p>
                             </div>
                         )}
                         {application.assessed_fee && (
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Assessed Fee</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Assessed Fee
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     ₱{application.assessed_fee.toLocaleString()}
                                 </p>
                             </div>
                         )}
-                        <div className="col-span-2">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Project Description</span>
-                            <p className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
-                                {application.project_description}
-                            </p>
-                        </div>
-                        <div className="col-span-2">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Purpose</span>
-                            <p className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
-                                {application.purpose}
-                            </p>
-                        </div>
+                        {application.project_description && (
+                            <div className="md:col-span-2">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Project Description
+                                </label>
+                                <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
+                                    {application.project_description}
+                                </p>
+                            </div>
+                        )}
+                        {application.purpose && (
+                            <div className="md:col-span-2">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Purpose
+                                </label>
+                                <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
+                                    {application.purpose}
+                                </p>
+                            </div>
+                        )}
                     </div>
-                </div>
+                </section>
 
                 {/* Payment Record */}
                 {application.paymentRecord && (
-                    <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <section className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                             <CreditCard size={20} />
                             Payment Information
                         </h2>
-                        <div className="grid grid-cols-3 gap-6">
+                        <div className="grid gap-4 md:grid-cols-2">
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">OR Number</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    OR Number
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     {application.paymentRecord.or_number}
                                 </p>
                             </div>
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Amount</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Amount
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     ₱{application.paymentRecord.amount.toLocaleString()}
                                 </p>
                             </div>
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Payment Date</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Payment Date
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     {new Date(application.paymentRecord.payment_date).toLocaleDateString()}
                                 </p>
                             </div>
                             {application.paymentRecord.treasury_ref && (
                                 <div>
-                                    <span className="text-sm text-gray-500 dark:text-gray-400">Treasury Reference</span>
-                                    <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Treasury Reference
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white">
                                         {application.paymentRecord.treasury_ref}
                                     </p>
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </section>
                 )}
 
                 {/* Inspection */}
                 {application.inspection && (
-                    <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <section className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <Search size={20} />
                             Inspection Information
                         </h2>
                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-6">
+                            <div className="grid gap-4 md:grid-cols-2">
                                 <div>
-                                    <span className="text-sm text-gray-500 dark:text-gray-400">Scheduled Date</span>
-                                    <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Scheduled Date
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white">
                                         {new Date(application.inspection.scheduled_date).toLocaleDateString()}
                                     </p>
                                 </div>
                                 <div>
-                                    <span className="text-sm text-gray-500 dark:text-gray-400">Result</span>
-                                    <p className="mt-1">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Result
+                                    </label>
+                                    <div className="mt-1">
                                         {application.inspection.result === 'passed' ? (
                                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                                                 <CheckCircle size={12} />
@@ -582,60 +643,73 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                                 Pending
                                             </span>
                                         )}
-                                    </p>
+                                    </div>
                                 </div>
                             </div>
                             {application.inspection.findings && (
                                 <div>
-                                    <span className="text-sm text-gray-500 dark:text-gray-400">Findings</span>
-                                    <p className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Findings
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
                                         {application.inspection.findings}
                                     </p>
                                 </div>
                             )}
                             {application.inspection.inspected_at && (
                                 <div>
-                                    <span className="text-sm text-gray-500 dark:text-gray-400">Inspected At</span>
-                                    <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Inspected At
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white">
                                         {new Date(application.inspection.inspected_at).toLocaleString()}
                                     </p>
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </section>
                 )}
 
                 {/* Issued Clearance */}
                 {application.issuedClearance && (
-                    <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <section className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <CheckCircle size={20} />
                             Issued Clearance
                         </h2>
-                        <div className="grid grid-cols-2 gap-6">
+                        <div className="grid gap-4 md:grid-cols-2">
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Clearance Number</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Clearance Number
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     {application.issuedClearance.clearance_no}
                                 </p>
                             </div>
                             <div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Issue Date</span>
-                                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Issue Date
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
                                     {new Date(application.issuedClearance.issue_date).toLocaleDateString()}
                                 </p>
                             </div>
                             {application.issuedClearance.valid_until && (
                                 <div>
-                                    <span className="text-sm text-gray-500 dark:text-gray-400">Valid Until</span>
-                                    <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Valid Until
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white">
                                         {new Date(application.issuedClearance.valid_until).toLocaleDateString()}
                                     </p>
                                 </div>
                             )}
                             {application.issuedClearance.status && (
                                 <div>
-                                    <span className="text-sm text-gray-500 dark:text-gray-400">Status</span>
-                                    <p className="mt-1">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Status
+                                    </label>
+                                    <div className="mt-1">
                                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                                             application.issuedClearance.status === 'active'
                                                 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
@@ -645,24 +719,26 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                         }`}>
                                             {application.issuedClearance.status}
                                         </span>
-                                    </p>
+                                    </div>
                                 </div>
                             )}
                             {application.issuedClearance.conditions && (
-                                <div className="col-span-2">
-                                    <span className="text-sm text-gray-500 dark:text-gray-400">Conditions</span>
-                                    <p className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
+                                <div className="md:col-span-2">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Conditions
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
                                         {application.issuedClearance.conditions}
                                     </p>
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </section>
                 )}
 
                 {/* Documents */}
-                <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <section className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                         <FileText size={20} />
                         Documents
                     </h2>
@@ -701,13 +777,13 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             ))}
                         </div>
                     )}
-                </div>
+                </section>
 
                 {/* History */}
                 {application.history.length > 0 && (
-                    <div className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                            <Calendar size={20} />
+                    <section className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <Clock size={20} />
                             Status History
                         </h2>
                         <StatusHistory history={application.history.map(h => ({
@@ -718,7 +794,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             notes: h.remarks,
                             createdAt: h.updated_at,
                         }))} />
-                    </div>
+                    </section>
                 )}
 
                 {/* Status Update Modal */}

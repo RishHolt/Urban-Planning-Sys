@@ -8,9 +8,60 @@ use App\Http\Requests\UpdateZoningClassificationRequest;
 use App\Models\ZoningClassification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class ZoningClassificationController extends Controller
 {
+    /**
+     * Display a listing of classifications (Inertia page).
+     */
+    public function indexPage(Request $request): Response
+    {
+        $query = ZoningClassification::query();
+
+        // Search functionality
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('code', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        // Filter by status
+        if ($request->has('status') && $request->status) {
+            if ($request->status === 'active') {
+                $query->active();
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        }
+
+        $classifications = $query->orderBy('code', 'asc')
+            ->paginate(15)
+            ->through(function ($classification) {
+                return [
+                    'id' => (string) $classification->id,
+                    'code' => $classification->code,
+                    'name' => $classification->name,
+                    'description' => $classification->description,
+                    'allowed_uses' => $classification->allowed_uses,
+                    'color' => $classification->color,
+                    'is_active' => $classification->is_active,
+                ];
+            });
+
+        return Inertia::render('Admin/Zoning/ClassificationsIndex', [
+            'classifications' => $classifications,
+            'filters' => [
+                'search' => $request->search,
+                'status' => $request->status,
+            ],
+        ]);
+    }
+
     /**
      * Get all classifications (for dropdowns, etc.)
      */

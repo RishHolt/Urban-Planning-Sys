@@ -49,11 +49,11 @@ export default function ZoneCard({ zone, isSelected, onSelect }: ZoneCardProps) 
                             />
                         )}
                         <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate">
-                            {zone.code}
+                            {zone.label || 'N/A'}
                         </h3>
                     </div>
                     <p className="text-xs text-gray-600 dark:text-gray-400 truncate mb-2">
-                        {zone.name}
+                        {zone.code}
                     </p>
                     {statusBadge}
                 </div>

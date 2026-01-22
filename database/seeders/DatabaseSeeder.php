@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             DepartmentSeeder::class,
             UserRoleSeeder::class,
             ClupSeeder::class,
+            HousingBeneficiarySampleSeeder::class,
         ]);
     }
 }

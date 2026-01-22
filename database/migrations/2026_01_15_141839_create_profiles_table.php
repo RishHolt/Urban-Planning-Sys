@@ -28,7 +28,6 @@ return new class extends Migration
             $table->string('last_name');
             $table->string('middle_name')->nullable();
             $table->string('suffix', 10)->nullable();
-            $table->date('birthday');
             $table->string('mobile_number', 20);
             $table->string('address');
             $table->string('street');

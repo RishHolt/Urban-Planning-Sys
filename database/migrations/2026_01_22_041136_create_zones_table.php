@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -20,14 +19,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::connection('zcs_db')->create('zones', function (Blueprint $table) {
+        // Create zoning_classifications table first
+        Schema::connection('zcs_db')->create('zoning_classifications', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 20)->unique();
-            $table->string('name', 100);
+            $table->string('code', 20)->unique(); // R1, R2, C1, etc.
+            $table->string('name', 100); // Residential 1, Commercial 1, etc.
             $table->text('description')->nullable();
             $table->text('allowed_uses')->nullable();
-            $table->json('geometry')->nullable(); // GeoJSON geometry
-            $table->string('color', 20)->nullable();
+            $table->string('color', 20)->nullable(); // Default color for this classification
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
@@ -35,43 +34,18 @@ return new class extends Migration
             $table->index('is_active');
         });
 
-        // Migrate data from existing tables if they exist
-        if (Schema::connection('zcs_db')->hasTable('zoning_classification') &&
-            Schema::connection('zcs_db')->hasTable('zoning_gis_polygon')) {
-            $this->migrateZoneData();
-        }
-    }
+        // Create zones table with classification relationship
+        Schema::connection('zcs_db')->create('zones', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('zoning_classification_id')->constrained('zoning_classifications')->onDelete('restrict');
+            $table->string('label', 100)->nullable(); // Optional label for identifying specific zone instances
+            $table->json('geometry')->nullable(); // GeoJSON geometry
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
 
-    /**
-     * Migrate data from old zone tables to new zones table.
-     */
-    private function migrateZoneData(): void
-    {
-        $classifications = DB::connection('zcs_db')
-            ->table('zoning_classification')
-            ->get();
-
-        foreach ($classifications as $classification) {
-            // Get associated polygon geometry
-            $polygon = DB::connection('zcs_db')
-                ->table('zoning_gis_polygon')
-                ->where('zoning_id', $classification->zoning_id)
-                ->first();
-
-            $geometry = $polygon ? json_decode($polygon->geometry, true) : null;
-
-            DB::connection('zcs_db')->table('zones')->insert([
-                'code' => $classification->zoning_code,
-                'name' => $classification->zone_name,
-                'description' => null,
-                'allowed_uses' => $classification->allowed_uses,
-                'geometry' => $geometry ? json_encode($geometry) : null,
-                'color' => null,
-                'is_active' => true,
-                'created_at' => $classification->created_at ?? now(),
-                'updated_at' => $classification->updated_at ?? now(),
-            ]);
-        }
+            $table->index('zoning_classification_id');
+            $table->index('is_active');
+        });
     }
 
     /**
@@ -80,5 +54,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::connection('zcs_db')->dropIfExists('zones');
+        Schema::connection('zcs_db')->dropIfExists('zoning_classifications');
     }
 };

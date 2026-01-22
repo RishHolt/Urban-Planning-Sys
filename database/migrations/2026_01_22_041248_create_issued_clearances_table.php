@@ -31,9 +31,9 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index('application_id');
-            $table->index('clearance_no');
-            $table->index('status');
-            $table->index('valid_until');
+            $table->index('clearance_no', 'idx_clearance_no');
+            $table->index('status', 'idx_clearance_status');
+            $table->index('valid_until', 'idx_clearance_validity');
         });
     }
 

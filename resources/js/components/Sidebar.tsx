@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { Menu, X, LayoutDashboard, ClipboardList, Map, ListChecks, History, BarChart3, ChevronDown, ChevronRight, FileText, Home, ClipboardCheck, FileCheck, Receipt } from 'lucide-react';
+import { Menu, X, LayoutDashboard, ClipboardList, Map, ListChecks, History, BarChart3, ChevronDown, ChevronRight, FileText, Home, ClipboardCheck, FileCheck, Receipt, Tags, Calendar, Building, List, Key, Shield, Users } from 'lucide-react';
 import type { SharedData } from '../types';
 
 interface SidebarProps {
@@ -33,6 +33,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                 { href: '/inspections', icon: ClipboardCheck, label: 'Inspections' },
                 { href: '/clearances', icon: FileCheck, label: 'Issued Clearances' },
                 { href: '/payments', icon: Receipt, label: 'Payment Records' },
+                { href: '/admin/zoning/classifications', icon: Tags, label: 'Classifications' },
                 { href: '/admin/zoning/map', icon: Map, label: 'Zoning Map' },
             ],
         },
@@ -42,7 +43,12 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
             children: [
                 { href: '/admin/housing/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
                 { href: '/admin/housing/applications', icon: ListChecks, label: 'Applications' },
-                { href: '/admin/housing/beneficiaries', icon: ListChecks, label: 'Beneficiaries' },
+                { href: '/admin/housing/site-visits', icon: Calendar, label: 'Site Visits' },
+                { href: '/admin/housing/projects', icon: Building, label: 'Projects' },
+                { href: '/admin/housing/waitlist', icon: List, label: 'Waitlist' },
+                { href: '/admin/housing/allocations', icon: Key, label: 'Allocations' },
+                { href: '/admin/housing/blacklist', icon: Shield, label: 'Blacklist' },
+                { href: '/admin/housing/beneficiaries', icon: Users, label: 'Beneficiaries' },
                 { href: '/admin/housing/reports', icon: BarChart3, label: 'Reports' },
             ],
         },

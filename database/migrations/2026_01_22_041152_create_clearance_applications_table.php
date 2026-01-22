@@ -42,6 +42,11 @@ return new class extends Migration
 
             // Property Info
             $table->string('lot_address', 255);
+            // Optional structured address fields
+            $table->string('province', 100)->nullable();
+            $table->string('municipality', 100)->nullable();
+            $table->string('barangay', 100)->nullable();
+            $table->string('street_name', 255)->nullable();
             $table->string('lot_owner', 150);
             $table->decimal('lot_area_total', 12, 2);
 
@@ -84,6 +89,11 @@ return new class extends Migration
             $table->index(['pin_lat', 'pin_lng']);
             $table->index('tax_dec_ref_no');
             $table->index('barangay_permit_ref_no');
+            $table->index('reference_no', 'idx_application_ref');
+            $table->index('application_category', 'idx_application_category');
+            $table->index('province');
+            $table->index('municipality');
+            $table->index('barangay');
         });
     }
 

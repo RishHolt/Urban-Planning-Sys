@@ -138,6 +138,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/documents/{documentId}/replace', [HousingBeneficiaryController::class, 'replaceDocument'])->name('replaceDocument');
     });
 
+    // Complaints (for citizens)
+    Route::prefix('complaints')->name('complaints.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\ComplaintController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\ComplaintController::class, 'store'])->name('store');
+    });
+
     // Notification routes
     Route::prefix('notifications')->name('notifications.')->group(function () {
         Route::get('/', [NotificationController::class, 'index'])->name('index');
@@ -212,11 +218,16 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
 
             // Zoning Classification Management routes
             Route::prefix('classifications')->name('classifications.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'index'])->name('index');
+                Route::get('/', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'indexPage'])->name('index');
                 Route::post('/', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'store'])->name('store');
                 Route::get('/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'show'])->name('show');
                 Route::patch('/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'update'])->name('update');
                 Route::delete('/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'destroy'])->name('destroy');
+            });
+
+            // Zoning Classification API routes (for JSON responses)
+            Route::prefix('api/classifications')->name('api.classifications.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'index'])->name('index');
             });
         });
 
@@ -233,6 +244,60 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
                 Route::post('/{id}/request-documents', [AdminHousingBeneficiaryController::class, 'requestDocuments'])->name('requestDocuments');
                 Route::patch('/{id}/documents/{documentId}/approve', [AdminHousingBeneficiaryController::class, 'approveDocument'])->name('documents.approve');
                 Route::patch('/{id}/documents/{documentId}/reject', [AdminHousingBeneficiaryController::class, 'rejectDocument'])->name('documents.reject');
+            });
+
+            // Site Visits
+            Route::prefix('site-visits')->name('site-visits.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\SiteVisitController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\SiteVisitController::class, 'store'])->name('store');
+                Route::post('/{id}/complete', [\App\Http\Controllers\SiteVisitController::class, 'complete'])->name('complete');
+            });
+
+            // Housing Projects
+            Route::prefix('projects')->name('projects.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\HousingProjectController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\HousingProjectController::class, 'store'])->name('store');
+                Route::get('/{id}', [\App\Http\Controllers\HousingProjectController::class, 'show'])->name('show');
+                Route::patch('/{id}', [\App\Http\Controllers\HousingProjectController::class, 'update'])->name('update');
+            });
+
+            // Housing Units
+            Route::prefix('projects/{projectId}/units')->name('units.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\HousingUnitController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\HousingUnitController::class, 'store'])->name('store');
+                Route::patch('/{id}', [\App\Http\Controllers\HousingUnitController::class, 'update'])->name('update');
+            });
+
+            // Waitlist
+            Route::prefix('waitlist')->name('waitlist.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\WaitlistController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\WaitlistController::class, 'show'])->name('show');
+            });
+
+            // Allocations
+            Route::prefix('allocations')->name('allocations.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\AllocationController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\AllocationController::class, 'store'])->name('store');
+                Route::post('/{id}/approve', [\App\Http\Controllers\AllocationController::class, 'approve'])->name('approve');
+                Route::post('/{id}/reject', [\App\Http\Controllers\AllocationController::class, 'reject'])->name('reject');
+                Route::post('/{id}/accept', [\App\Http\Controllers\AllocationController::class, 'accept'])->name('accept');
+                Route::post('/{id}/decline', [\App\Http\Controllers\AllocationController::class, 'decline'])->name('decline');
+                Route::post('/{id}/move-in', [\App\Http\Controllers\AllocationController::class, 'moveIn'])->name('moveIn');
+            });
+
+            // Complaints
+            Route::prefix('complaints')->name('complaints.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\ComplaintController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\ComplaintController::class, 'store'])->name('store');
+                Route::patch('/{id}/status', [\App\Http\Controllers\ComplaintController::class, 'updateStatus'])->name('updateStatus');
+                Route::post('/{id}/assign', [\App\Http\Controllers\ComplaintController::class, 'assign'])->name('assign');
+            });
+
+            // Blacklist
+            Route::prefix('blacklist')->name('blacklist.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\BlacklistController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\BlacklistController::class, 'store'])->name('store');
+                Route::post('/{id}/lift', [\App\Http\Controllers\BlacklistController::class, 'lift'])->name('lift');
             });
 
             Route::prefix('beneficiaries')->name('beneficiaries.')->group(function () {

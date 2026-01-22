@@ -11,7 +11,6 @@ import {
     updateZone,
     deleteZone,
     getZoningClassifications,
-    createZoningClassification,
     type Zone,
     type ZoningClassification,
 } from '../../../data/services';
@@ -23,7 +22,6 @@ import Button from '../../../components/Button';
 import Input from '../../../components/Input';
 import ZoneCard from '../../../components/Zones/ZoneCard';
 import ZoneDetailsPanel from '../../../components/Zones/ZoneDetailsPanel';
-import CreateZoneModal from '../../../components/Zones/CreateZoneModal';
 
 // Fix for default marker icon in React-Leaflet
 if (typeof window !== 'undefined' && !(L.Icon.Default.prototype as any)._iconUrlFixed) {
@@ -265,7 +263,6 @@ export default function ZoningMap() {
     const [saving, setSaving] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [showCreateModal, setShowCreateModal] = useState(false);
     const [showZoneDetailsPanel, setShowZoneDetailsPanel] = useState(false);
     const mapCenter: [number, number] = [14.5995, 120.9842]; // Default to Manila
     const mapZoom = 13;
@@ -331,12 +328,6 @@ export default function ZoningMap() {
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleClassificationCreated = async (newClassification: ZoningClassification) => {
-        setClassifications((prev) => [...prev, newClassification]);
-        setSelectedClassification(newClassification);
-        setShowCreateModal(false);
     };
 
     const handlePolygonCreated = useCallback(
@@ -633,14 +624,6 @@ export default function ZoningMap() {
                                     ))}
                                 </select>
                             </div>
-                            <Button
-                                onClick={() => setShowCreateModal(true)}
-                                variant="outline"
-                                className="flex justify-center items-center gap-2 w-full"
-                            >
-                                <Plus size={16} />
-                                Create New Classification
-                            </Button>
                             {selectedClassification && (
                                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800 rounded-lg">
                                     <p className="text-blue-800 dark:text-blue-200 text-sm">
@@ -796,11 +779,6 @@ export default function ZoningMap() {
             </main>
 
             {/* Create Zone Modal */}
-                <CreateZoneModal
-                    isOpen={showCreateModal}
-                    onClose={() => setShowCreateModal(false)}
-                    onSuccess={handleClassificationCreated}
-                />
         </div>
     );
 }

@@ -35,8 +35,8 @@ interface Application {
     contact_email?: string | null;
     tax_dec_ref_no: string;
     barangay_permit_ref_no: string;
-    pin_lat: number;
-    pin_lng: number;
+    pin_lat: number | null;
+    pin_lng: number | null;
     lot_address: string;
     province?: string | null;
     municipality?: string | null;
@@ -65,6 +65,10 @@ interface ApplicationDetailsProps {
 
 export default function ApplicationDetails({ application }: ApplicationDetailsProps) {
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/f3985719-de32-427e-9477-49ea0dcf8c68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ClearanceApplicationDetails.tsx:68',message:'Application data received',data:{pin_lat:application.pin_lat,pin_lat_type:typeof application.pin_lat,pin_lng:application.pin_lng,pin_lng_type:typeof application.pin_lng,pin_lat_null:application.pin_lat === null,pin_lat_undefined:application.pin_lat === undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+    // #endregion
 
     const formatFileSize = (bytes: number | null | undefined): string => {
         if (!bytes) return 'N/A';
@@ -272,7 +276,17 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                             Coordinates
                                         </label>
                                         <p className="text-gray-900 dark:text-white font-mono text-sm">
-                                            {application.pin_lat.toFixed(6)}, {application.pin_lng.toFixed(6)}
+                                            {/* #region agent log */}
+                                            {(() => {
+                                                fetch('http://127.0.0.1:7242/ingest/f3985719-de32-427e-9477-49ea0dcf8c68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ClearanceApplicationDetails.tsx:275',message:'Before toFixed call',data:{pin_lat:application.pin_lat,pin_lat_type:typeof application.pin_lat,pin_lat_value:application.pin_lat,pin_lng:application.pin_lng,pin_lng_type:typeof application.pin_lng,pin_lng_value:application.pin_lng,has_toFixed:typeof application.pin_lat?.toFixed === 'function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+                                                // #endregion
+                                                const lat = typeof application.pin_lat === 'number' ? application.pin_lat : Number(application.pin_lat);
+                                                const lng = typeof application.pin_lng === 'number' ? application.pin_lng : Number(application.pin_lng);
+                                                if (isNaN(lat) || isNaN(lng) || lat === null || lng === null) {
+                                                    return 'N/A';
+                                                }
+                                                return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                                            })()}
                                         </p>
                                     </div>
                                     {application.is_subdivision && (

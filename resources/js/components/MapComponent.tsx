@@ -1,7 +1,9 @@
-import { useEffect, useState, memo, useCallback } from 'react';
+import { useEffect, useState, memo, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { validateCoordinates } from '../lib/validation';
+import { geoJSONToLeaflet, generatePolygonColor, hslToRgba } from '../lib/mapUtils';
+import { Zone } from '../lib/zoneDetection';
 
 // Fix for default marker icon in React-Leaflet - only run once
 if (typeof window !== 'undefined' && !(L.Icon.Default.prototype as any)._iconUrlFixed) {
@@ -55,6 +57,7 @@ interface MapComponentProps {
     longitude?: number;
     onLocationSelect: (lat: number, lng: number) => void;
     zoom?: number;
+    zones?: Zone[];
 }
 
 // Component to update map center and zoom when prop changes
@@ -71,12 +74,71 @@ function MapCenterUpdater({ center, zoom }: { center: [number, number]; zoom?: n
     return null;
 }
 
+// Component to render zone layers on the map
+function ZoneLayers({ zones }: { zones?: Zone[] }) {
+    const map = useMap();
+    const polygonLayersRef = useRef<Map<string, L.Layer>>(new Map());
+
+    useEffect(() => {
+        if (!map || !zones || zones.length === 0) {
+            return;
+        }
+
+        // Clear existing layers
+        polygonLayersRef.current.forEach((layer) => {
+            if (map.hasLayer(layer)) {
+                map.removeLayer(layer);
+            }
+        });
+        polygonLayersRef.current.clear();
+
+        // Add all zones with geometry
+        zones.forEach((zone) => {
+            if (!zone.geometry) {
+                return;
+            }
+
+            try {
+                const color = zone.color || generatePolygonColor(zone.code || 'UNKNOWN');
+
+                const layer = geoJSONToLeaflet(zone.geometry, {
+                    color,
+                    fillColor: color,
+                    fillOpacity: 0.3,
+                    weight: 2,
+                    opacity: 0.8,
+                });
+
+                if (layer) {
+                    map.addLayer(layer);
+                    polygonLayersRef.current.set(zone.id.toString(), layer);
+                }
+            } catch (error) {
+                console.error(`Error rendering zone ${zone.id}:`, error);
+            }
+        });
+
+        // Cleanup function
+        return () => {
+            polygonLayersRef.current.forEach((layer) => {
+                if (map.hasLayer(layer)) {
+                    map.removeLayer(layer);
+                }
+            });
+            polygonLayersRef.current.clear();
+        };
+    }, [map, zones]);
+
+    return null;
+}
+
 export default memo(function MapComponent({
     center,
     latitude,
     longitude,
     onLocationSelect,
     zoom = 13,
+    zones,
 }: MapComponentProps) {
     const handleLocationSelect = useCallback((lat: number, lng: number) => {
         onLocationSelect(lat, lng);
@@ -112,6 +174,7 @@ export default memo(function MapComponent({
                 keepBuffer={2}
             />
             <MapCenterUpdater center={center} zoom={zoom} />
+            {zones && zones.length > 0 && <ZoneLayers zones={zones} />}
             <LocationMarker
                 position={latitude && longitude ? [latitude, longitude] : undefined}
                 onLocationSelect={handleLocationSelect}

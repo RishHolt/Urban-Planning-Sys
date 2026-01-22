@@ -81,13 +81,21 @@ export default function ClearanceApplication({ category: propCategory }: Clearan
 
     // Load zones for detection
     useEffect(() => {
-        fetch('/api/zones')
+        fetch('/api/zones', {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
             .then(res => res.json())
             .then(data => {
-                setZones(data);
+                // Handle { success: true, zones: [...] } format
+                const zones = data.success && data.zones ? data.zones : (Array.isArray(data) ? data : []);
+                setZones(zones);
                 setLoadingZones(false);
             })
-            .catch(() => {
+            .catch((error) => {
+                console.error('Failed to load zones:', error);
                 setLoadingZones(false);
             });
     }, []);

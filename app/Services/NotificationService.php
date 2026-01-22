@@ -24,11 +24,13 @@ class NotificationService
     /**
      * Create a notification for application status change.
      */
-    public static function notifyApplicationStatusChange(int $userId, string $applicationNumber, string $oldStatus, string $newStatus, ?int $applicationId = null): Notification
+    public static function notifyApplicationStatusChange(int $userId, string $applicationNumber, ?string $oldStatus, string $newStatus, ?int $applicationId = null): Notification
     {
         $title = 'Application Status Updated';
-        $message = "Your housing beneficiary application {$applicationNumber} status has been changed from ".
-            self::formatStatus($oldStatus).' to '.self::formatStatus($newStatus).'.';
+        $message = $oldStatus
+            ? "Your housing beneficiary application {$applicationNumber} status has been changed from ".
+                self::formatStatus($oldStatus).' to '.self::formatStatus($newStatus).'.'
+            : "Your housing beneficiary application {$applicationNumber} has been {$newStatus}.";
 
         return self::create(
             $userId,

@@ -15,6 +15,8 @@ const MapComponent = lazy(() => {
     return Promise.resolve({ default: () => null });
 });
 
+import { Zone } from '../lib/zoneDetection';
+
 interface MapPickerProps {
     latitude?: number;
     longitude?: number;
@@ -24,6 +26,7 @@ interface MapPickerProps {
     className?: string;
     center?: [number, number];
     zoom?: number;
+    zones?: Zone[];
 }
 
 function MapPicker({
@@ -35,6 +38,7 @@ function MapPicker({
     className = '',
     center: propCenter,
     zoom,
+    zones,
 }: MapPickerProps) {
     const [isValid, setIsValid] = useState(true);
     const [validationError, setValidationError] = useState<string>('');
@@ -98,6 +102,7 @@ function MapPicker({
                         longitude={longitude}
                         onLocationSelect={handleLocationSelect}
                         zoom={zoom}
+                        zones={zones}
                     />
                 </Suspense>
             </div>
