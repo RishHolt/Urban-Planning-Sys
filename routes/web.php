@@ -67,6 +67,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}', [\App\Http\Controllers\ClearanceApplicationController::class, 'show'])->name('show');
     });
 
+    // Subdivision Application routes (for developers)
+    Route::prefix('subdivision-applications')->name('subdivision-applications.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\SubdivisionApplicationController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\SubdivisionApplicationController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\SubdivisionApplicationController::class, 'store'])->name('store');
+        Route::get('/{id}', [\App\Http\Controllers\SubdivisionApplicationController::class, 'show'])->name('show');
+    });
+
     // Zones API for frontend zone detection and map rendering
     Route::get('/api/zones', [\App\Http\Controllers\Admin\ZoneController::class, 'getAllZones'])->name('zones.all');
 
@@ -308,6 +316,108 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
 
             Route::get('/reports', function () {
                 return Inertia::render('Admin/Housing/Reports');
+            })->name('reports');
+        });
+
+        // Subdivision & Building Review routes
+        Route::prefix('subdivision')->name('subdivision.')->group(function () {
+            Route::get('/dashboard', function () {
+                return Inertia::render('Admin/Subdivision/Dashboard');
+            })->name('dashboard');
+
+            Route::prefix('applications')->name('applications.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\AdminSubdivisionApplicationController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\AdminSubdivisionApplicationController::class, 'show'])->name('show');
+                Route::post('/{id}/review-stage', [\App\Http\Controllers\Admin\AdminSubdivisionApplicationController::class, 'reviewStage'])->name('reviewStage');
+            });
+
+            Route::prefix('certificates')->name('certificates.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\IssuedCertificateController::class, 'index'])->name('index');
+                Route::get('/create', [\App\Http\Controllers\IssuedCertificateController::class, 'create'])->name('create');
+                Route::post('/', [\App\Http\Controllers\IssuedCertificateController::class, 'store'])->name('store');
+                Route::get('/{id}', [\App\Http\Controllers\IssuedCertificateController::class, 'show'])->name('show');
+            });
+
+            Route::get('/reports', function () {
+                return Inertia::render('Admin/Subdivision/Reports');
+            })->name('reports');
+        });
+
+        // Building Review routes
+        Route::prefix('building')->name('building.')->group(function () {
+            Route::prefix('reviews')->name('reviews.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\AdminBuildingReviewController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\AdminBuildingReviewController::class, 'show'])->name('show');
+                Route::post('/plan-checks', [\App\Http\Controllers\Admin\AdminBuildingReviewController::class, 'storePlanCheck'])->name('storePlanCheck');
+                Route::post('/{id}/post-to-pl', [\App\Http\Controllers\Admin\AdminBuildingReviewController::class, 'postToPermitLicensing'])->name('postToPermitLicensing');
+            });
+        });
+
+        // Occupancy Monitoring Tool routes
+        Route::prefix('occupancy')->name('occupancy.')->group(function () {
+            // Buildings
+            Route::prefix('buildings')->name('buildings.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'index'])->name('index');
+                Route::get('/create', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'create'])->name('create');
+                Route::post('/', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'store'])->name('store');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'show'])->name('show');
+                Route::get('/{id}/edit', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'edit'])->name('edit');
+                Route::put('/{id}', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'update'])->name('update');
+                Route::delete('/{id}', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'destroy'])->name('destroy');
+            });
+
+            // API routes for frontend
+            Route::prefix('api')->name('api.')->group(function () {
+                Route::get('/buildings/{id}/units', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'getUnits'])->name('buildings.units');
+            });
+
+            // Inspections
+            Route::prefix('inspections')->name('inspections.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'index'])->name('index');
+                Route::get('/create', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'create'])->name('create');
+                Route::post('/', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'store'])->name('store');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'show'])->name('show');
+                Route::put('/{id}', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'update'])->name('update');
+                Route::post('/{id}/complete', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'complete'])->name('complete');
+            });
+
+            // Complaints
+            Route::prefix('complaints')->name('complaints.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\Occupancy\OccupancyComplaintController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\Occupancy\OccupancyComplaintController::class, 'show'])->name('show');
+            });
+
+            // Violations
+            Route::prefix('violations')->name('violations.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\Occupancy\ViolationController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\Occupancy\ViolationController::class, 'show'])->name('show');
+            });
+
+            // Compliance Reports
+            Route::prefix('reports')->name('reports.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\Occupancy\ComplianceReportController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\Occupancy\ComplianceReportController::class, 'show'])->name('show');
+            });
+        });
+
+        // Infrastructure Project Coordination routes
+        Route::prefix('infrastructure')->name('infrastructure.')->group(function () {
+            Route::get('/dashboard', function () {
+                return Inertia::render('Admin/Infrastructure/Dashboard');
+            })->name('dashboard');
+
+            Route::prefix('projects')->name('projects.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'index'])->name('index');
+                Route::get('/create', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'create'])->name('create');
+                Route::post('/', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'store'])->name('store');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'show'])->name('show');
+                Route::get('/{id}/edit', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'edit'])->name('edit');
+                Route::put('/{id}', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'update'])->name('update');
+                Route::delete('/{id}', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'destroy'])->name('destroy');
+            });
+
+            Route::get('/reports', function () {
+                return Inertia::render('Admin/Infrastructure/Reports');
             })->name('reports');
         });
 

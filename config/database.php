@@ -173,6 +173,66 @@ return [
             ]) : [],
         ],
 
+        'omt_db' => [
+            'driver' => env('OMT_DB_CONNECTION', 'mysql'),
+            'url' => env('OMT_DB_URL'),
+            'host' => env('OMT_DB_HOST', '127.0.0.1'),
+            'port' => env('OMT_DB_PORT', '3306'),
+            'database' => env('OMT_DB_DATABASE', 'omt_db'),
+            'username' => env('OMT_DB_USERNAME', 'root'),
+            'password' => env('OMT_DB_PASSWORD', ''),
+            'unix_socket' => env('OMT_DB_SOCKET', ''),
+            'charset' => env('OMT_DB_CHARSET', 'utf8mb4'),
+            'collation' => env('OMT_DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('OMT_MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
+        'sbr_db' => [
+            'driver' => env('SBR_DB_CONNECTION', 'mysql'),
+            'url' => env('SBR_DB_URL'),
+            'host' => env('SBR_DB_HOST', '127.0.0.1'),
+            'port' => env('SBR_DB_PORT', '3306'),
+            'database' => env('SBR_DB_DATABASE', 'sbr_db'),
+            'username' => env('SBR_DB_USERNAME', 'root'),
+            'password' => env('SBR_DB_PASSWORD', ''),
+            'unix_socket' => env('SBR_DB_SOCKET', ''),
+            'charset' => env('SBR_DB_CHARSET', 'utf8mb4'),
+            'collation' => env('SBR_DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('SBR_MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
+        'ipc_db' => [
+            'driver' => env('IPC_DB_CONNECTION', 'mysql'),
+            'url' => env('IPC_DB_URL'),
+            'host' => env('IPC_DB_HOST', '127.0.0.1'),
+            'port' => env('IPC_DB_PORT', '3306'),
+            'database' => env('IPC_DB_DATABASE', 'ipc_db'),
+            'username' => env('IPC_DB_USERNAME', 'root'),
+            'password' => env('IPC_DB_PASSWORD', ''),
+            'unix_socket' => env('IPC_DB_SOCKET', ''),
+            'charset' => env('IPC_DB_CHARSET', 'utf8mb4'),
+            'collation' => env('IPC_DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('IPC_MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
     ],
 
     /*
