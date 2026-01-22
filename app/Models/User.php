@@ -2,17 +2,17 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The connection name for the model.
@@ -27,14 +27,10 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'username',
         'email',
         'password',
         'role',
-        'email_verified',
-        'department',
-        'position',
-        'account_no',
+        'is_active',
     ];
 
     /**
@@ -44,7 +40,6 @@ class User extends Authenticatable
      */
     protected $hidden = [
         'password',
-        'remember_token',
     ];
 
     /**
@@ -56,8 +51,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'email_verified' => 'boolean',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -70,45 +65,10 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the department associated with the user.
+     * Get the email verifications for the user.
      */
-    public function departmentRelation(): BelongsTo
+    public function emailVerifications(): HasMany
     {
-        return $this->belongsTo(Department::class, 'department', 'code');
-    }
-
-    /**
-     * Generate account number based on role and department.
-     */
-    public static function generateAccountNo(string $role, ?string $department = null): string
-    {
-        // Role prefix: U for user, S for staff/admin/superadmin
-        $rolePrefix = in_array($role, ['staff', 'admin', 'superadmin']) ? 'S' : 'U';
-
-        // Department code: Use department code if exists, otherwise 'O'
-        $deptCode = $department ? $department : 'O';
-
-        // Generate random 8-digit number
-        $number = str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
-
-        return $rolePrefix.$deptCode.$number;
-    }
-
-    /**
-     * Boot the model.
-     */
-    protected static function boot(): void
-    {
-        parent::boot();
-
-        static::creating(function ($user) {
-            if (! $user->account_no) {
-                do {
-                    $accountNo = self::generateAccountNo($user->role ?? 'user', $user->department);
-                } while (self::where('account_no', $accountNo)->exists());
-
-                $user->account_no = $accountNo;
-            }
-        });
+        return $this->hasMany(EmailVerification::class, 'email', 'email');
     }
 }

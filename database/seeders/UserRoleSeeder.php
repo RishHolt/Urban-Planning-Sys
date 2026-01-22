@@ -21,26 +21,19 @@ class UserRoleSeeder extends Seeder
      */
     public function run(): void
     {
-        $roles = ['user', 'staff', 'admin', 'superadmin'];
-        $departments = ['ZCS', 'SBR', 'HBR', 'OMT', 'IPC'];
+        $roles = ['citizen', 'staff', 'admin'];
 
         foreach ($roles as $role) {
-            $department = $departments[array_rand($departments)];
-
             // Check if user already exists
-            $user = User::where('username', $role)->first();
-            
-            if (!$user) {
+            $user = User::where('email', "{$role}@goserveph.com")->first();
+
+            if (! $user) {
                 $user = User::create([
-                    'username' => $role,
                     'email' => "{$role}@goserveph.com",
                     'password' => Hash::make('password'),
                     'role' => $role,
-                    'email_verified' => true,
                     'email_verified_at' => now(),
-                    'department' => $department,
-                    'position' => ucfirst($role) . ' Position',
-                    'account_no' => User::generateAccountNo($role, $department),
+                    'is_active' => true,
                 ]);
 
                 // Only create profile if user was just created
@@ -52,7 +45,6 @@ class UserRoleSeeder extends Seeder
                         'last_name' => 'User',
                         'middle_name' => null,
                         'suffix' => null,
-                        'birthday' => '1990-01-01',
                         'mobile_number' => '09123456789',
                         'address' => '123 Main Street',
                         'street' => 'Main Street',

@@ -1,11 +1,12 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
-class ProfileUpdateRequest extends FormRequest
+class RegisterRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,14 +23,16 @@ class ProfileUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
-        $user = $this->user();
-
         return [
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            // User fields
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')],
+            'password' => ['required', 'string', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
+
+            // Profile fields
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
-            'suffix' => ['nullable', 'string', 'max:50'],
+            'suffix' => ['nullable', 'string', 'max:10'],
             'mobile_number' => ['required', 'string', 'max:20'],
             'address' => ['required', 'string', 'max:255'],
             'street' => ['required', 'string', 'max:255'],
@@ -48,7 +51,9 @@ class ProfileUpdateRequest extends FormRequest
         return [
             'email.required' => 'Email is required.',
             'email.email' => 'Please enter a valid email address.',
-            'email.unique' => 'This email is already taken.',
+            'email.unique' => 'This email is already registered.',
+            'password.required' => 'Password is required.',
+            'password.confirmed' => 'Password confirmation does not match.',
             'first_name.required' => 'First name is required.',
             'last_name.required' => 'Last name is required.',
             'mobile_number.required' => 'Mobile number is required.',

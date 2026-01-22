@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
+import { useForm, usePage } from '@inertiajs/react';
 import Input from '../components/Input';
 import Button from '../components/Button';
+import VerifyOtpModal from './VerifyOtpModal';
 import { showError } from '../lib/swal';
-import { X, Mail, Lock, User, Phone, MapPin, Calendar, Eye, EyeOff } from 'lucide-react';
+import { X, Mail, Lock, User, Phone, MapPin, Eye, EyeOff } from 'lucide-react';
 
 interface RegisterModalProps {
     isOpen: boolean;
@@ -14,13 +15,35 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [noMiddleName, setNoMiddleName] = useState(false);
+    const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+    const [registrationEmail, setRegistrationEmail] = useState('');
+
+    const { flash } = usePage().props as any;
+
+    // Check for email in flash data (from backend redirect)
+    useEffect(() => {
+        if (flash?.email && isOpen && !isOtpModalOpen) {
+            setRegistrationEmail(flash.email);
+            setIsOtpModalOpen(true);
+            
+            // Log OTP code to browser console for testing
+            if (flash?.otp_code) {
+                console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
+                console.log('%c🔐 OTP CODE FOR TESTING', 'color: #4CAF50; font-weight: bold; font-size: 16px;');
+                console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
+                console.log(`%cEmail: ${flash.email}`, 'color: #2196F3; font-size: 14px;');
+                console.log(`%cCode: ${flash.otp_code}`, 'color: #FF9800; font-weight: bold; font-size: 18px;');
+                console.log(`%cType: registration`, 'color: #2196F3; font-size: 14px;');
+                console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
+            }
+        }
+    }, [flash, isOpen, isOtpModalOpen]);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         first_name: '',
         last_name: '',
         middle_name: '',
         suffix: '',
-        birthday: '',
         email: '',
         mobile_number: '',
         address: '',
@@ -82,9 +105,48 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
                                 return;
                             }
                             post('/register', {
-                                onSuccess: () => {
+                                preserveState: true,
+                                preserveScroll: true,
+                                onSuccess: (page) => {
+                                    // Check if email is in flash or use form email
+                                    const flashData = (page.props as any)?.flash;
+                                    const email = flashData?.email || data.email;
+                                    
+                                    // Debug: log entire response
+                                    console.log('Registration response:', { flashData, pageProps: page.props });
+                                    
+                                    if (email && !isOtpModalOpen) {
+                                        setRegistrationEmail(email);
+                                        setIsOtpModalOpen(true);
+                                        
+                                        // Log OTP code to browser console for testing
+                                        if (flashData?.otp_code) {
+                                            console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
+                                            console.log('%c🔐 OTP CODE FOR TESTING', 'color: #4CAF50; font-weight: bold; font-size: 16px;');
+                                            console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
+                                            console.log(`%cEmail: ${email}`, 'color: #2196F3; font-size: 14px;');
+                                            console.log(`%cCode: ${flashData.otp_code}`, 'color: #FF9800; font-weight: bold; font-size: 18px;');
+                                            console.log(`%cType: registration`, 'color: #2196F3; font-size: 14px;');
+                                            console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
+                                        } else {
+                                            // Fetch OTP from API if not in flash
+                                            fetch(`/api/otp/${email}`)
+                                                .then(res => res.json())
+                                                .then(result => {
+                                                    if (result.code) {
+                                                        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
+                                                        console.log('%c🔐 OTP CODE FOR TESTING', 'color: #4CAF50; font-weight: bold; font-size: 16px;');
+                                                        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
+                                                        console.log(`%cEmail: ${email}`, 'color: #2196F3; font-size: 14px;');
+                                                        console.log(`%cCode: ${result.code}`, 'color: #FF9800; font-weight: bold; font-size: 18px;');
+                                                        console.log(`%cType: registration`, 'color: #2196F3; font-size: 14px;');
+                                                        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
+                                                    }
+                                                })
+                                                .catch(() => {});
+                                        }
+                                    }
                                     reset();
-                                    onClose();
                                 },
                             });
                         }}
@@ -156,18 +218,6 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
                             value={data.suffix}
                             onChange={(e) => setData('suffix', e.target.value)}
                             error={errors.suffix}
-                        />
-
-                        {/* Birthday */}
-                        <Input
-                            type="date"
-                            name="birthday"
-                            label="Birthday"
-                            icon={<Calendar size={20} />}
-                            value={data.birthday}
-                            onChange={(e) => setData('birthday', e.target.value)}
-                            error={errors.birthday}
-                            required
                         />
 
                         {/* Email */}
@@ -341,6 +391,14 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
                     </form>
                 </div>
             </div>
+
+            {/* OTP Verification Modal */}
+            <VerifyOtpModal
+                isOpen={isOtpModalOpen}
+                onClose={() => setIsOtpModalOpen(false)}
+                email={registrationEmail}
+                type="registration"
+            />
         </div>
     );
 }

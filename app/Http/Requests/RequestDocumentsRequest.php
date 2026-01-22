@@ -11,7 +11,7 @@ class RequestDocumentsRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user() !== null && in_array($this->user()->role, ['admin', 'staff', 'superadmin']);
+        return $this->user() !== null && in_array($this->user()->role, ['admin', 'staff']);
     }
 
     /**

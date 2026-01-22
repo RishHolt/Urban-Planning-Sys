@@ -25,7 +25,6 @@ export default function Profile() {
         last_name: profile?.last_name || '',
         middle_name: profile?.middle_name || '',
         suffix: profile?.suffix || '',
-        birthday: formatDateForInput(profile?.birthday || null),
         mobile_number: profile?.mobile_number || '',
         address: profile?.address || '',
         street: profile?.street || '',
@@ -232,18 +231,6 @@ export default function Profile() {
                                                 error={errors.suffix}
                                             />
 
-                                            {/* Birthday */}
-                                            <Input
-                                                type="date"
-                                                name="birthday"
-                                                label="Birthday"
-                                                value={data.birthday}
-                                                onChange={(e) => setData('birthday', e.target.value)}
-                                                icon={<Calendar size={20} />}
-                                                error={errors.birthday}
-                                                required
-                                            />
-
                                             {/* Mobile Number */}
                                             <Input
                                                 type="tel"
@@ -349,17 +336,6 @@ export default function Profile() {
                                                 <p className="text-gray-500 dark:text-gray-400 text-sm">Email</p>
                                                 <p className="mt-1 text-gray-900 dark:text-white break-words">
                                                     {profile?.email || user?.email || 'Not provided'}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Birthday */}
-                                        <div className="flex items-start gap-3">
-                                            <Calendar className="flex-shrink-0 mt-1 w-5 h-5 text-primary" />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-gray-500 dark:text-gray-400 text-sm">Birthday</p>
-                                                <p className="mt-1 text-gray-900 dark:text-white">
-                                                    {formatDate(profile?.birthday || null)}
                                                 </p>
                                             </div>
                                         </div>

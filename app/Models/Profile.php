@@ -29,7 +29,6 @@ class Profile extends Model
         'last_name',
         'middle_name',
         'suffix',
-        'birthday',
         'mobile_number',
         'address',
         'street',
@@ -44,9 +43,21 @@ class Profile extends Model
      */
     protected function casts(): array
     {
-        return [
-            'birthday' => 'date',
-        ];
+        return [];
+    }
+
+    /**
+     * Boot the model.
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::saving(function ($profile) {
+            if ($profile->isDirty('email') && $profile->user) {
+                $profile->user->update(['email' => $profile->email]);
+            }
+        });
     }
 
     /**

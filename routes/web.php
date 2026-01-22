@@ -6,6 +6,8 @@ use App\Http\Controllers\Admin\AdminZoningApplicationController;
 use App\Http\Controllers\Admin\ClupController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\Auth\OtpVerificationController;
+use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\HousingBeneficiaryController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -20,10 +22,10 @@ Route::get('/', function () {
     $user = Auth::user();
 
     if ($user) {
-        $role = $user->role ?? 'user';
+        $role = $user->role ?? 'citizen';
 
-        // Redirect admin, staff, and superadmin to admin page
-        if (in_array($role, ['admin', 'staff', 'superadmin'])) {
+        // Redirect admin and staff to admin page
+        if (in_array($role, ['admin', 'staff'])) {
             return redirect()->route('admin.home');
         }
 
@@ -36,8 +38,19 @@ Route::get('/', function () {
 
 // Authentication routes
 Route::middleware('guest')->group(function () {
+    // Registration
+    Route::post('/register', [RegisterController::class, 'store'])->name('register');
+
+    // OTP Verification
+    Route::get('/verify-otp', [OtpVerificationController::class, 'show'])->name('verify-otp.show');
+    Route::post('/verify-otp', [OtpVerificationController::class, 'verify'])->name('verify-otp.verify');
+    Route::post('/resend-otp', [OtpVerificationController::class, 'resend'])->name('otp.resend');
+    Route::get('/api/otp/{email}', [OtpVerificationController::class, 'getOtp'])->name('otp.get');
+
+    // Login
     Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store']);
+    Route::post('/login/resend-otp', [LoginController::class, 'resendOtp'])->name('login.resend-otp');
 });
 
 // Logout route - needs auth but not RedirectByRole

@@ -21,7 +21,7 @@ class ProfileController extends Controller
         $user = Auth::user();
 
         if ($user) {
-            $user->load(['profile', 'departmentRelation']);
+            $user->load('profile');
         }
 
         return Inertia::render('Profile', [

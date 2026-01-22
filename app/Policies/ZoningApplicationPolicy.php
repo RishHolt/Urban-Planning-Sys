@@ -27,8 +27,8 @@ class ZoningApplicationPolicy
             return true;
         }
 
-        // Admins, staff, and superadmins can view any application
-        return in_array($user->role, ['admin', 'staff', 'superadmin']);
+        // Admins and staff can view any application
+        return in_array($user->role, ['admin', 'staff']);
     }
 
     /**

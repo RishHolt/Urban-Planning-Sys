@@ -12,7 +12,8 @@ class UpdateClupRequest extends FormRequest
     public function authorize(): bool
     {
         $user = $this->user();
-        return $user && in_array($user->role, ['admin', 'staff', 'superadmin']);
+
+        return $user && in_array($user->role, ['admin', 'staff']);
     }
 
     /**
@@ -34,7 +35,7 @@ class UpdateClupRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     $startYear = (int) $this->input('coverage_start_year');
                     $endYear = (int) $value;
-                    
+
                     if ($startYear && $endYear) {
                         $yearsDifference = $endYear - $startYear;
                         if ($yearsDifference < 10 || $yearsDifference > 12) {

@@ -12,7 +12,8 @@ class StoreZoningClassificationRequest extends FormRequest
     public function authorize(): bool
     {
         $user = $this->user();
-        return $user && in_array($user->role, ['admin', 'staff', 'superadmin']);
+
+        return $user && in_array($user->role, ['admin', 'staff']);
     }
 
     /**
