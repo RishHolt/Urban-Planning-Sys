@@ -22,7 +22,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Step 1: Applicant Information
-            $table->enum('applicant_type', ['individual', 'company']);
+            $table->enum('applicant_type', ['individual', 'company', 'developer', 'Government']);
             $table->string('applicant_name');
             $table->string('applicant_email');
             $table->string('applicant_contact');
@@ -34,9 +34,9 @@ return new class extends Migration
             // authorization_letter_path - moved to zoning_application_documents table
 
             // Step 2: Property Owner Information
-            $table->string('owner_name');
-            $table->text('owner_address');
-            $table->string('owner_contact');
+            $table->string('owner_name')->nullable();
+            $table->text('owner_address')->nullable();
+            $table->string('owner_contact')->nullable();
             // proof_of_ownership_path - moved to zoning_application_documents table
             // tax_declaration_type, tax_declaration_id, tax_declaration_path - moved to zoning_application_documents table
 
@@ -60,8 +60,7 @@ return new class extends Migration
             $table->enum('application_type', ['new_construction', 'renovation', 'change_of_use', 'others']);
             $table->enum('proposed_use', ['residential', 'commercial', 'mixed_use', 'institutional']);
             $table->text('project_description')->nullable();
-            $table->decimal('estimated_cost', 15, 2)->nullable();
-            $table->date('expected_start_date')->nullable();
+            // estimated_cost and expected_start_date removed - not needed
             // site_development_plan_path - moved to zoning_application_documents table
             $table->string('previous_use')->nullable();
             $table->text('justification')->nullable();

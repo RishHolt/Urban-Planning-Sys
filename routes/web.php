@@ -1,10 +1,13 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminAuditLogController;
+use App\Http\Controllers\Admin\AdminHousingBeneficiaryController;
 use App\Http\Controllers\Admin\AdminZoningApplicationController;
 use App\Http\Controllers\Admin\ClupController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\HousingBeneficiaryController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ZoningApplicationController;
 use App\Http\Middleware\RedirectByRole;
@@ -57,6 +60,30 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/documents', [ZoningApplicationController::class, 'uploadDocuments'])->name('uploadDocuments');
         Route::post('/{id}/documents/{documentId}/replace', [ZoningApplicationController::class, 'replaceDocument'])->name('replaceDocument');
         Route::get('/{id}/documents/{documentId}/versions', [ZoningApplicationController::class, 'getDocumentVersions'])->name('getDocumentVersions');
+    });
+
+    // Housing Beneficiary Application routes
+    Route::prefix('applications/housing')->name('applications.housing.')->group(function () {
+        Route::get('/', [HousingBeneficiaryController::class, 'index'])->name('index');
+        Route::get('/create', [HousingBeneficiaryController::class, 'create'])->name('create');
+        Route::post('/', [HousingBeneficiaryController::class, 'store'])->name('store');
+        Route::get('/success', function (Request $request) {
+            return Inertia::render('Applications/Housing/ApplicationSuccess', [
+                'applicationNumber' => $request->query('applicationNumber', ''),
+            ]);
+        })->name('success');
+        Route::get('/{id}', [HousingBeneficiaryController::class, 'show'])->name('show');
+        Route::put('/{id}', [HousingBeneficiaryController::class, 'update'])->name('update');
+        Route::post('/{id}/documents', [HousingBeneficiaryController::class, 'uploadDocuments'])->name('uploadDocuments');
+        Route::post('/{id}/documents/{documentId}/replace', [HousingBeneficiaryController::class, 'replaceDocument'])->name('replaceDocument');
+    });
+
+    // Notification routes
+    Route::prefix('notifications')->name('notifications.')->group(function () {
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::get('/unread-count', [NotificationController::class, 'unreadCount'])->name('unreadCount');
+        Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])->name('markAsRead');
+        Route::post('/read-all', [NotificationController::class, 'markAllAsRead'])->name('markAllAsRead');
     });
 });
 
@@ -113,6 +140,32 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
                 Route::patch('/polygons/{id}', [ClupController::class, 'updatePolygon'])->name('polygons.update');
                 Route::delete('/polygons/{id}', [ClupController::class, 'destroyPolygon'])->name('polygons.destroy');
             });
+        });
+
+        // Housing Beneficiary Registry routes
+        Route::prefix('housing')->name('housing.')->group(function () {
+            Route::get('/', function () {
+                return Inertia::render('Admin/Housing/Dashboard');
+            })->name('dashboard');
+
+            Route::prefix('applications')->name('applications.')->group(function () {
+                Route::get('/', [AdminHousingBeneficiaryController::class, 'index'])->name('index');
+                Route::get('/{id}', [AdminHousingBeneficiaryController::class, 'show'])->name('show');
+                Route::patch('/{id}/status', [AdminHousingBeneficiaryController::class, 'updateStatus'])->name('updateStatus');
+                Route::post('/{id}/request-documents', [AdminHousingBeneficiaryController::class, 'requestDocuments'])->name('requestDocuments');
+                Route::patch('/{id}/documents/{documentId}/approve', [AdminHousingBeneficiaryController::class, 'approveDocument'])->name('documents.approve');
+                Route::patch('/{id}/documents/{documentId}/reject', [AdminHousingBeneficiaryController::class, 'rejectDocument'])->name('documents.reject');
+            });
+
+            Route::prefix('beneficiaries')->name('beneficiaries.')->group(function () {
+                Route::get('/', function () {
+                    return Inertia::render('Admin/Housing/BeneficiariesIndex');
+                })->name('index');
+            });
+
+            Route::get('/reports', function () {
+                return Inertia::render('Admin/Housing/Reports');
+            })->name('reports');
         });
 
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])->name('audit-logs.index');

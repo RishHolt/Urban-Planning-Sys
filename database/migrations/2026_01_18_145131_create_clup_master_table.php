@@ -21,10 +21,11 @@ return new class extends Migration
     {
         Schema::connection('zcs_db')->create('clup_master', function (Blueprint $table) {
             $table->id('clup_id');
+            $table->string('reference_no', 50)->unique()->nullable();
             $table->string('lgu_name', 150);
             $table->integer('coverage_start_year');
             $table->integer('coverage_end_year');
-            $table->date('approval_date');
+            $table->date('approval_date')->nullable();
             $table->string('approving_body', 150)->nullable();
             $table->string('resolution_no', 100)->nullable();
             $table->enum('status', ['Active', 'Archived'])->default('Active');

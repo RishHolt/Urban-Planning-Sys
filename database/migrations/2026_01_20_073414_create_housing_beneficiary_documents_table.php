@@ -7,14 +7,23 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
+     * Get the migration connection name.
+     * Uses 'hbr_db' connection for HBR database.
+     */
+    public function getConnection(): ?string
+    {
+        return 'hbr_db';
+    }
+
+    /**
      * Run the migrations.
      */
     public function up(): void
     {
-        Schema::connection('zcs_db')->create('zoning_application_documents', function (Blueprint $table) {
+        Schema::connection('hbr_db')->create('housing_beneficiary_documents', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('zoning_application_id')->constrained('zoning_applications')->onDelete('cascade');
-            $table->string('document_type'); // String to support all document types
+            $table->foreignId('housing_beneficiary_application_id')->constrained('housing_beneficiary_applications')->onDelete('cascade');
+            $table->string('document_type'); // proof_of_identity, proof_of_income, proof_of_residence, special_eligibility_certificate, requested_documents
             $table->enum('type', ['upload', 'manual'])->nullable(); // Type for documents with upload/manual options
             $table->string('manual_id')->nullable(); // Manual ID for documents with manual option
             $table->string('file_path')->nullable(); // Nullable for manual type documents
@@ -38,16 +47,16 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes
-            $table->index('zoning_application_id');
+            $table->index('housing_beneficiary_application_id');
             $table->index('document_type');
             $table->index('status');
-            $table->index(['zoning_application_id', 'document_type', 'is_current'], 'zoning_docs_app_type_current_idx');
-            $table->index('parent_document_id', 'zoning_docs_parent_idx');
+            $table->index(['housing_beneficiary_application_id', 'document_type', 'is_current'], 'hbr_docs_app_type_current_idx');
+            $table->index('parent_document_id', 'hbr_docs_parent_idx');
 
             // Foreign key for parent document
             $table->foreign('parent_document_id')
                 ->references('id')
-                ->on('zoning_application_documents')
+                ->on('housing_beneficiary_documents')
                 ->onDelete('set null');
         });
     }
@@ -57,6 +66,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::connection('zcs_db')->dropIfExists('zoning_application_documents');
+        Schema::connection('hbr_db')->dropIfExists('housing_beneficiary_documents');
     }
 };

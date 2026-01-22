@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Link, router, usePage } from '@inertiajs/react';
-import AdminHeader from '../../../components/AdminHeader';
-import Sidebar from '../../../components/Sidebar';
+import { router, usePage } from '@inertiajs/react';
+import AdminLayout from '../../../components/AdminLayout';
 import Button from '../../../components/Button';
 import AdminDocumentViewerModal from '../../../components/AdminDocumentViewerModal';
 import VersionHistoryModal from '../../../components/VersionHistoryModal';
@@ -69,13 +68,6 @@ interface ApplicationDetailsProps {
 }
 
 export default function ApplicationDetails({ application }: ApplicationDetailsProps) {
-    const [sidebarOpen, setSidebarOpen] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return window.innerWidth >= 1024;
-        }
-        return true;
-    });
-
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
     const [viewingDocument, setViewingDocument] = useState<{
         url: string;
@@ -276,35 +268,17 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
     };
 
     return (
-        <div className="flex flex-col bg-background dark:bg-dark-bg w-full min-h-dvh transition-colors">
-            <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
-            <AdminHeader sidebarOpen={sidebarOpen} />
-
-            <main className={`flex-1 transition-all duration-300 ease-in-out ${
-                sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
-            } mt-16`}>
-                <div className="mx-auto px-4 py-8 max-w-7xl">
-                    <div className="mb-6">
-                        <Link href="/admin/zoning/applications">
-                            <Button variant="secondary" size="sm" className="flex items-center gap-2">
-                                <ArrowLeft size={18} />
-                                Back to Applications
-                            </Button>
-                        </Link>
-                    </div>
-
-                    {/* Header */}
-                    <div className="flex justify-between items-center mb-6">
-                        <div>
-                            <h1 className="mb-2 font-bold text-gray-900 dark:text-white text-3xl">
-                                Application Details
-                            </h1>
-                            <p className="text-gray-600 dark:text-gray-400">
-                                {application.applicationNumber}
-                            </p>
-                        </div>
-                        <StatusBadge status={application.status} />
-                    </div>
+        <AdminLayout
+            title="Application Details"
+            description={application.applicationNumber}
+            backButton={{
+                href: '/admin/zoning/applications',
+                label: 'Back to Applications',
+            }}
+        >
+            <div className="flex justify-end items-center mb-6">
+                <StatusBadge status={application.status} />
+            </div>
 
                     {/* Success/Error Messages */}
                     {flash?.success && (
@@ -951,8 +925,6 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             <StatusHistory history={application.statusHistory} />
                         </div>
                     </div>
-                </div>
-            </main>
 
             {/* Document Viewer Modal */}
             {viewingDocument && (
@@ -1000,6 +972,6 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     }}
                 />
             )}
-        </div>
+        </AdminLayout>
     );
 }

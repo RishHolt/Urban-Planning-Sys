@@ -22,7 +22,7 @@ return new class extends Migration
         Schema::connection('zcs_db')->create('zoning_classification', function (Blueprint $table) {
             $table->id('zoning_id');
             $table->unsignedBigInteger('clup_id');
-            $table->string('zoning_code', 10);
+            $table->string('zoning_code', 20);
             $table->string('zone_name', 100);
             $table->string('land_use_category', 50)->nullable();
             $table->text('allowed_uses')->nullable();

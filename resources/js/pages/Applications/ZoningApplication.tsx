@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useForm, Link } from '@inertiajs/react';
 import { usePage } from '@inertiajs/react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import Button from '../../components/Button';
-import { ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertCircle, ArrowLeft } from 'lucide-react';
 import StepProgress from '../../components/StepProgress';
 import ApplicantInformationStep from '../../components/Applications/ApplicantInformationStep';
 import PropertyOwnerStep from '../../components/Applications/PropertyOwnerStep';
@@ -400,8 +400,17 @@ export default function ZoningApplication() {
         <div className="flex flex-col bg-background dark:bg-dark-bg w-full min-h-dvh transition-colors">
             <Header />
 
-            <div className="mt-16 py-8 w-full">
-                <div className="mx-auto px-4 max-w-7xl">
+            <div className="flex-1 mt-16 py-8 w-full">
+                <div className="mx-auto px-4 max-w-7xl h-full">
+                    <div className="mb-6">
+                        <Link href="/applications/zoning">
+                            <Button variant="secondary" size="sm" className="flex items-center gap-2">
+                                <ArrowLeft size={18} />
+                                Back to My Applications
+                            </Button>
+                        </Link>
+                    </div>
+
                     {/* Progress Indicator */}
                     <div className="mb-8">
                         <h1 className="mb-6 font-bold text-gray-900 dark:text-white text-3xl">

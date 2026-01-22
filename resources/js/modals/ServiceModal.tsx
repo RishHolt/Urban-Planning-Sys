@@ -556,7 +556,11 @@ export default function ServiceModal({
                             size="md"
                             onClick={() => {
                                 onClose();
-                                router.visit(`/applications/zoning`);
+                                // Route based on service ID
+                                const applicationRoute = serviceId === 'housing-beneficiary' 
+                                    ? '/applications/housing/create'
+                                    : '/applications/zoning/create';
+                                router.visit(applicationRoute);
                             }}
                         >
                             Apply now
