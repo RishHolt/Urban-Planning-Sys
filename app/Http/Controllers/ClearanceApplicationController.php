@@ -44,10 +44,12 @@ class ClearanceApplicationController extends Controller
             ->map(function ($application) {
                 return [
                     'id' => (string) $application->id,
-                    'referenceNo' => $application->reference_no,
-                    'category' => $application->application_category,
+                    'applicationNumber' => $application->reference_no,
+                    'projectType' => str_replace('_', ' ', ucfirst($application->project_type)),
                     'status' => $application->status,
                     'submittedAt' => $application->submitted_at?->format('Y-m-d H:i:s'),
+                    'municipality' => $application->municipality,
+                    'barangay' => $application->barangay,
                     'lotAddress' => $application->lot_address,
                     'zoneName' => $application->zone?->name,
                 ];
@@ -134,7 +136,6 @@ class ClearanceApplicationController extends Controller
                 'existing_structure' => $validated['existing_structure'],
                 'number_of_storeys' => $validated['number_of_storeys'] ?? null,
                 'floor_area_sqm' => $validated['floor_area_sqm'] ?? null,
-                'estimated_cost' => $validated['estimated_cost'] ?? null,
                 'purpose' => $validated['purpose'],
                 'status' => 'pending',
                 'submitted_at' => now(),
@@ -188,7 +189,6 @@ class ClearanceApplicationController extends Controller
             'documents',
             'history',
             'externalVerifications',
-            'paymentRecord',
             'inspection',
             'issuedClearance',
         ])
@@ -236,6 +236,15 @@ class ClearanceApplicationController extends Controller
                     'file_type' => $doc->file_type,
                     'file_size' => $doc->file_size,
                     'uploaded_at' => $doc->uploaded_at?->format('Y-m-d H:i:s'),
+                ]),
+                'externalVerifications' => $application->externalVerifications->map(fn ($v) => [
+                    'id' => $v->id,
+                    'verification_type' => $v->verification_type,
+                    'reference_no' => $v->reference_no,
+                    'status' => $v->status,
+                    'response_data' => $v->response_data,
+                    'external_system' => $v->external_system,
+                    'verified_at' => $v->verified_at?->format('Y-m-d H:i:s'),
                 ]),
                 'history' => $application->history->map(fn ($h) => [
                     'id' => $h->id,

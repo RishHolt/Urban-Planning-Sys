@@ -65,7 +65,6 @@ class StoreClearanceApplicationRequest extends FormRequest
             'existing_structure' => ['required', Rule::in(['none', 'existing_to_retain', 'existing_to_demolish', 'existing_to_renovate'])],
             'number_of_storeys' => ['nullable', 'integer', 'min:1'],
             'floor_area_sqm' => ['nullable', 'numeric', 'min:0'],
-            'estimated_cost' => ['nullable', 'numeric', 'min:0'],
             'purpose' => ['required', 'string'],
         ];
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import MapPicker from '../MapPicker';
 import MapDisplay from '../MapDisplay';
 import CoordinateDisplay from '../CoordinateDisplay';
@@ -67,6 +67,8 @@ export default function PropertyLocation({
     const [suggestions, setSuggestions] = useState<Array<{ lat: number; lng: number; displayName: string }>>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [geocoding, setGeocoding] = useState(false);
+    const [geocodingError, setGeocodingError] = useState<string | null>(null);
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Load zones if not provided and in form mode
     useEffect(() => {
@@ -99,15 +101,42 @@ export default function PropertyLocation({
         if (mode === 'form' && pinLat && pinLng && onAddressChange) {
             const timeoutId = setTimeout(async () => {
                 setGeocoding(true);
-                const result = await reverseGeocode(pinLat, pinLng);
-                if (result && onAddressChange) {
-                    if (result.address.province) onAddressChange('province', result.address.province);
-                    if (result.address.municipality) onAddressChange('municipality', result.address.municipality);
-                    if (result.address.barangay) onAddressChange('barangay', result.address.barangay);
-                    if (result.address.street) onAddressChange('street_name', result.address.street);
+                setGeocodingError(null);
+
+                try {
+                    const result = await reverseGeocode(pinLat, pinLng);
+
+                    if (result && onAddressChange) {
+                        // Populate the full address field
+                        if (result.displayName) {
+                            onAddressChange('lot_address', result.displayName);
+                        }
+
+                        // Populate structured address fields
+                        if (result.address.province) {
+                            onAddressChange('province', result.address.province);
+                        }
+                        if (result.address.municipality) {
+                            onAddressChange('municipality', result.address.municipality);
+                        }
+                        if (result.address.barangay) {
+                            onAddressChange('barangay', result.address.barangay);
+                        }
+                        if (result.address.street) {
+                            onAddressChange('street_name', result.address.street);
+                        }
+
+                        setGeocodingError(null);
+                    } else {
+                        setGeocodingError('Unable to determine address for this location.');
+                    }
+                } catch (error) {
+                    console.error('Reverse geocoding failed:', error);
+                    setGeocodingError('Failed to fetch address. Please enter manually.');
+                } finally {
+                    setGeocoding(false);
                 }
-                setGeocoding(false);
-            }, 500); // Debounce
+            }, 800); // Slightly longer debounce for API stability
 
             return () => clearTimeout(timeoutId);
         }
@@ -121,31 +150,59 @@ export default function PropertyLocation({
 
     const handleAddressSearch = async (query: string) => {
         setSearchQuery(query);
+
+        // Clear previous timeout if exists
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+
         if (query.length < 3) {
             setSuggestions([]);
             setShowSuggestions(false);
             return;
         }
 
-        const results = await searchAddressSuggestions(query, 5);
-        setSuggestions(results);
-        setShowSuggestions(true);
+        // Debounce the search with 600ms delay to respect Nominatim rate limits
+        searchTimeoutRef.current = setTimeout(async () => {
+            try {
+                const results = await searchAddressSuggestions(query, 10);
+                setSuggestions(results);
+                setShowSuggestions(results.length > 0);
+            } catch (error) {
+                console.error('Search failed:', error);
+                setSuggestions([]);
+                setShowSuggestions(false);
+            }
+        }, 600);
     };
 
     const handleSuggestionSelect = async (suggestion: { lat: number; lng: number; displayName: string }) => {
         setSearchQuery(suggestion.displayName);
         setShowSuggestions(false);
+
+        // Immediately update lot_address with the selected suggestion
+        if (onAddressChange) {
+            onAddressChange('lot_address', suggestion.displayName);
+        }
+
+        // Update pin location
         if (onLocationSelect) {
             onLocationSelect(suggestion.lat, suggestion.lng);
         }
-        // Reverse geocode to populate structured fields
-        const result = await reverseGeocode(suggestion.lat, suggestion.lng);
-        if (result && onAddressChange) {
-            if (result.address.province) onAddressChange('province', result.address.province);
-            if (result.address.municipality) onAddressChange('municipality', result.address.municipality);
-            if (result.address.barangay) onAddressChange('barangay', result.address.barangay);
-            if (result.address.street) onAddressChange('street_name', result.address.street);
-            onAddressChange('lot_address', suggestion.displayName);
+
+        // Then reverse geocode to populate structured fields (province, municipality, etc.)
+        // This runs in background and won't overwrite lot_address
+        try {
+            const result = await reverseGeocode(suggestion.lat, suggestion.lng);
+            if (result && onAddressChange) {
+                if (result.address.province) onAddressChange('province', result.address.province);
+                if (result.address.municipality) onAddressChange('municipality', result.address.municipality);
+                if (result.address.barangay) onAddressChange('barangay', result.address.barangay);
+                if (result.address.street) onAddressChange('street_name', result.address.street);
+                // Note: We don't override lot_address here since user selected a specific address
+            }
+        } catch (error) {
+            console.error('Failed to get address details:', error);
         }
     };
 
@@ -225,6 +282,12 @@ export default function PropertyLocation({
                         <span>Getting address from location...</span>
                     </div>
                 )}
+                {geocodingError && (
+                    <div className="flex items-center gap-2 mt-2 text-orange-600 dark:text-orange-400 text-sm">
+                        <AlertCircle size={14} />
+                        <span>{geocodingError}</span>
+                    </div>
+                )}
                 {detectedZone && (
                     <div className="flex items-center gap-2 mt-2 text-green-600 dark:text-green-400">
                         <CheckCircle size={16} />
@@ -286,22 +349,20 @@ export default function PropertyLocation({
                     <button
                         type="button"
                         onClick={() => setAddressMode('full')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            addressMode === 'full'
-                                ? 'bg-primary text-white'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                        }`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${addressMode === 'full'
+                            ? 'bg-primary text-white'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                            }`}
                     >
                         Full Address
                     </button>
                     <button
                         type="button"
                         onClick={() => setAddressMode('structured')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            addressMode === 'structured'
-                                ? 'bg-primary text-white'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                        }`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${addressMode === 'structured'
+                            ? 'bg-primary text-white'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                            }`}
                     >
                         Structured Address
                     </button>

@@ -50,6 +50,11 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        // Fix 419 error for prerequisite verification
+        $middleware->validateCsrfTokens(except: [
+            'api/verify-prerequisites',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) use ($isMcpMode): void {
         if ($isMcpMode) {

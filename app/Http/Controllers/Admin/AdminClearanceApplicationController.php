@@ -43,11 +43,16 @@ class AdminClearanceApplicationController extends Controller
             ->through(function ($application) {
                 return [
                     'id' => (string) $application->id,
-                    'referenceNo' => $application->reference_no,
-                    'category' => $application->application_category,
+                    'applicationNumber' => $application->reference_no,
+                    'applicantName' => $application->lot_owner,
+                    'companyName' => null, // Zoning applications usually represent individual lots
+                    'applicantType' => $application->applicant_type,
+                    'projectType' => str_replace('_', ' ', ucfirst($application->project_type)),
                     'status' => $application->status,
                     'lotOwner' => $application->lot_owner,
                     'lotAddress' => $application->lot_address,
+                    'municipality' => $application->municipality,
+                    'barangay' => $application->barangay,
                     'zoneName' => $application->zone?->name,
                     'submittedAt' => $application->submitted_at?->format('Y-m-d H:i:s'),
                 ];
@@ -73,7 +78,6 @@ class AdminClearanceApplicationController extends Controller
             'documents',
             'history',
             'externalVerifications',
-            'paymentRecord',
             'inspection',
             'issuedClearance',
         ])->findOrFail($id);
@@ -141,7 +145,6 @@ class AdminClearanceApplicationController extends Controller
                 'existing_structure' => $application->existing_structure,
                 'number_of_storeys' => $application->number_of_storeys,
                 'floor_area_sqm' => $application->floor_area_sqm,
-                'estimated_cost' => $application->estimated_cost,
                 'purpose' => $application->purpose,
 
                 // Related Data
@@ -160,13 +163,6 @@ class AdminClearanceApplicationController extends Controller
                     'updated_by' => $h->updated_by,
                     'updated_at' => $h->updated_at->format('Y-m-d H:i:s'),
                 ]),
-                'paymentRecord' => $application->paymentRecord ? [
-                    'or_number' => $application->paymentRecord->or_number,
-                    'amount' => $application->paymentRecord->amount,
-                    'payment_date' => $application->paymentRecord->payment_date->format('Y-m-d'),
-                    'treasury_ref' => $application->paymentRecord->treasury_ref,
-                    'recorded_by' => $application->paymentRecord->recorded_by,
-                ] : null,
                 'inspection' => $application->inspection ? [
                     'id' => $application->inspection->id,
                     'inspector_id' => $application->inspection->inspector_id,

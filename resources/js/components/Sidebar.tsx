@@ -55,7 +55,6 @@ const MENU_ITEMS: MenuItem[] = [
             { href: '/admin/zoning/clearance/applications', icon: ListChecks, label: 'Applications' },
             { href: '/inspections', icon: ClipboardCheck, label: 'Inspections' },
             { href: '/clearances', icon: FileCheck, label: 'Issued Clearances' },
-            { href: '/payments', icon: Receipt, label: 'Payment Records' },
             { href: '/admin/zoning/classifications', icon: Tags, label: 'Classifications' },
             { href: '/admin/zoning/map', icon: Map, label: 'Zoning Map' },
         ],
@@ -250,9 +249,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         <>
             {/* Mobile Overlay */}
             <div
-                className={`lg:hidden z-40 fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-out motion-reduce:transition-none ${
-                    isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                }`}
+                className={`lg:hidden z-40 fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-out motion-reduce:transition-none ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    }`}
                 onClick={onToggle}
                 onKeyDown={(e) => {
                     if (e.key === 'Escape') {
@@ -276,22 +274,19 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
 
             {/* Sidebar */}
             <aside
-                className={`fixed top-0 left-0 z-40 h-screen bg-white dark:bg-dark-surface border-r border-gray-200 dark:border-gray-700 shadow-lg transition-[transform,width] duration-300 ease-out motion-reduce:transition-none ${
-                    isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-                } ${isOpen ? 'w-64' : 'w-0 lg:w-20'} overflow-hidden`}
+                className={`fixed top-0 left-0 z-40 h-screen bg-white dark:bg-dark-surface border-r border-gray-200 dark:border-gray-700 shadow-lg transition-[transform,width] duration-300 ease-out motion-reduce:transition-none ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+                    } ${isOpen ? 'w-64' : 'w-0 lg:w-20'} overflow-hidden`}
                 aria-label="Main navigation"
             >
                 <div className="flex flex-col h-full">
                     {/* Header */}
                     <div
-                        className={`flex items-center h-16 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 transition-[padding,justify-content] duration-300 ease-out motion-reduce:transition-none ${
-                            isOpen ? 'justify-between px-4' : 'justify-center px-0'
-                        }`}
+                        className={`flex items-center h-16 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 transition-[padding,justify-content] duration-300 ease-out motion-reduce:transition-none ${isOpen ? 'justify-between px-4' : 'justify-center px-0'
+                            }`}
                     >
                         <div
-                            className={`flex items-center gap-2 transition-all duration-300 ease-out motion-reduce:transition-none ${
-                                isOpen ? 'w-auto opacity-100' : 'w-0 opacity-0 lg:w-0 lg:opacity-0 overflow-hidden'
-                            }`}
+                            className={`flex items-center gap-2 transition-all duration-300 ease-out motion-reduce:transition-none ${isOpen ? 'w-auto opacity-100' : 'w-0 opacity-0 lg:w-0 lg:opacity-0 overflow-hidden'
+                                }`}
                         >
                             <div className="flex justify-center items-center bg-primary/10 dark:bg-primary/20 rounded-lg w-8 h-8">
                                 <LayoutDashboard size={18} className="text-primary" aria-hidden="true" />
@@ -314,9 +309,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
 
                     {/* Navigation Items */}
                     <nav
-                        className={`flex-1 overflow-y-auto overscroll-contain transition-[padding] duration-300 ease-out motion-reduce:transition-none scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent hover:scrollbar-thumb-primary/30 ${
-                            isOpen ? 'px-3 py-4' : 'px-2 py-3 lg:px-2 lg:py-3'
-                        }`}
+                        className={`flex-1 overflow-y-auto overscroll-contain transition-[padding] duration-300 ease-out motion-reduce:transition-none scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent hover:scrollbar-thumb-primary/30 ${isOpen ? 'px-3 py-4' : 'px-2 py-3 lg:px-2 lg:py-3'
+                            }`}
                         aria-label="Main navigation"
                     >
                         <ul className="space-y-1.5" role="menubar">
@@ -345,13 +339,11 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                                                                 setOpenPopover((current) => (current === item.label ? null : item.label));
                                                             }
                                                         }}
-                                                        className={`group relative flex items-center w-full rounded-xl text-sm font-medium transition-all duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 ${
-                                                            isOpen ? 'gap-3 px-3 h-11' : 'justify-center px-0 h-11'
-                                                        } ${
-                                                            active
+                                                        className={`group relative flex items-center w-full rounded-xl text-sm font-medium transition-all duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 ${isOpen ? 'gap-3 px-3 h-11' : 'justify-center px-0 h-11'
+                                                            } ${active
                                                                 ? 'bg-primary/10 text-primary dark:text-primary shadow-sm ring-1 ring-primary/20 dark:ring-primary/30'
                                                                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:bg-gray-200 dark:active:bg-gray-600'
-                                                        }`}
+                                                            }`}
                                                         aria-expanded={isOpen ? expanded : openPopover === item.label}
                                                         aria-controls={isOpen ? undefined : itemPopoverId}
                                                         aria-haspopup={!isOpen ? 'menu' : undefined}
@@ -359,32 +351,28 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                                                         role="menuitem"
                                                     >
                                                         <span
-                                                            className={`absolute left-0 top-1/2 h-8 -translate-y-1/2 rounded-r-full ${
-                                                                active ? 'w-1 bg-primary shadow-sm' : 'w-0'
-                                                            } transition-all duration-300 ease-out motion-reduce:transition-none`}
+                                                            className={`absolute left-0 top-1/2 h-8 -translate-y-1/2 rounded-r-full ${active ? 'w-1 bg-primary shadow-sm' : 'w-0'
+                                                                } transition-all duration-300 ease-out motion-reduce:transition-none`}
                                                             aria-hidden="true"
                                                         />
 
                                                         <Icon
                                                             size={20}
-                                                            className={`flex-shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none ${
-                                                                active ? 'scale-110' : 'group-hover:scale-105'
-                                                            }`}
+                                                            className={`flex-shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none ${active ? 'scale-110' : 'group-hover:scale-105'
+                                                                }`}
                                                             aria-hidden="true"
                                                         />
                                                         <span
-                                                            className={`flex-1 text-left whitespace-nowrap transition-opacity duration-300 ease-out motion-reduce:transition-none ${
-                                                                isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'
-                                                            }`}
+                                                            className={`flex-1 text-left whitespace-nowrap transition-opacity duration-300 ease-out motion-reduce:transition-none ${isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'
+                                                                }`}
                                                         >
                                                             {item.label}
                                                         </span>
 
                                                         {isOpen && (
                                                             <span
-                                                                className={`transition-transform motion-reduce:transition-none duration-200 ease-out ${
-                                                                    expanded ? 'rotate-0' : '-rotate-90'
-                                                                }`}
+                                                                className={`transition-transform motion-reduce:transition-none duration-200 ease-out ${expanded ? 'rotate-0' : '-rotate-90'
+                                                                    }`}
                                                                 aria-hidden="true"
                                                             >
                                                                 <ChevronDown size={16} />
@@ -433,18 +421,16 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                                                                             <Link
                                                                                 href={child.href || '#'}
                                                                                 onClick={handlePopoverClose}
-                                                                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
-                                                                                    childActive
+                                                                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${childActive
                                                                                         ? 'bg-primary/10 text-primary dark:text-primary shadow-sm ring-1 ring-primary/20'
                                                                                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:bg-gray-200 dark:active:bg-gray-600'
-                                                                                }`}
+                                                                                    }`}
                                                                                 role="menuitem"
                                                                             >
                                                                                 <ChildIcon
                                                                                     size={18}
-                                                                                    className={`flex-shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none ${
-                                                                                        childActive ? 'scale-110' : ''
-                                                                                    }`}
+                                                                                    className={`flex-shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none ${childActive ? 'scale-110' : ''
+                                                                                        }`}
                                                                                     aria-hidden="true"
                                                                                 />
                                                                                 <span className="whitespace-nowrap">{child.label}</span>
@@ -472,18 +458,16 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                                                                 <li key={child.href || child.label} role="none">
                                                                     <Link
                                                                         href={child.href || '#'}
-                                                                        className={`flex items-center gap-3 px-3 h-10 rounded-lg text-sm font-medium transition-all duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
-                                                                            childActive
+                                                                        className={`flex items-center gap-3 px-3 h-10 rounded-lg text-sm font-medium transition-all duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${childActive
                                                                                 ? 'bg-primary/10 text-primary dark:text-primary shadow-sm ring-1 ring-primary/20'
                                                                                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:bg-gray-200 dark:active:bg-gray-600'
-                                                                        }`}
+                                                                            }`}
                                                                         role="menuitem"
                                                                     >
                                                                         <ChildIcon
                                                                             size={18}
-                                                                            className={`flex-shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none ${
-                                                                                childActive ? 'scale-110' : ''
-                                                                            }`}
+                                                                            className={`flex-shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none ${childActive ? 'scale-110' : ''
+                                                                                }`}
                                                                             aria-hidden="true"
                                                                         />
                                                                         <span className="whitespace-nowrap">{child.label}</span>
@@ -497,33 +481,28 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                                         ) : (
                                             <Link
                                                 href={item.href || '#'}
-                                                className={`group relative flex items-center w-full rounded-xl text-sm font-medium transition-all duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 ${
-                                                    isOpen ? 'gap-3 px-3 h-11' : 'justify-center px-0 h-11'
-                                                } ${
-                                                    active
+                                                className={`group relative flex items-center w-full rounded-xl text-sm font-medium transition-all duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 ${isOpen ? 'gap-3 px-3 h-11' : 'justify-center px-0 h-11'
+                                                    } ${active
                                                         ? 'bg-primary/10 text-primary dark:text-primary shadow-sm ring-1 ring-primary/20 dark:ring-primary/30'
                                                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:bg-gray-200 dark:active:bg-gray-600'
-                                                }`}
+                                                    }`}
                                                 role="menuitem"
                                             >
                                                 <span
-                                                    className={`absolute left-0 top-1/2 h-8 -translate-y-1/2 rounded-r-full ${
-                                                        active ? 'w-1 bg-primary shadow-sm' : 'w-0'
-                                                    } transition-all duration-300 ease-out motion-reduce:transition-none`}
+                                                    className={`absolute left-0 top-1/2 h-8 -translate-y-1/2 rounded-r-full ${active ? 'w-1 bg-primary shadow-sm' : 'w-0'
+                                                        } transition-all duration-300 ease-out motion-reduce:transition-none`}
                                                     aria-hidden="true"
                                                 />
 
                                                 <Icon
                                                     size={20}
-                                                    className={`flex-shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none ${
-                                                        active ? 'scale-110' : 'group-hover:scale-105'
-                                                    }`}
+                                                    className={`flex-shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none ${active ? 'scale-110' : 'group-hover:scale-105'
+                                                        }`}
                                                     aria-hidden="true"
                                                 />
                                                 <span
-                                                    className={`whitespace-nowrap transition-opacity duration-300 ease-out motion-reduce:transition-none ${
-                                                        isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'
-                                                    }`}
+                                                    className={`whitespace-nowrap transition-opacity duration-300 ease-out motion-reduce:transition-none ${isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'
+                                                        }`}
                                                 >
                                                     {item.label}
                                                 </span>

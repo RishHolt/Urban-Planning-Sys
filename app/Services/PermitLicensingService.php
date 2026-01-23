@@ -11,12 +11,25 @@ class PermitLicensingService
      */
     public function verifyBarangayPermit(string $refNo): array
     {
-        // Mock implementation - in production, this would call Permit & Licensing API
+        // Simulate API Latency
+        usleep(800000);
+
+        // Specific test keys for development
+        $validKeys = ['BP-2024-056', 'BP-SAMPLE-SUCCESS'];
+
+        if (!in_array(strtoupper($refNo), $validKeys)) {
+            return [
+                'verified' => false,
+                'data' => null,
+                'message' => 'Barangay Permit reference number not found or has expired.',
+            ];
+        }
+
         return [
             'verified' => true,
             'data' => [
                 'reference_no' => $refNo,
-                'barangay' => 'Mock Barangay',
+                'barangay' => 'Sample Barangay',
                 'permit_type' => 'Barangay Clearance',
                 'issued_date' => date('Y-m-d', strtotime('-30 days')),
                 'valid_until' => date('Y-m-d', strtotime('+1 year')),

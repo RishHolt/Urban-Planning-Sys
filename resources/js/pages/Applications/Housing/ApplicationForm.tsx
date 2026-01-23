@@ -34,6 +34,7 @@ export default function ApplicationForm() {
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
     const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
     const [backendErrors, setBackendErrors] = useState<ValidationErrors>({});
+    const [localErrors, setLocalErrors] = useState<ValidationErrors>({});
 
     const { data, setData, post, processing, errors } = useForm<HousingApplicationFormData>({
         beneficiary: {
@@ -104,15 +105,17 @@ export default function ApplicationForm() {
         // Map errors from useForm (if any)
         Object.keys(errors).forEach(backendKey => {
             const frontendKey = mapBackendErrorKey(backendKey);
-            mapped[frontendKey] = errors[backendKey];
+            mapped[frontendKey] = (errors as any)[backendKey];
         });
         // Map errors from router.post (stored in backendErrors state)
         Object.keys(backendErrors).forEach(backendKey => {
             const frontendKey = mapBackendErrorKey(backendKey);
             mapped[frontendKey] = backendErrors[backendKey];
         });
+        // Merge local validation errors
+        Object.assign(mapped, localErrors);
         return mapped;
-    }, [errors, backendErrors]);
+    }, [errors, backendErrors, localErrors]);
 
     const setBeneficiaryField = (key: keyof HousingApplicationFormData['beneficiary'], value: any) => {
         const updatedBeneficiary = {
@@ -120,7 +123,7 @@ export default function ApplicationForm() {
             [key]: value,
         };
         setData('beneficiary', updatedBeneficiary);
-        
+
         // Clear error for this field if it's been touched and is now valid
         const fieldKey = `beneficiary.${key}`;
         if (touchedFields.has(fieldKey) && mappedErrors[fieldKey]) {
@@ -146,7 +149,7 @@ export default function ApplicationForm() {
             [key]: value,
         };
         setData('application', updatedApplication);
-        
+
         // Clear error for this field if it's been touched and is now valid
         const fieldKey = key === 'housingProgram' ? 'housing_program' : 'application_reason';
         if (touchedFields.has(fieldKey) && localErrors[fieldKey]) {
@@ -198,13 +201,13 @@ export default function ApplicationForm() {
 
     const validateCurrentStep = (markAllAsTouched: boolean = false): boolean => {
         const stepErrors = validateStep(currentStep, data);
-        
+
         if (markAllAsTouched) {
             // When clicking Next, mark all fields in current step as touched
             const stepFields = Object.keys(stepErrors);
             setTouchedFields(prev => new Set([...prev, ...stepFields]));
         }
-        
+
         setLocalErrors(stepErrors);
         return Object.keys(stepErrors).length === 0;
     };
@@ -212,10 +215,10 @@ export default function ApplicationForm() {
     const handleFieldBlur = (fieldKey: string) => {
         // Mark field as touched
         setTouchedFields(prev => new Set([...prev, fieldKey]));
-        
+
         // Validate only this specific field
         const fieldError = validateField(fieldKey, data);
-        
+
         setLocalErrors(prev => {
             if (fieldError) {
                 return { ...prev, [fieldKey]: fieldError };
@@ -252,29 +255,23 @@ export default function ApplicationForm() {
     };
 
     const handleSubmit = (): void => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/f3985719-de32-427e-9477-49ea0dcf8c68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ApplicationForm.tsx:233',message:'handleSubmit called',data:{currentStep,dataKeys:Object.keys(data)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
-        
+
         // Validate all steps before submitting
         const allErrors: ValidationErrors = {};
         for (let step = 1; step <= STEPS.length; step++) {
             const stepErrors = validateStep(step, data);
             Object.assign(allErrors, stepErrors);
         }
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/f3985719-de32-427e-9477-49ea0dcf8c68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ApplicationForm.tsx:240',message:'Validation complete',data:{errorCount:Object.keys(allErrors).length,errors:Object.keys(allErrors)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
-        
+
+
         if (Object.keys(allErrors).length > 0) {
             // Mark all fields as touched to show all errors
             setTouchedFields(new Set(Object.keys(allErrors)));
             // Go to first step with errors
             const firstErrorStep = Math.min(
                 ...Object.keys(allErrors).map(key => {
-                    if (key.startsWith('beneficiary.firstName') || key.startsWith('beneficiary.lastName') || 
-                        key.startsWith('beneficiary.birthDate') || key.startsWith('beneficiary.gender') || 
+                    if (key.startsWith('beneficiary.firstName') || key.startsWith('beneficiary.lastName') ||
+                        key.startsWith('beneficiary.birthDate') || key.startsWith('beneficiary.gender') ||
                         key.startsWith('beneficiary.civilStatus')) return 1;
                     if (key.startsWith('beneficiary.contactNumber') || key.startsWith('beneficiary.email') ||
                         key.startsWith('beneficiary.currentAddress') || key.startsWith('beneficiary.barangay') ||
@@ -294,21 +291,21 @@ export default function ApplicationForm() {
         // Use useForm().post() with transform to convert to FormData format
         // This matches the pattern used in ClearanceApplication but handles FormData conversion
         const formData = prepareFormData(data);
-        
+
         // Use router.post for FormData, store errors in state for display
         router.post('/applications/housing', formData, {
             preserveScroll: true,
             onError: (errorBag) => {
                 // Store errors in state so they persist and can be displayed
                 setBackendErrors(errorBag as ValidationErrors);
-                
+
                 // Navigate to the first step with an error
                 const errorKeys = Object.keys(errorBag);
                 const firstErrorStep = Math.min(
                     ...errorKeys.map(key => {
                         const mappedKey = mapBackendErrorKey(key);
-                        if (mappedKey.startsWith('beneficiary.firstName') || mappedKey.startsWith('beneficiary.lastName') || 
-                            mappedKey.startsWith('beneficiary.middleName') || mappedKey.startsWith('beneficiary.birthDate') || 
+                        if (mappedKey.startsWith('beneficiary.firstName') || mappedKey.startsWith('beneficiary.lastName') ||
+                            mappedKey.startsWith('beneficiary.middleName') || mappedKey.startsWith('beneficiary.birthDate') ||
                             mappedKey.startsWith('beneficiary.gender') || mappedKey.startsWith('beneficiary.civilStatus')) return 1;
                         if (mappedKey.startsWith('beneficiary.contactNumber') || mappedKey.startsWith('beneficiary.email') ||
                             mappedKey.startsWith('beneficiary.currentAddress') || mappedKey.startsWith('beneficiary.barangay') ||
@@ -490,9 +487,6 @@ export default function ApplicationForm() {
                                     size="md"
                                     className="flex items-center gap-2"
                                     onClick={(e) => {
-                                        // #region agent log
-                                        fetch('http://127.0.0.1:7242/ingest/f3985719-de32-427e-9477-49ea0dcf8c68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ApplicationForm.tsx:407',message:'Submit button clicked',data:{processing,currentStep},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-                                        // #endregion
                                         handleSubmit();
                                     }}
                                     disabled={processing}

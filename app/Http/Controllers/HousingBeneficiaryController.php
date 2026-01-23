@@ -40,17 +40,20 @@ class HousingBeneficiaryController extends Controller
             ]);
         }
 
-        $applications = BeneficiaryApplication::where('beneficiary_id', $beneficiary->id)
+        $applications = BeneficiaryApplication::with('beneficiary')
+            ->where('beneficiary_id', $beneficiary->id)
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($application) {
                 return [
                     'id' => (string) $application->id,
                     'applicationNumber' => $application->application_no,
-                    'housingProgram' => $application->housing_program,
+                    'projectType' => str_replace('_', ' ', ucfirst($application->housing_program)),
                     'status' => $application->application_status,
                     'eligibilityStatus' => $application->eligibility_status,
                     'submittedAt' => $application->submitted_at?->format('Y-m-d H:i:s'),
+                    'municipality' => 'Cauayan City',
+                    'barangay' => $application->beneficiary?->barangay,
                 ];
             });
 

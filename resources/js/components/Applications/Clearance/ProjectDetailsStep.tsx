@@ -9,7 +9,6 @@ interface ProjectDetailsStepProps {
         existing_structure: 'none' | 'existing_to_retain' | 'existing_to_demolish' | 'existing_to_renovate';
         number_of_storeys: number | null;
         floor_area_sqm: number | null;
-        estimated_cost: number | null;
         purpose: string;
     };
     setData: (key: string, value: unknown) => void;
@@ -134,15 +133,6 @@ export default function ProjectDetailsStep({
                 )}
             </div>
 
-            <Input
-                label="Estimated Cost (₱)"
-                type="number"
-                step="0.01"
-                value={data.estimated_cost || ''}
-                onChange={(e) => setData('estimated_cost', parseFloat(e.target.value) || null)}
-                error={errors.estimated_cost}
-                placeholder="Optional - Enter estimated project cost"
-            />
 
             <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

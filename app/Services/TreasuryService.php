@@ -11,15 +11,27 @@ class TreasuryService
      */
     public function verifyTaxDeclaration(string $refNo): array
     {
-        // Mock implementation - in production, this would call Treasury API
-        // For now, return mock data structure
+        // Simulate API Latency
+        usleep(800000); 
+
+        // Specific test keys for development
+        $validKeys = ['TD-2024-001', 'TD-SAMPLE-SUCCESS'];
+
+        if (!in_array(strtoupper($refNo), $validKeys)) {
+            return [
+                'verified' => false,
+                'data' => null,
+                'message' => 'Tax Declaration reference number not found in Treasury records.',
+            ];
+        }
+
         return [
             'verified' => true,
             'data' => [
                 'reference_no' => $refNo,
-                'owner_name' => 'Mock Owner Name',
-                'property_address' => 'Mock Property Address',
-                'assessed_value' => 1000000.00,
+                'owner_name' => 'Juan Dela Cruz',
+                'property_address' => 'Block 1 Lot 2, Sample Street, Sample Barangay',
+                'assessed_value' => 1500000.00,
                 'tax_year' => date('Y'),
             ],
             'message' => 'Tax Declaration verified successfully',

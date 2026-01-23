@@ -72,14 +72,16 @@ class AdminHousingBeneficiaryController extends Controller
             ->through(function ($application) {
                 return [
                     'id' => (string) $application->id,
-                    'application_no' => $application->application_no,
-                    'beneficiary' => $application->beneficiary->full_name,
+                    'applicationNumber' => $application->application_no,
+                    'applicantName' => $application->beneficiary->full_name,
                     'beneficiary_no' => $application->beneficiary->beneficiary_no,
-                    'housing_program' => $application->housing_program,
-                    'application_status' => $application->application_status,
+                    'projectType' => str_replace('_', ' ', ucfirst($application->housing_program)),
+                    'status' => $application->application_status,
                     'eligibility_status' => $application->eligibility_status,
-                    'submitted_at' => $application->submitted_at?->format('Y-m-d H:i:s'),
-                    'created_at' => $application->created_at?->format('Y-m-d H:i:s'),
+                    'municipality' => 'Cauayan City',
+                    'barangay' => $application->beneficiary?->barangay,
+                    'submittedAt' => $application->submitted_at?->format('Y-m-d H:i:s'),
+                    'createdAt' => $application->created_at?->format('Y-m-d H:i:s'),
                 ];
             });
 

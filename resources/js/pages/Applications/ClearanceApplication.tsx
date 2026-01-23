@@ -29,7 +29,7 @@ const STEPS = [
 export default function ClearanceApplication({ category: propCategory }: ClearanceApplicationProps) {
     const { category: queryCategory } = usePage<{ category?: string }>().props;
     const category = (propCategory || queryCategory || 'individual_lot') as 'individual_lot' | 'subdivision_development';
-    
+
     const [currentStep, setCurrentStep] = useState(1);
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
     const [zones, setZones] = useState<Zone[]>([]);
@@ -75,7 +75,6 @@ export default function ClearanceApplication({ category: propCategory }: Clearan
         existing_structure: 'none' as 'none' | 'existing_to_retain' | 'existing_to_demolish' | 'existing_to_renovate',
         number_of_storeys: null as number | null,
         floor_area_sqm: null as number | null,
-        estimated_cost: null as number | null,
         purpose: '',
     });
 
@@ -124,7 +123,7 @@ export default function ClearanceApplication({ category: propCategory }: Clearan
         if (stepNumber === 1 && !prerequisitesVerified) {
             return;
         }
-        
+
         if (completedSteps.has(stepNumber) || stepNumber < currentStep || stepNumber === currentStep) {
             setCurrentStep(stepNumber);
         }
@@ -132,7 +131,7 @@ export default function ClearanceApplication({ category: propCategory }: Clearan
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!prerequisitesVerified) {
             setCurrentStep(1);
             return;
@@ -223,7 +222,6 @@ export default function ClearanceApplication({ category: propCategory }: Clearan
                             existing_structure: data.existing_structure,
                             number_of_storeys: data.number_of_storeys,
                             floor_area_sqm: data.floor_area_sqm,
-                            estimated_cost: data.estimated_cost,
                             purpose: data.purpose,
                         }}
                         setData={setData}
@@ -279,8 +277,8 @@ export default function ClearanceApplication({ category: propCategory }: Clearan
                         onStepClick={handleStepClick}
                     />
 
-                    <form 
-                        onSubmit={currentStep === STEPS.length ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }} 
+                    <form
+                        onSubmit={currentStep === STEPS.length ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }}
                         className="bg-white dark:bg-dark-surface rounded-lg shadow-md p-6"
                     >
                         {renderStepContent()}
@@ -297,7 +295,7 @@ export default function ClearanceApplication({ category: propCategory }: Clearan
                             </Button>
 
                             {currentStep < STEPS.length ? (
-                                <Button 
+                                <Button
                                     type="submit"
                                     disabled={currentStep === 1 && !prerequisitesVerified}
                                 >

@@ -4,8 +4,8 @@ import AdminLayout from '../../../components/AdminLayout';
 import Button from '../../../components/Button';
 import PropertyLocation from '../../../components/Applications/PropertyLocation';
 import StatusHistory from '../../../components/StatusHistory';
-import { 
-    FileText, MapPin, Calendar, CheckCircle, XCircle, Clock, Building, User, Mail, Phone, 
+import {
+    FileText, MapPin, Calendar, CheckCircle, XCircle, Clock, Building, User, Mail, Phone,
     Download, Eye, Shield, CreditCard, Search, AlertCircle, Edit, Send, X
 } from 'lucide-react';
 
@@ -43,13 +43,6 @@ interface ExternalVerification {
     verified_at: string | null;
 }
 
-interface PaymentRecord {
-    or_number: string;
-    amount: number;
-    payment_date: string;
-    treasury_ref?: string;
-    recorded_by?: number;
-}
 
 interface Inspection {
     id: number;
@@ -105,11 +98,9 @@ interface Application {
     existing_structure: string;
     number_of_storeys?: number | null;
     floor_area_sqm?: number | null;
-    estimated_cost?: number | null;
     purpose: string;
     documents: Document[];
     history: History[];
-    paymentRecord: PaymentRecord | null;
     inspection: Inspection | null;
     issuedClearance: IssuedClearance | null;
     submitted_at: string | null;
@@ -340,13 +331,12 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                                     {verification.external_system} • {verification.reference_no}
                                                 </p>
                                             </div>
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                verification.status === 'verified' 
-                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                    : verification.status === 'failed'
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${verification.status === 'verified'
+                                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                                : verification.status === 'failed'
                                                     ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                                                     : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                            }`}>
+                                                }`}>
                                                 {verification.status}
                                             </span>
                                         </div>
@@ -439,15 +429,15 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             pinLat={application.pin_lat}
                             pinLng={application.pin_lng}
                             lotAddress={application.lot_address}
-                            province={application.province}
-                            municipality={application.municipality}
-                            barangay={application.barangay}
-                            streetName={application.street_name}
+                            province={application.province || undefined}
+                            municipality={application.municipality || undefined}
+                            barangay={application.barangay || undefined}
+                            streetName={application.street_name || undefined}
                             zone={application.zone ? {
                                 id: application.zone.id,
                                 name: application.zone.name,
                                 code: application.zone.code,
-                                geometry: application.zone.geometry,
+                                geometry: application.zone.geometry as any,
                                 color: application.zone.color,
                             } : null}
                             showMap={true}
@@ -516,16 +506,6 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                 </p>
                             </div>
                         )}
-                        {application.estimated_cost && (
-                            <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Estimated Cost
-                                </label>
-                                <p className="text-gray-900 dark:text-white">
-                                    ₱{application.estimated_cost.toLocaleString()}
-                                </p>
-                            </div>
-                        )}
                         {application.assessed_fee && (
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -559,51 +539,6 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     </div>
                 </section>
 
-                {/* Payment Record */}
-                {application.paymentRecord && (
-                    <section className="bg-white dark:bg-dark-surface rounded-lg shadow-lg p-6">
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                            <CreditCard size={20} />
-                            Payment Information
-                        </h2>
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    OR Number
-                                </label>
-                                <p className="text-gray-900 dark:text-white">
-                                    {application.paymentRecord.or_number}
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Amount
-                                </label>
-                                <p className="text-gray-900 dark:text-white">
-                                    ₱{application.paymentRecord.amount.toLocaleString()}
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Payment Date
-                                </label>
-                                <p className="text-gray-900 dark:text-white">
-                                    {new Date(application.paymentRecord.payment_date).toLocaleDateString()}
-                                </p>
-                            </div>
-                            {application.paymentRecord.treasury_ref && (
-                                <div>
-                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Treasury Reference
-                                    </label>
-                                    <p className="text-gray-900 dark:text-white">
-                                        {application.paymentRecord.treasury_ref}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </section>
-                )}
 
                 {/* Inspection */}
                 {application.inspection && (
@@ -710,13 +645,12 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                         Status
                                     </label>
                                     <div className="mt-1">
-                                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                                            application.issuedClearance.status === 'active'
-                                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                : application.issuedClearance.status === 'expired'
+                                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${application.issuedClearance.status === 'active'
+                                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                            : application.issuedClearance.status === 'expired'
                                                 ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                                        }`}>
+                                            }`}>
                                             {application.issuedClearance.status}
                                         </span>
                                     </div>
@@ -793,7 +727,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             changedBy: h.updated_by,
                             notes: h.remarks,
                             createdAt: h.updated_at,
-                        }))} />
+                        })) as any} />
                     </section>
                 )}
 

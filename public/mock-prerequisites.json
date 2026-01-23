@@ -1,0 +1,25 @@
+{
+    "verified": true,
+    "tax_declaration": {
+        "verified": true,
+        "message": "Tax Declaration verified successfully",
+        "data": {
+            "reference_no": "TD-2024-001",
+            "owner_name": "Juan Dela Cruz",
+            "property_address": "Block 1 Lot 2, Sample Street, Sample Barangay",
+            "assessed_value": 1500000,
+            "tax_year": "2024"
+        }
+    },
+    "barangay_permit": {
+        "verified": true,
+        "message": "Barangay Permit verified successfully",
+        "data": {
+            "reference_no": "BP-2024-056",
+            "owner_name": "Juan Dela Cruz",
+            "business_name": "Sample Convenience Store",
+            "valid_until": "2024-12-31"
+        }
+    },
+    "message": "All prerequisites verified. You can proceed with the application."
+}

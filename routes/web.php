@@ -81,11 +81,6 @@ Route::middleware('auth')->group(function () {
     // Prerequisite verification (before application submission)
     Route::post('/api/verify-prerequisites', [\App\Http\Controllers\PrerequisiteVerificationController::class, 'verify'])->name('prerequisites.verify');
 
-    // Payment Records routes (staff and admin only)
-    Route::prefix('payments')->name('payments.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\PaymentRecordController::class, 'index'])->name('index');
-        Route::post('/', [\App\Http\Controllers\PaymentRecordController::class, 'store'])->name('store');
-    });
 
     // Inspections routes (inspector and admin only)
     Route::prefix('inspections')->name('inspections.')->group(function () {

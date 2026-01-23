@@ -23,6 +23,16 @@ interface History {
     updated_at: string;
 }
 
+interface ExternalVerification {
+    id: number;
+    verification_type: string;
+    reference_no: string;
+    status: string;
+    response_data: any;
+    external_system: string;
+    verified_at: string | null;
+}
+
 interface Application {
     id: number;
     reference_no: string;
@@ -54,6 +64,7 @@ interface Application {
     project_description: string;
     purpose: string;
     documents: Document[];
+    externalVerifications: ExternalVerification[];
     history: History[];
     submitted_at: string | null;
     created_at: string;
@@ -66,9 +77,6 @@ interface ApplicationDetailsProps {
 export default function ApplicationDetails({ application }: ApplicationDetailsProps) {
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/f3985719-de32-427e-9477-49ea0dcf8c68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ClearanceApplicationDetails.tsx:68',message:'Application data received',data:{pin_lat:application.pin_lat,pin_lat_type:typeof application.pin_lat,pin_lng:application.pin_lng,pin_lng_type:typeof application.pin_lng,pin_lat_null:application.pin_lat === null,pin_lat_undefined:application.pin_lat === undefined},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
-    // #endregion
 
     const formatFileSize = (bytes: number | null | undefined): string => {
         if (!bytes) return 'N/A';
@@ -142,7 +150,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                 Reference Number: <span className="font-mono font-semibold">{application.reference_no}</span>
                             </p>
                         </div>
-                        <StatusBadge status={application.status} variant={getStatusBadgeVariant(application.status)} />
+                        <StatusBadge status={application.status as any} />
                     </div>
 
                     <div className="grid gap-6 lg:grid-cols-3">
@@ -276,10 +284,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                             Coordinates
                                         </label>
                                         <p className="text-gray-900 dark:text-white font-mono text-sm">
-                                            {/* #region agent log */}
                                             {(() => {
-                                                fetch('http://127.0.0.1:7242/ingest/f3985719-de32-427e-9477-49ea0dcf8c68',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ClearanceApplicationDetails.tsx:275',message:'Before toFixed call',data:{pin_lat:application.pin_lat,pin_lat_type:typeof application.pin_lat,pin_lat_value:application.pin_lat,pin_lng:application.pin_lng,pin_lng_type:typeof application.pin_lng,pin_lng_value:application.pin_lng,has_toFixed:typeof application.pin_lat?.toFixed === 'function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'})}).catch(()=>{});
-                                                // #endregion
                                                 const lat = typeof application.pin_lat === 'number' ? application.pin_lat : Number(application.pin_lat);
                                                 const lng = typeof application.pin_lng === 'number' ? application.pin_lng : Number(application.pin_lng);
                                                 if (isNaN(lat) || isNaN(lng) || lat === null || lng === null) {
@@ -319,6 +324,141 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                     )}
                                 </div>
                             </section>
+
+                            {/* External Verifications (Tax Declaration & Barangay Permit) */}
+                            {application.externalVerifications && application.externalVerifications.length > 0 && (
+                                <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                                    <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
+                                        <CheckCircle size={20} />
+                                        Verified Prerequisites
+                                    </h2>
+                                    <div className="space-y-4">
+                                        {application.externalVerifications.map((verification) => (
+                                            <div
+                                                key={verification.id}
+                                                className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800"
+                                            >
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div>
+                                                        <h3 className="font-semibold text-gray-900 dark:text-white capitalize mb-1">
+                                                            {verification.verification_type.replace('_', ' ')}
+                                                        </h3>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                            Reference: <span className="font-mono">{verification.reference_no}</span>
+                                                        </p>
+                                                    </div>
+                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${verification.status === 'verified'
+                                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                                                            : verification.status === 'failed'
+                                                                ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200'
+                                                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200'
+                                                        }`}>
+                                                        {verification.status}
+                                                    </span>
+                                                </div>
+
+                                                {/* Display response data */}
+                                                {verification.response_data && (
+                                                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                            Verified Information
+                                                        </h4>
+                                                        <div className="grid gap-2 text-sm">
+                                                            {verification.verification_type === 'tax_declaration' && (
+                                                                <>
+                                                                    {verification.response_data.owner && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-gray-600 dark:text-gray-400">Owner:</span>
+                                                                            <span className="text-gray-900 dark:text-white font-medium">
+                                                                                {verification.response_data.owner}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {verification.response_data.property_location && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-gray-600 dark:text-gray-400">Location:</span>
+                                                                            <span className="text-gray-900 dark:text-white font-medium">
+                                                                                {verification.response_data.property_location}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {verification.response_data.area && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-gray-600 dark:text-gray-400">Area:</span>
+                                                                            <span className="text-gray-900 dark:text-white font-medium">
+                                                                                {verification.response_data.area} sqm
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {verification.response_data.assessed_value && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-gray-600 dark:text-gray-400">Assessed Value:</span>
+                                                                            <span className="text-gray-900 dark:text-white font-medium">
+                                                                                ₱{Number(verification.response_data.assessed_value).toLocaleString()}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            )}
+
+                                                            {verification.verification_type === 'barangay_permit' && (
+                                                                <>
+                                                                    {verification.response_data.applicant_name && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-gray-600 dark:text-gray-400">Applicant:</span>
+                                                                            <span className="text-gray-900 dark:text-white font-medium">
+                                                                                {verification.response_data.applicant_name}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {verification.response_data.business_name && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-gray-600 dark:text-gray-400">Business Name:</span>
+                                                                            <span className="text-gray-900 dark:text-white font-medium">
+                                                                                {verification.response_data.business_name}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {verification.response_data.business_address && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-gray-600 dark:text-gray-400">Business Address:</span>
+                                                                            <span className="text-gray-900 dark:text-white font-medium">
+                                                                                {verification.response_data.business_address}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {verification.response_data.issue_date && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-gray-600 dark:text-gray-400">Issue Date:</span>
+                                                                            <span className="text-gray-900 dark:text-white font-medium">
+                                                                                {new Date(verification.response_data.issue_date).toLocaleDateString()}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {verification.response_data.expiry_date && (
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-gray-600 dark:text-gray-400">Expiry Date:</span>
+                                                                            <span className="text-gray-900 dark:text-white font-medium">
+                                                                                {new Date(verification.response_data.expiry_date).toLocaleDateString()}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {verification.verified_at && (
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                                                        Verified on {formatDate(verification.verified_at)}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
 
                             {/* Documents Section */}
                             <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
@@ -395,7 +535,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                             id: h.id,
                                             statusFrom: null,
                                             statusTo: h.status,
-                                            changedBy: h.updated_by,
+                                            changedBy: h.updated_by ?? 0,
                                             notes: h.remarks,
                                             createdAt: h.updated_at,
                                         }))}

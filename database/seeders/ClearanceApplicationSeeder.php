@@ -94,7 +94,6 @@ class ClearanceApplicationSeeder extends Seeder
                 'existing_structure' => $faker->randomElement($existingStructures),
                 'number_of_storeys' => $faker->numberBetween(1, 10),
                 'floor_area_sqm' => $faker->randomFloat(2, 50, 1000),
-                'estimated_cost' => $faker->randomFloat(2, 500000, 50000000),
                 'purpose' => $faker->sentence(),
                 'assessed_fee' => $faker->randomFloat(2, 1000, 50000),
                 'status' => $status,

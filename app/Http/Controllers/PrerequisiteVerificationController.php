@@ -20,20 +20,25 @@ class PrerequisiteVerificationController extends Controller
     public function verify(Request $request): JsonResponse
     {
         $request->validate([
-            'tax_dec_ref_no' => ['required', 'string', 'max:50'],
-            'barangay_permit_ref_no' => ['required', 'string', 'max:50'],
+            'tax_dec_ref_no' => ['nullable', 'string', 'max:50'],
+            'barangay_permit_ref_no' => ['nullable', 'string', 'max:50'],
         ]);
 
         $taxDecRef = $request->input('tax_dec_ref_no');
         $barangayPermitRef = $request->input('barangay_permit_ref_no');
 
-        // Verify Tax Declaration
-        $taxDecVerification = $this->treasuryService->verifyTaxDeclaration($taxDecRef);
+        // Verify Tax Declaration if provided
+        $taxDecVerification = $taxDecRef 
+            ? $this->treasuryService->verifyTaxDeclaration($taxDecRef)
+            : ['verified' => false, 'message' => 'Tax Declaration reference number is required.', 'data' => null];
 
-        // Verify Barangay Permit
-        $barangayPermitVerification = $this->permitLicensingService->verifyBarangayPermit($barangayPermitRef);
+        // Verify Barangay Permit if provided
+        $barangayPermitVerification = $barangayPermitRef
+            ? $this->permitLicensingService->verifyBarangayPermit($barangayPermitRef)
+            : ['verified' => false, 'message' => 'Barangay Permit reference number is required.', 'data' => null];
 
-        $bothVerified = $taxDecVerification['verified'] && $barangayPermitVerification['verified'];
+        $bothVerified = ($taxDecRef && $taxDecVerification['verified']) && 
+                        ($barangayPermitRef && $barangayPermitVerification['verified']);
 
         return response()->json([
             'verified' => $bothVerified,
@@ -49,7 +54,7 @@ class PrerequisiteVerificationController extends Controller
             ],
             'message' => $bothVerified
                 ? 'All prerequisites verified. You can proceed with the application.'
-                : 'Prerequisites verification failed. Please check your reference numbers.',
+                : 'Please provide and verify all required reference numbers.',
         ]);
     }
 }

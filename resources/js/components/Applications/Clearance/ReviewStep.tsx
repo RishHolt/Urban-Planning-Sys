@@ -15,6 +15,7 @@ interface ReviewStepProps {
         province: string;
         municipality: string;
         barangay: string;
+        street_name: string;
         lot_owner: string;
         lot_area_total: number;
         is_subdivision: boolean;
@@ -30,7 +31,6 @@ interface ReviewStepProps {
         existing_structure: string;
         number_of_storeys: number | null;
         floor_area_sqm: number | null;
-        estimated_cost: number | null;
         purpose: string;
     };
     category: 'individual_lot' | 'subdivision_development';
@@ -62,9 +62,9 @@ export default function ReviewStep({ data, category }: ReviewStepProps) {
             {
                 title: 'Location',
                 items: [
-                    { 
-                        label: 'Address', 
-                        value: data.lot_address || 
+                    {
+                        label: 'Address',
+                        value: data.lot_address ||
                             [data.street_name, data.barangay, data.municipality, data.province]
                                 .filter(Boolean)
                                 .join(', ') || 'Not provided'
@@ -117,7 +117,6 @@ export default function ReviewStep({ data, category }: ReviewStepProps) {
                             ...(data.floor_area_sqm ? [{ label: 'Floor Area', value: `${formatValue(data.floor_area_sqm)} sqm` }] : []),
                         ]
                         : []),
-                    ...(data.estimated_cost ? [{ label: 'Estimated Cost', value: `₱${formatValue(data.estimated_cost)}` }] : []),
                     { label: 'Purpose', value: data.purpose },
                 ],
             },

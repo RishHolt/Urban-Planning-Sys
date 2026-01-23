@@ -53,7 +53,6 @@ class ClearanceApplication extends Model
         'existing_structure',
         'number_of_storeys',
         'floor_area_sqm',
-        'estimated_cost',
         'purpose',
         'assessed_fee',
         'status',
@@ -77,7 +76,6 @@ class ClearanceApplication extends Model
             'is_subdivision' => 'boolean',
             'has_subdivision_plan' => 'boolean',
             'floor_area_sqm' => 'decimal:2',
-            'estimated_cost' => 'decimal:2',
             'assessed_fee' => 'decimal:2',
             'is_active' => 'boolean',
             'submitted_at' => 'datetime',
@@ -117,13 +115,6 @@ class ClearanceApplication extends Model
         return $this->hasMany(ExternalVerification::class, 'application_id');
     }
 
-    /**
-     * Get the payment record for this application.
-     */
-    public function paymentRecord(): HasOne
-    {
-        return $this->hasOne(PaymentRecord::class, 'application_id');
-    }
 
     /**
      * Get the inspection for this application.

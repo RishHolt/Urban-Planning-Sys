@@ -63,14 +63,42 @@ interface MapComponentProps {
 // Component to update map center and zoom when prop changes
 function MapCenterUpdater({ center, zoom }: { center: [number, number]; zoom?: number }) {
     const map = useMap();
-    
+    const previousCenterRef = useRef<[number, number] | null>(null);
+    const previousZoomRef = useRef<number | undefined>(undefined);
+    const isInitialRender = useRef(true);
+
     useEffect(() => {
-        if (map && center) {
-            const targetZoom = zoom !== undefined ? zoom : map.getZoom();
-            map.setView(center, targetZoom);
+        if (!map || !center) return;
+
+        const centerChanged = !previousCenterRef.current ||
+            previousCenterRef.current[0] !== center[0] ||
+            previousCenterRef.current[1] !== center[1];
+
+        const zoomChanged = zoom !== previousZoomRef.current;
+
+        // On initial render, set both center and zoom
+        if (isInitialRender.current) {
+            const initialZoom = zoom !== undefined ? zoom : 13;
+            map.setView(center, initialZoom);
+            isInitialRender.current = false;
+            previousCenterRef.current = center;
+            previousZoomRef.current = zoom;
+            return;
+        }
+
+        // If zoom explicitly changed, use flyTo with new zoom
+        if (zoomChanged && zoom !== undefined) {
+            map.flyTo(center, zoom, { duration: 0.5 });
+            previousCenterRef.current = center;
+            previousZoomRef.current = zoom;
+        }
+        // If only center changed (user clicked to pin), just pan without zoom
+        else if (centerChanged) {
+            map.panTo(center, { animate: true, duration: 0.3 });
+            previousCenterRef.current = center;
         }
     }, [map, center, zoom]);
-    
+
     return null;
 }
 
