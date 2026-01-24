@@ -4,12 +4,13 @@ import AdminLayout from '../../../components/AdminLayout';
 import AdminFilterSection from '../../../components/AdminFilterSection';
 import Button from '../../../components/Button';
 import ClassificationModal from '../../../components/Zones/ClassificationModal';
-import { Tags, Plus, Edit2, Trash2 } from 'lucide-react';
 import {
     deleteZoningClassification,
+    importMunicipalityGeoJson,
     type ZoningClassification,
 } from '../../../data/services';
 import { showSuccess, showError, showConfirm } from '../../../lib/swal';
+import { Tags, Plus, Edit2, Trash2, Shield } from 'lucide-react';
 
 interface Classification {
     id: string;
@@ -100,6 +101,40 @@ export default function ClassificationsIndex({ classifications, filters: initial
         }
     };
 
+    const handleMunicipalityImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) {
+            return;
+        }
+
+        const confirmed = await showConfirm(
+            'This will clear the current municipality boundary and import a new one from the selected file. Continue?',
+            'Import Municipality Boundary',
+            'Yes, import',
+            'Cancel'
+        );
+
+        if (!confirmed) {
+            e.target.value = '';
+            return;
+        }
+
+        try {
+            const result = await importMunicipalityGeoJson(file);
+            if (result.success) {
+                showSuccess(result.message);
+                router.reload();
+            } else {
+                showError(result.message || 'Failed to import municipality');
+            }
+        } catch (error: any) {
+            showError('An error occurred during import');
+            console.error(error);
+        } finally {
+            e.target.value = '';
+        }
+    };
+
     const handleModalSuccess = (): void => {
         router.reload({ only: ['classifications'] });
     };
@@ -124,6 +159,27 @@ export default function ClassificationsIndex({ classifications, filters: initial
             <AdminLayout
                 title="Zoning Classifications"
                 description="Manage zoning classifications and their properties"
+                action={
+                    <div className="relative">
+                        <input
+                            type="file"
+                            id="municipality-import-header"
+                            className="hidden"
+                            accept=".json,.geojson,application/json,application/geo+json"
+                            onChange={handleMunicipalityImport}
+                        />
+                        <Button
+                            variant="primary"
+                            size="md"
+                            onClick={() => document.getElementById('municipality-import-header')?.click()}
+                            className="flex items-center gap-2"
+                            title="Import Municipality Boundary"
+                        >
+                            <Shield size={18} />
+                            Import Municipality
+                        </Button>
+                    </div>
+                }
             >
                 <AdminFilterSection
                     searchValue={data.search}
@@ -205,55 +261,57 @@ export default function ClassificationsIndex({ classifications, filters: initial
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white dark:bg-dark-surface divide-y divide-gray-200 dark:divide-gray-700">
-                                        {classifications.data.map((classification) => (
-                                            <tr key={classification.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                                                    {classification.code}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                                    {classification.name}
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                                                    {classification.description || '—'}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    {classification.color ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <div
-                                                                className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600"
-                                                                style={{ backgroundColor: classification.color }}
-                                                            />
-                                                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                                {classification.color}
-                                                            </span>
+                                        {classifications.data
+                                            .filter(c => c.code?.toUpperCase() !== 'BOUNDARY' && c.name?.toUpperCase() !== 'BOUNDARY')
+                                            .map((classification) => (
+                                                <tr key={classification.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                                        {classification.code}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                        {classification.name}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                                                        {classification.description || '—'}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        {classification.color ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <div
+                                                                    className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600"
+                                                                    style={{ backgroundColor: classification.color }}
+                                                                />
+                                                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                                    {classification.color}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-sm text-gray-400">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        {getStatusBadge(classification.is_active)}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button
+                                                                onClick={() => handleEdit(classification)}
+                                                                className="text-primary hover:text-primary/80 p-1 rounded transition-colors"
+                                                                title="Edit"
+                                                            >
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDelete(classification)}
+                                                                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1 rounded transition-colors"
+                                                                title="Delete"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
                                                         </div>
-                                                    ) : (
-                                                        <span className="text-sm text-gray-400">—</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    {getStatusBadge(classification.is_active)}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <button
-                                                            onClick={() => handleEdit(classification)}
-                                                            className="text-primary hover:text-primary/80 p-1 rounded transition-colors"
-                                                            title="Edit"
-                                                        >
-                                                            <Edit2 size={16} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(classification)}
-                                                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1 rounded transition-colors"
-                                                            title="Delete"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                    </td>
+                                                </tr>
+                                            ))}
                                     </tbody>
                                 </table>
                             </div>
@@ -307,11 +365,10 @@ export default function ClassificationsIndex({ classifications, filters: initial
                                                             <button
                                                                 key={index}
                                                                 onClick={() => router.get(link.url!)}
-                                                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md ${
-                                                                    link.active
-                                                                        ? 'z-10 bg-primary border-primary text-white'
-                                                                        : 'bg-white dark:bg-dark-surface border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                                                }`}
+                                                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md ${link.active
+                                                                    ? 'z-10 bg-primary border-primary text-white'
+                                                                    : 'bg-white dark:bg-dark-surface border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                                                    }`}
                                                                 dangerouslySetInnerHTML={{ __html: link.label }}
                                                             />
                                                         );

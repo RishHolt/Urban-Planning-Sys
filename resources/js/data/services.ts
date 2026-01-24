@@ -207,45 +207,45 @@ export const services: Service[] = [
                 title: 'Legal Ownership Documents',
                 subtitle: 'Required documents for proof of ownership',
                 items: [
-            {
-                title: 'Proof of Ownership',
-                description: 'Scanned Certified True Copy of the TCT/OCT',
-            },
-            {
-                title: 'Tax Declaration',
-                description: 'Latest Tax Declaration for the property',
-            },
-            {
-                title: 'Tax Clearance',
-                description: 'Latest Real Property Tax Receipt',
-            },
-            {
-                title: 'Authorization',
-                description: 'Notarized SPA or Secretary\'s Certificate (if the applicant isn\'t the owner)',
-            },
-            {
-                title: 'Barangay Clearance',
-                description: 'Scanned copy of the clearance for construction',
-            },
-        ],
+                    {
+                        title: 'Proof of Ownership',
+                        description: 'Scanned Certified True Copy of the TCT/OCT',
+                    },
+                    {
+                        title: 'Tax Declaration',
+                        description: 'Latest Tax Declaration for the property',
+                    },
+                    {
+                        title: 'Tax Clearance',
+                        description: 'Latest Real Property Tax Receipt',
+                    },
+                    {
+                        title: 'Authorization',
+                        description: 'Notarized SPA or Secretary\'s Certificate (if the applicant isn\'t the owner)',
+                    },
+                    {
+                        title: 'Barangay Clearance',
+                        description: 'Scanned copy of the clearance for construction',
+                    },
+                ],
             },
             {
                 id: 'zoning-requirements',
                 title: 'Zoning Requirements',
                 subtitle: 'Zoning Clearance (ZCS) Requirements',
                 items: [
-            {
-                title: 'Vicinity Map',
-                description: 'Showing the project in relation to landmarks',
-            },
-            {
-                title: 'Site Development Plan (Basic)',
-                description: 'Showing the "footprint" of the building, setbacks (distance from edges), and parking slots',
-            },
-            {
-                title: 'Affidavit of Undertaking',
-                description: 'Only if there are specific zoning conditions like "Non-objection from neighbors"',
-            },
+                    {
+                        title: 'Vicinity Map',
+                        description: 'Showing the project in relation to landmarks',
+                    },
+                    {
+                        title: 'Site Development Plan (Basic)',
+                        description: 'Showing the "footprint" of the building, setbacks (distance from edges), and parking slots',
+                    },
+                    {
+                        title: 'Affidavit of Undertaking',
+                        description: 'Only if there are specific zoning conditions like "Non-objection from neighbors"',
+                    },
                     {
                         title: 'Lot Plans',
                         description: 'Detailed lot plans showing property boundaries',
@@ -257,35 +257,35 @@ export const services: Service[] = [
                 title: 'Subdivision & Building Review Requirements',
                 subtitle: 'Required plans and documents for building review',
                 items: [
-            {
-                title: 'Architectural Plans',
-                description: 'Signed and Sealed digital copies of Perspectives, Floor Plans, Sections, and Elevations',
-            },
-            {
-                title: 'Structural Plans',
-                description: 'Foundation, Columns, Beams',
-            },
-            {
-                title: 'Structural Analysis & Design',
-                description: 'Required for 2-storeys and above',
-            },
-            {
-                title: 'Boring/Soil Test',
-                description: 'Required for 3-storeys and above',
-            },
-            {
-                title: 'Sanitary/Plumbing Plans',
-                description: 'Layout and Septic Tank details',
-            },
-            {
-                title: 'Electrical Plans',
-                description: 'Load Schedule and Wiring Diagrams',
-            },
-            {
-                title: 'Engineering Reports',
-                description: 'Bill of Materials (Cost Estimate) and Technical Specifications',
-            },
-        ],
+                    {
+                        title: 'Architectural Plans',
+                        description: 'Signed and Sealed digital copies of Perspectives, Floor Plans, Sections, and Elevations',
+                    },
+                    {
+                        title: 'Structural Plans',
+                        description: 'Foundation, Columns, Beams',
+                    },
+                    {
+                        title: 'Structural Analysis & Design',
+                        description: 'Required for 2-storeys and above',
+                    },
+                    {
+                        title: 'Boring/Soil Test',
+                        description: 'Required for 3-storeys and above',
+                    },
+                    {
+                        title: 'Sanitary/Plumbing Plans',
+                        description: 'Layout and Septic Tank details',
+                    },
+                    {
+                        title: 'Electrical Plans',
+                        description: 'Load Schedule and Wiring Diagrams',
+                    },
+                    {
+                        title: 'Engineering Reports',
+                        description: 'Bill of Materials (Cost Estimate) and Technical Specifications',
+                    },
+                ],
             },
         ],
         serviceDetails: {
@@ -527,6 +527,7 @@ export interface Zone {
     geometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon | null;
     color?: string | null; // From classification
     is_active: boolean;
+    is_municipality?: boolean;
     has_geometry?: boolean;
     created_at?: string;
     classification?: ZoningClassification | null;
@@ -609,13 +610,13 @@ export async function createZone(data: {
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to create zone' }));
         const errorMessage = errorData.message || errorData.error || 'Failed to create zone';
-        
+
         // Handle validation errors
         if (errorData.errors) {
             const firstError = Object.values(errorData.errors)[0];
             throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
         }
-        
+
         throw new Error(errorMessage);
     }
 
@@ -649,18 +650,96 @@ export async function updateZone(
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to update zone' }));
         const errorMessage = errorData.message || errorData.error || 'Failed to update zone';
-        
+
         // Handle validation errors
         if (errorData.errors) {
             const firstError = Object.values(errorData.errors)[0];
             throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
         }
-        
+
         throw new Error(errorMessage);
     }
 
     const result = await response.json();
     return result.zone;
+}
+
+/**
+ * Export all zones as GeoJSON
+ */
+export async function exportZonesGeoJson(): Promise<Blob> {
+    const response = await fetch('/admin/zoning/zones/export', {
+        headers: {
+            'Accept': 'application/geo+json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to export zones');
+    }
+
+    return await response.blob();
+}
+
+/**
+ * Import zones from GeoJSON file
+ */
+export async function importZonesGeoJson(file: File): Promise<{
+    success: boolean;
+    message: string;
+    errors?: string[];
+}> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/admin/zoning/zones/import', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+        },
+        body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok && response.status !== 422) {
+        throw new Error(result.message || 'Failed to import zones');
+    }
+
+    return result;
+}
+
+/**
+ * Import municipality from GeoJSON file
+ */
+export async function importMunicipalityGeoJson(file: File): Promise<{
+    success: boolean;
+    message: string;
+    zone?: any;
+}> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/admin/zoning/zones/import-municipality', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+        },
+        body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok && response.status !== 422) {
+        throw new Error(result.message || 'Failed to import municipality');
+    }
+
+    return result;
 }
 
 /**
@@ -717,12 +796,12 @@ export async function createZoningClassification(data: {
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to create classification' }));
         const errorMessage = errorData.message || errorData.error || 'Failed to create classification';
-        
+
         if (errorData.errors) {
             const firstError = Object.values(errorData.errors)[0];
             throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
         }
-        
+
         throw new Error(errorMessage);
     }
 
@@ -758,12 +837,12 @@ export async function updateZoningClassification(
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to update classification' }));
         const errorMessage = errorData.message || errorData.error || 'Failed to update classification';
-        
+
         if (errorData.errors) {
             const firstError = Object.values(errorData.errors)[0];
             throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
         }
-        
+
         throw new Error(errorMessage);
     }
 

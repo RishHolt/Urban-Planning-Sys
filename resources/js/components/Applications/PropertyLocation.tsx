@@ -302,11 +302,6 @@ export default function PropertyLocation({
                 )}
             </div>
 
-            {/* Coordinate Display */}
-            {pinLat && pinLng && (
-                <CoordinateDisplay latitude={pinLat} longitude={pinLng} />
-            )}
-
             {/* Address Search Autocomplete */}
             <div>
                 <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">

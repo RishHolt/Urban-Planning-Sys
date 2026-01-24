@@ -9,6 +9,7 @@ import { ArrowLeft } from 'lucide-react';
 interface AdminLayoutProps {
     title: string;
     description?: string;
+    action?: React.ReactNode;
     backButton?: {
         href: string;
         label: string;
@@ -20,6 +21,7 @@ interface AdminLayoutProps {
 export default function AdminLayout({
     title,
     description,
+    action,
     backButton,
     variant = 'default',
     children,
@@ -37,9 +39,8 @@ export default function AdminLayout({
                 <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
                 <AdminHeader sidebarOpen={sidebarOpen} />
 
-                <main className={`flex-1 transition-all duration-300 ease-in-out ${
-                    sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
-                } mt-16`}>
+                <main className={`flex-1 transition-all duration-300 ease-in-out ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
+                    } mt-16`}>
                     <section className="flex flex-col justify-center items-center py-20 md:py-32 w-full">
                         <div className="z-10 relative space-y-8 mx-auto px-4 max-w-7xl text-center">
                             <h1 className="drop-shadow-lg font-bold text-foreground dark:text-white text-4xl md:text-6xl lg:text-7xl leading-tight">
@@ -63,9 +64,8 @@ export default function AdminLayout({
             <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
             <AdminHeader sidebarOpen={sidebarOpen} />
 
-            <main className={`flex-1 transition-all duration-300 ease-in-out ${
-                sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
-            } mt-16`}>
+            <main className={`flex-1 transition-all duration-300 ease-in-out ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
+                } mt-16`}>
                 <div className="mx-auto px-4 py-8 max-w-7xl">
                     {backButton && (
                         <div className="mb-6">
@@ -78,7 +78,7 @@ export default function AdminLayout({
                         </div>
                     )}
 
-                    <AdminPageHeader title={title} description={description} />
+                    <AdminPageHeader title={title} description={description} action={action} />
 
                     {children}
                 </div>

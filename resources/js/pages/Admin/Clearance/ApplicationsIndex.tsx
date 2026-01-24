@@ -7,7 +7,7 @@ import Input from '../../../components/Input';
 import { Download, ArrowLeft } from 'lucide-react';
 import ApplicationsTable, { AdminApplication, PaginatedData } from '../../../components/ApplicationsTable';
 
-interface PaginatedApplications extends PaginatedData<AdminApplication> {}
+interface PaginatedApplications extends PaginatedData<AdminApplication> { }
 
 interface ApplicationsIndexProps {
     applications: PaginatedApplications;
@@ -27,7 +27,7 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
     });
 
     const handleSearch = (): void => {
-        get('/admin/zoning/clearance/applications', {
+        get('/admin/zoning/applications', {
             preserveState: true,
             preserveScroll: true,
         });
@@ -39,7 +39,7 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
             status: '',
             category: '',
         });
-        router.get('/admin/zoning/clearance/applications');
+        router.get('/admin/zoning/applications');
     };
 
     const handleExport = (): void => {
@@ -49,7 +49,7 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                 params.append(key, value as string);
             }
         });
-        window.location.href = `/admin/zoning/clearance/applications/export?${params.toString()}`;
+        window.location.href = `/admin/zoning/applications/export?${params.toString()}`;
     };
 
     return (
@@ -116,7 +116,7 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
             {/* Applications Table */}
             <ApplicationsTable<AdminApplication>
                 applications={applications as PaginatedData<AdminApplication>}
-                viewUrl={(id) => `/admin/zoning/clearance/applications/${id}`}
+                viewUrl={(id) => `/admin/zoning/applications/${id}`}
                 columns="admin"
                 onPaginationClick={(url) => router.get(url)}
             />

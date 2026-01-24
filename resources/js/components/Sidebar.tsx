@@ -52,7 +52,7 @@ const MENU_ITEMS: MenuItem[] = [
         label: 'Zoning Clearance',
         children: [
             { href: '/admin/zoning/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-            { href: '/admin/zoning/clearance/applications', icon: ListChecks, label: 'Applications' },
+            { href: '/admin/zoning/applications', icon: ListChecks, label: 'Applications' },
             { href: '/inspections', icon: ClipboardCheck, label: 'Inspections' },
             { href: '/clearances', icon: FileCheck, label: 'Issued Clearances' },
             { href: '/admin/zoning/classifications', icon: Tags, label: 'Classifications' },
@@ -422,8 +422,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                                                                                 href={child.href || '#'}
                                                                                 onClick={handlePopoverClose}
                                                                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${childActive
-                                                                                        ? 'bg-primary/10 text-primary dark:text-primary shadow-sm ring-1 ring-primary/20'
-                                                                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:bg-gray-200 dark:active:bg-gray-600'
+                                                                                    ? 'bg-primary/10 text-primary dark:text-primary shadow-sm ring-1 ring-primary/20'
+                                                                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:bg-gray-200 dark:active:bg-gray-600'
                                                                                     }`}
                                                                                 role="menuitem"
                                                                             >
@@ -459,8 +459,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                                                                     <Link
                                                                         href={child.href || '#'}
                                                                         className={`flex items-center gap-3 px-3 h-10 rounded-lg text-sm font-medium transition-all duration-200 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${childActive
-                                                                                ? 'bg-primary/10 text-primary dark:text-primary shadow-sm ring-1 ring-primary/20'
-                                                                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:bg-gray-200 dark:active:bg-gray-600'
+                                                                            ? 'bg-primary/10 text-primary dark:text-primary shadow-sm ring-1 ring-primary/20'
+                                                                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 active:bg-gray-200 dark:active:bg-gray-600'
                                                                             }`}
                                                                         role="menuitem"
                                                                     >

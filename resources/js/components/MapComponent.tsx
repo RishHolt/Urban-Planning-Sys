@@ -128,13 +128,16 @@ function ZoneLayers({ zones }: { zones?: Zone[] }) {
 
             try {
                 const color = zone.color || generatePolygonColor(zone.code || 'UNKNOWN');
+                const isBoundary = zone.code === 'BOUNDARY';
 
                 const layer = geoJSONToLeaflet(zone.geometry, {
-                    color,
+                    color: isBoundary ? '#000000' : color,
                     fillColor: color,
-                    fillOpacity: 0.3,
-                    weight: 2,
+                    fillOpacity: isBoundary ? 0 : 0.3,
+                    weight: isBoundary ? 3 : 2,
                     opacity: 0.8,
+                    dashArray: isBoundary ? '5, 10' : undefined,
+                    interactive: !isBoundary,
                 });
 
                 if (layer) {

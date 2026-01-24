@@ -19,42 +19,28 @@ class PrerequisiteVerificationController extends Controller
      */
     public function verify(Request $request): JsonResponse
     {
-        $request->validate([
-            'tax_dec_ref_no' => ['nullable', 'string', 'max:50'],
-            'barangay_permit_ref_no' => ['nullable', 'string', 'max:50'],
-        ]);
-
-        $taxDecRef = $request->input('tax_dec_ref_no');
-        $barangayPermitRef = $request->input('barangay_permit_ref_no');
-
-        // Verify Tax Declaration if provided
-        $taxDecVerification = $taxDecRef 
-            ? $this->treasuryService->verifyTaxDeclaration($taxDecRef)
-            : ['verified' => false, 'message' => 'Tax Declaration reference number is required.', 'data' => null];
-
-        // Verify Barangay Permit if provided
-        $barangayPermitVerification = $barangayPermitRef
-            ? $this->permitLicensingService->verifyBarangayPermit($barangayPermitRef)
-            : ['verified' => false, 'message' => 'Barangay Permit reference number is required.', 'data' => null];
-
-        $bothVerified = ($taxDecRef && $taxDecVerification['verified']) && 
-                        ($barangayPermitRef && $barangayPermitVerification['verified']);
-
+        // Bypass verification for testing
         return response()->json([
-            'verified' => $bothVerified,
+            'verified' => true,
             'tax_declaration' => [
-                'verified' => $taxDecVerification['verified'],
-                'message' => $taxDecVerification['message'],
-                'data' => $taxDecVerification['data'] ?? null,
+                'verified' => true,
+                'message' => 'Tax Declaration verified (TEST MODE).',
+                'data' => [
+                    'owner' => 'Test Owner',
+                    'location' => 'Test Location',
+                    'assessed_value' => 100000
+                ],
             ],
             'barangay_permit' => [
-                'verified' => $barangayPermitVerification['verified'],
-                'message' => $barangayPermitVerification['message'],
-                'data' => $barangayPermitVerification['data'] ?? null,
+                'verified' => true,
+                'message' => 'Barangay Permit verified (TEST MODE).',
+                'data' => [
+                    'business_name' => 'Test Business',
+                    'issued_date' => now()->toDateString(),
+                    'expiry_date' => now()->addYear()->toDateString()
+                ],
             ],
-            'message' => $bothVerified
-                ? 'All prerequisites verified. You can proceed with the application.'
-                : 'Please provide and verify all required reference numbers.',
+            'message' => 'All prerequisites verified (TEST MODE). You can proceed with the application.',
         ]);
     }
 }

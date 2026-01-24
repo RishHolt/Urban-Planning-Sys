@@ -7,7 +7,7 @@ import Input from '../../../components/Input';
 import { Download } from 'lucide-react';
 import ApplicationsTable, { AdminApplication, PaginatedData } from '../../../components/ApplicationsTable';
 
-interface PaginatedApplications extends PaginatedData<AdminApplication> {}
+interface PaginatedApplications extends PaginatedData<AdminApplication> { }
 
 interface ApplicationsIndexProps {
     applications: PaginatedApplications;
@@ -66,8 +66,8 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
 
     return (
         <AdminLayout
-            title="Applications"
-            description="Review and manage all zoning clearance applications"
+            title="Zoning Classification Applications"
+            description="Review and manage zoning classification and reclassification applications"
         >
             <AdminFilterSection
                 searchValue={data.search}

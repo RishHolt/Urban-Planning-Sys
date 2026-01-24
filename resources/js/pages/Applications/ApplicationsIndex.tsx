@@ -39,7 +39,7 @@ export default function ApplicationsIndex({ applications }: ApplicationsIndexPro
                                 View and manage your zoning clearance applications
                             </p>
                         </div>
-                        <Link href="/clearance-applications/category">
+                        <Link href="/clearance-applications/create">
                             <Button variant="primary" size="md" className="flex items-center gap-2">
                                 <Plus size={20} />
                                 New Application
@@ -55,12 +55,12 @@ export default function ApplicationsIndex({ applications }: ApplicationsIndexPro
                             title: 'No Applications Yet',
                             message: 'You haven\'t submitted any applications. Start by creating a new application.',
                             action: (
-                            <Link href="/clearance-applications/category">
-                                <Button variant="primary" size="md" className="flex items-center gap-2 mx-auto">
-                                    <Plus size={20} />
-                                    Create New Application
-                                </Button>
-                            </Link>
+                                <Link href="/clearance-applications/create">
+                                    <Button variant="primary" size="md" className="flex items-center gap-2 mx-auto">
+                                        <Plus size={20} />
+                                        Create New Application
+                                    </Button>
+                                </Link>
                             ),
                         }}
                     />

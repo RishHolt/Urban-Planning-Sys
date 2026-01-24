@@ -58,12 +58,10 @@ Route::middleware('auth')->group(function () {
 
     // Clearance Application routes (new ERD-based system)
     Route::prefix('clearance-applications')->name('clearance-applications.')->group(function () {
-        Route::get('/category', function () {
-            return Inertia::render('Applications/ClearanceApplicationCategory');
-        })->name('category');
         Route::get('/', [\App\Http\Controllers\ClearanceApplicationController::class, 'index'])->name('index');
         Route::get('/create', [\App\Http\Controllers\ClearanceApplicationController::class, 'create'])->name('create');
         Route::post('/', [\App\Http\Controllers\ClearanceApplicationController::class, 'store'])->name('store');
+        Route::post('/assess-fees', [\App\Http\Controllers\ClearanceApplicationController::class, 'assessFees'])->name('assess-fees');
         Route::get('/{id}', [\App\Http\Controllers\ClearanceApplicationController::class, 'show'])->name('show');
     });
 
@@ -103,7 +101,7 @@ Route::middleware('auth')->group(function () {
             return redirect()->route('clearance-applications.index');
         })->name('index');
         Route::get('/create', function (Request $request) {
-            return redirect()->route('clearance-applications.category');
+            return redirect()->route('clearance-applications.create');
         })->name('create');
         Route::post('/', function () {
             return redirect()->route('clearance-applications.index');
@@ -178,46 +176,25 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
                 return Inertia::render('Admin/Zoning/ZoningMap');
             })->name('map');
 
-            // New ERD-based Clearance Applications
-            Route::prefix('clearance')->name('clearance.')->group(function () {
-                Route::prefix('applications')->name('applications.')->group(function () {
-                    Route::get('/', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'index'])->name('index');
-                    Route::get('/{id}', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'show'])->name('show');
-                    Route::patch('/{id}/status', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'updateStatus'])->name('updateStatus');
-                    Route::post('/{id}/request-documents', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'requestDocuments'])->name('requestDocuments');
-                });
-            });
-
-            // Legacy Zoning Applications - Redirect to new Clearance Applications
+            // Zoning Applications (Clearance - matching user view)
             Route::prefix('applications')->name('applications.')->group(function () {
-                Route::get('/', function () {
-                    return redirect()->route('admin.zoning.clearance.applications.index');
-                })->name('index');
-                Route::get('/{id}', function (string $id) {
-                    return redirect()->route('admin.zoning.clearance.applications.show', $id);
-                })->name('show');
-                Route::patch('/{id}/status', function (string $id) {
-                    return redirect()->route('admin.zoning.clearance.applications.show', $id);
-                })->name('updateStatus');
-                Route::patch('/{id}/documents/{documentId}/approve', function (string $id) {
-                    return redirect()->route('admin.zoning.clearance.applications.show', $id);
-                })->name('documents.approve');
-                Route::patch('/{id}/documents/{documentId}/reject', function (string $id) {
-                    return redirect()->route('admin.zoning.clearance.applications.show', $id);
-                })->name('documents.reject');
-                Route::get('/{id}/documents/{documentId}/versions', function (string $id) {
-                    return redirect()->route('admin.zoning.clearance.applications.show', $id);
-                })->name('documents.versions');
+                Route::get('/', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'show'])->name('show');
+                Route::patch('/{id}/status', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'updateStatus'])->name('updateStatus');
+                Route::post('/{id}/request-documents', [\App\Http\Controllers\Admin\AdminClearanceApplicationController::class, 'requestDocuments'])->name('requestDocuments');
             });
 
-            // Zone Management routes
-            Route::prefix('zones')->name('zones.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Admin\ZoneController::class, 'index'])->name('index');
-                Route::post('/', [\App\Http\Controllers\Admin\ZoneController::class, 'store'])->name('store');
-                Route::get('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'show'])->name('show');
-                Route::patch('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'update'])->name('update');
-                Route::delete('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'destroy'])->name('destroy');
-            });
+
+                Route::prefix('zones')->name('zones.')->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Admin\ZoneController::class, 'index'])->name('index');
+                    Route::post('/', [\App\Http\Controllers\Admin\ZoneController::class, 'store'])->name('store');
+                    Route::get('/export', [\App\Http\Controllers\Admin\ZoneController::class, 'exportGeoJson'])->name('export');
+                    Route::post('/import', [\App\Http\Controllers\Admin\ZoneController::class, 'importGeoJson'])->name('import');
+                    Route::post('/import-municipality', [\App\Http\Controllers\Admin\ZoneController::class, 'importMunicipality'])->name('import-municipality');
+                    Route::get('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'show'])->name('show');
+                    Route::patch('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'update'])->name('update');
+                    Route::delete('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'destroy'])->name('destroy');
+                });
 
             // Zoning Classification Management routes
             Route::prefix('classifications')->name('classifications.')->group(function () {

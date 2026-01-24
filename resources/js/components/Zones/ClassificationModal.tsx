@@ -20,14 +20,14 @@ interface ClassificationModalProps {
 
 export default function ClassificationModal({ isOpen, onClose, onSuccess, classification }: ClassificationModalProps) {
     const isEditMode = !!classification;
-    
+
     const [code, setCode] = useState('');
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [allowedUses, setAllowedUses] = useState('');
     const [color, setColor] = useState('');
     const [isActive, setIsActive] = useState(true);
-    
+
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -101,7 +101,7 @@ export default function ClassificationModal({ isOpen, onClose, onSuccess, classi
                 });
                 showSuccess('Classification created successfully');
             }
-            
+
             onSuccess();
             onClose();
         } catch (error: any) {
@@ -125,7 +125,6 @@ export default function ClassificationModal({ isOpen, onClose, onSuccess, classi
     return (
         <div
             className="z-50 fixed inset-0 flex justify-center items-center bg-black/50 backdrop-blur-sm"
-            onClick={onClose}
         >
             <div
                 className="relative flex flex-col bg-white dark:bg-dark-surface shadow-2xl mx-4 rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden"

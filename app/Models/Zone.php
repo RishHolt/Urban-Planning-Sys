@@ -25,6 +25,7 @@ class Zone extends Model
         'label',
         'geometry',
         'is_active',
+        'is_municipality',
     ];
 
     /**
@@ -52,6 +53,7 @@ class Zone extends Model
         return [
             'geometry' => 'array',
             'is_active' => 'boolean',
+            'is_municipality' => 'boolean',
         ];
     }
 
@@ -85,5 +87,13 @@ class Zone extends Model
     public function scopeWithGeometry($query)
     {
         return $query->whereNotNull('geometry');
+    }
+
+    /**
+     * Scope a query to only include the municipality boundary.
+     */
+    public function scopeMunicipality($query)
+    {
+        return $query->where('is_municipality', true);
     }
 }

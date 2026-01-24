@@ -82,8 +82,8 @@ function MapPicker({
             <div
                 className={`
                     border-2 rounded-lg overflow-hidden
-                    ${error || validationError 
-                        ? 'border-red-500' 
+                    ${error || validationError
+                        ? 'border-red-500'
                         : 'border-gray-300 dark:border-gray-600'
                     }
                 `}

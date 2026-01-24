@@ -1,4 +1,5 @@
 import Button from '../Button';
+import { Pencil } from 'lucide-react';
 
 interface Zone {
     id: string;
@@ -9,15 +10,17 @@ interface Zone {
     color?: string | null; // From classification
     is_active: boolean;
     has_geometry?: boolean;
+    geometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon | null;
 }
 
 interface ZoneCardProps {
     zone: Zone;
     isSelected: boolean;
     onSelect: (zone: Zone) => void;
+    onEdit?: (zone: Zone) => void;
 }
 
-export default function ZoneCard({ zone, isSelected, onSelect }: ZoneCardProps) {
+export default function ZoneCard({ zone, isSelected, onSelect, onEdit }: ZoneCardProps) {
     const statusBadge = zone.has_geometry
         ? (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
@@ -32,11 +35,10 @@ export default function ZoneCard({ zone, isSelected, onSelect }: ZoneCardProps) 
 
     return (
         <div
-            className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                isSelected
-                    ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-surface hover:border-primary/50'
-            }`}
+            className={`p-3 rounded-lg border-2 cursor-pointer transition-all relative group ${isSelected
+                ? 'border-primary bg-primary/5 dark:bg-primary/10 shadow-sm'
+                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-surface hover:border-primary/50'
+                }`}
             onClick={() => onSelect(zone)}
         >
             <div className="flex items-start justify-between gap-2">
@@ -48,7 +50,7 @@ export default function ZoneCard({ zone, isSelected, onSelect }: ZoneCardProps) 
                                 style={{ backgroundColor: zone.color }}
                             />
                         )}
-                        <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate">
+                        <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate pr-6">
                             {zone.label || 'N/A'}
                         </h3>
                     </div>
@@ -57,6 +59,19 @@ export default function ZoneCard({ zone, isSelected, onSelect }: ZoneCardProps) 
                     </p>
                     {statusBadge}
                 </div>
+
+                {onEdit && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(zone);
+                        }}
+                        className="p-1.5 absolute top-2 right-2 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary hover:bg-gray-200 dark:hover:bg-gray-700 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        title="Edit Boundaries"
+                    >
+                        <Pencil size={14} />
+                    </button>
+                )}
             </div>
         </div>
     );

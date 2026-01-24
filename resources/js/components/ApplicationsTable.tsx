@@ -62,21 +62,21 @@ export default function ApplicationsTable<T extends BaseApplication>({
     onPaginationClick,
 }: ApplicationsTableProps<T>) {
     const isPaginated = 'data' in applications && 'current_page' in applications;
-    const apps = isPaginated ? applications.data : applications;
+    const apps = isPaginated ? (applications.data || []) : (Array.isArray(applications) ? applications : []);
     const pagination = isPaginated ? applications : null;
 
     const isAdminView = columns === 'admin' || (customColumns && customColumns.length > 0);
 
     const defaultEmptyState = {
         title: 'No Applications Found',
-        message: isAdminView 
+        message: isAdminView
             ? 'Try adjusting your search or filter criteria.'
             : 'You haven\'t submitted any applications. Start by creating a new application.',
     };
 
     const emptyStateConfig = emptyState || defaultEmptyState;
 
-    if (apps.length === 0) {
+    if (!Array.isArray(apps) || apps.length === 0) {
         return (
             <div className="bg-white dark:bg-dark-surface shadow-lg rounded-lg p-12 text-center">
                 <FileText size={64} className="mx-auto mb-4 text-gray-400 dark:text-gray-600" />
@@ -279,11 +279,10 @@ export default function ApplicationsTable<T extends BaseApplication>({
                                 <button
                                     key={index}
                                     onClick={() => link.url && onPaginationClick(link.url)}
-                                    className={`px-3 py-2 border rounded-lg text-sm ${
-                                        link.active
+                                    className={`px-3 py-2 border rounded-lg text-sm ${link.active
                                             ? 'bg-primary text-white border-primary'
                                             : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-surface text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                    }`}
+                                        }`}
                                 >
                                     {link.label.replace('&laquo;', '').replace('&raquo;', '').trim()}
                                 </button>

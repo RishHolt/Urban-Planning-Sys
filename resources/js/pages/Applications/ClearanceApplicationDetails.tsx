@@ -36,7 +36,6 @@ interface ExternalVerification {
 interface Application {
     id: number;
     reference_no: string;
-    application_category: string;
     status: string;
     denial_reason?: string | null;
     assessed_fee?: number | null;
@@ -163,14 +162,6 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                     Application Information
                                 </h2>
                                 <div className="grid gap-4 md:grid-cols-2">
-                                    <div>
-                                        <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            Category
-                                        </label>
-                                        <p className="text-gray-900 dark:text-white capitalize">
-                                            {application.application_category.replace('_', ' ')}
-                                        </p>
-                                    </div>
                                     <div>
                                         <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                                             Applicant Type
@@ -348,10 +339,10 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                                         </p>
                                                     </div>
                                                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${verification.status === 'verified'
-                                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200'
-                                                            : verification.status === 'failed'
-                                                                ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200'
-                                                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200'
+                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                                                        : verification.status === 'failed'
+                                                            ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200'
+                                                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200'
                                                         }`}>
                                                         {verification.status}
                                                     </span>

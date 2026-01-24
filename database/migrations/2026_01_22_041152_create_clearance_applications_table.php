@@ -25,10 +25,11 @@ return new class extends Migration
             $table->string('reference_no', 20)->unique();
             $table->unsignedBigInteger('user_id'); // No FK constraint (cross-database)
             $table->unsignedBigInteger('zone_id')->nullable();
-            $table->enum('application_category', ['individual_lot', 'subdivision_development']);
 
             // Applicant Info
-            $table->enum('applicant_type', ['owner', 'authorized_rep', 'contractor']);
+            $table->enum('applicant_type', ['individual', 'business', 'developer', 'institution']);
+            $table->boolean('is_representative')->default(false);
+            $table->string('representative_name', 150)->nullable();
             $table->string('contact_number', 20);
             $table->string('contact_email', 100)->nullable();
 
@@ -48,7 +49,10 @@ return new class extends Migration
             $table->string('barangay', 100)->nullable();
             $table->string('street_name', 255)->nullable();
             $table->string('lot_owner', 150);
+            $table->string('lot_owner_contact_number', 20)->nullable();
+            $table->string('lot_owner_contact_email', 100)->nullable();
             $table->decimal('lot_area_total', 12, 2);
+            $table->decimal('lot_area_used', 12, 2)->nullable();
 
             // Subdivision Info
             $table->boolean('is_subdivision')->default(false);
@@ -63,9 +67,9 @@ return new class extends Migration
             $table->enum('project_type', ['new_construction', 'renovation', 'addition', 'change_of_use']);
             $table->string('building_type', 100)->nullable();
             $table->text('project_description');
-            $table->enum('existing_structure', ['none', 'existing_to_retain', 'existing_to_demolish', 'existing_to_renovate']);
             $table->integer('number_of_storeys')->nullable();
             $table->decimal('floor_area_sqm', 10, 2)->nullable();
+            $table->integer('number_of_units')->nullable();
             $table->decimal('estimated_cost', 15, 2)->nullable();
             $table->text('purpose');
 
@@ -83,14 +87,12 @@ return new class extends Migration
             // Indexes
             $table->index('user_id');
             $table->index('zone_id');
-            $table->index('application_category');
             $table->index('status');
             $table->index('is_subdivision');
             $table->index(['pin_lat', 'pin_lng']);
             $table->index('tax_dec_ref_no');
             $table->index('barangay_permit_ref_no');
             $table->index('reference_no', 'idx_application_ref');
-            $table->index('application_category', 'idx_application_category');
             $table->index('province');
             $table->index('municipality');
             $table->index('barangay');

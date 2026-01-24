@@ -27,6 +27,11 @@ export function detectZoneFromPin(
             continue;
         }
 
+        // Skip municipality boundary from detection
+        if (zone.code === 'BOUNDARY') {
+            continue;
+        }
+
         try {
             // Handle both Polygon and MultiPolygon
             if (zone.geometry.type === 'Polygon') {

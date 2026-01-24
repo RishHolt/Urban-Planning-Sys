@@ -167,7 +167,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
 
     const handleStatusUpdate = (e: React.FormEvent) => {
         e.preventDefault();
-        patch(`/admin/zoning/clearance/applications/${application.id}/status`, {
+        patch(`/admin/zoning/applications/${application.id}/status`, {
             preserveScroll: true,
             onSuccess: () => {
                 setShowStatusModal(false);
@@ -178,7 +178,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
 
     const handleDocumentRequest = (e: React.FormEvent) => {
         e.preventDefault();
-        post(`/admin/zoning/clearance/applications/${application.id}/request-documents`, {
+        post(`/admin/zoning/applications/${application.id}/request-documents`, {
             preserveScroll: true,
             onSuccess: () => {
                 setShowDocumentRequestModal(false);
@@ -195,7 +195,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
             title="Application Details"
             description="View and manage clearance application"
             backButton={{
-                href: '/admin/zoning/clearance/applications',
+                href: '/admin/zoning/applications',
                 label: 'Back to Clearance Applications',
             }}
         >
@@ -226,7 +226,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                 </Button>
                             )}
                             {application.status === 'approved' && !application.issuedClearance && (
-                                <Link href={`/admin/zoning/clearance/applications/${application.id}/issue`}>
+                                <Link href={`/admin/zoning/applications/${application.id}/issue`}>
                                     <Button>
                                         Issue Clearance
                                     </Button>

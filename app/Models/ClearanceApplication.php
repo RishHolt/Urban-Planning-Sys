@@ -25,8 +25,9 @@ class ClearanceApplication extends Model
         'reference_no',
         'user_id',
         'zone_id',
-        'application_category',
         'applicant_type',
+        'is_representative',
+        'representative_name',
         'contact_number',
         'contact_email',
         'tax_dec_ref_no',
@@ -39,7 +40,10 @@ class ClearanceApplication extends Model
         'barangay',
         'street_name',
         'lot_owner',
+        'lot_owner_contact_number',
+        'lot_owner_contact_email',
         'lot_area_total',
+        'lot_area_used',
         'is_subdivision',
         'subdivision_name',
         'block_no',
@@ -50,9 +54,9 @@ class ClearanceApplication extends Model
         'project_type',
         'building_type',
         'project_description',
-        'existing_structure',
         'number_of_storeys',
         'floor_area_sqm',
+        'number_of_units',
         'purpose',
         'assessed_fee',
         'status',
@@ -73,6 +77,8 @@ class ClearanceApplication extends Model
             'pin_lat' => 'decimal:8',
             'pin_lng' => 'decimal:8',
             'lot_area_total' => 'decimal:2',
+            'lot_area_used' => 'decimal:2',
+            'is_representative' => 'boolean',
             'is_subdivision' => 'boolean',
             'has_subdivision_plan' => 'boolean',
             'floor_area_sqm' => 'decimal:2',
@@ -92,15 +98,15 @@ class ClearanceApplication extends Model
     }
 
     /**
-     * Get the documents for this application.
+     * Get the user who created this application.
      */
-    public function documents(): HasMany
+    public function user(): BelongsTo
     {
-        return $this->hasMany(Document::class, 'application_id');
+        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class);
     }
 
     /**
-     * Get the history records for this application.
+     * Get the application history records.
      */
     public function history(): HasMany
     {
@@ -110,54 +116,9 @@ class ClearanceApplication extends Model
     /**
      * Get the external verifications for this application.
      */
-    public function externalVerifications(): HasMany
+    public function verifications(): HasMany
     {
         return $this->hasMany(ExternalVerification::class, 'application_id');
-    }
-
-
-    /**
-     * Get the inspection for this application.
-     */
-    public function inspection(): HasOne
-    {
-        return $this->hasOne(Inspection::class, 'application_id');
-    }
-
-    /**
-     * Get the issued clearance for this application.
-     */
-    public function issuedClearance(): HasOne
-    {
-        return $this->hasOne(IssuedClearance::class, 'application_id');
-    }
-
-    /**
-     * Generate a unique reference number.
-     */
-    public static function generateReferenceNo(): string
-    {
-        $year = date('Y');
-        $lastNumber = self::where('reference_no', 'like', "ZC-{$year}-%")
-            ->orderBy('reference_no', 'desc')
-            ->value('reference_no');
-
-        if ($lastNumber) {
-            $lastSequence = (int) substr($lastNumber, -5);
-            $newSequence = $lastSequence + 1;
-        } else {
-            $newSequence = 1;
-        }
-
-        return sprintf('ZC-%s-%05d', $year, $newSequence);
-    }
-
-    /**
-     * Scope a query to filter by category.
-     */
-    public function scopeByCategory($query, string $category)
-    {
-        return $query->where('application_category', $category);
     }
 
     /**
@@ -166,5 +127,57 @@ class ClearanceApplication extends Model
     public function scopeByStatus($query, string $status)
     {
         return $query->where('status', $status);
+    }
+    /**
+     * Get the documents for the application.
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(Document::class, 'application_id');
+    }
+
+    /**
+     * Get the inspection record for the application.
+     */
+    public function inspection(): HasOne
+    {
+        return $this->hasOne(Inspection::class, 'application_id');
+    }
+
+    /**
+     * Get the issued clearance for the application.
+     */
+    public function issuedClearance(): HasOne
+    {
+        return $this->hasOne(IssuedClearance::class, 'application_id');
+    }
+
+    /**
+     * Get the external verifications for this application.
+     * Alias for verifications() to match controller/resource usage.
+     */
+    public function externalVerifications(): HasMany
+    {
+        return $this->hasMany(ExternalVerification::class, 'application_id');
+    }
+
+    /**
+     * Generate a unique reference number.
+     * Format: ZC-YYYY-MM-XXXX
+     */
+    public static function generateReferenceNo(): string
+    {
+        $prefix = 'ZC-' . date('Y-m');
+        $lastRecord = self::where('reference_no', 'like', "{$prefix}-%")
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $sequence = 1;
+        if ($lastRecord) {
+            $parts = explode('-', $lastRecord->reference_no);
+            $sequence = (int) end($parts) + 1;
+        }
+
+        return $prefix . '-' . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
     }
 }

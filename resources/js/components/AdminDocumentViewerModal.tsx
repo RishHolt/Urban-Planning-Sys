@@ -91,7 +91,6 @@ export default function AdminDocumentViewerModal({
         <>
             <div
                 className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
-                onClick={onClose}
             >
                 <div
                     className="relative bg-white dark:bg-dark-surface rounded-lg shadow-xl max-w-7xl max-h-[90vh] w-full mx-4 overflow-hidden flex flex-col"
@@ -222,11 +221,10 @@ export default function AdminDocumentViewerModal({
                                 onChange={(e) => setNotes(e.target.value)}
                                 rows={4}
                                 required={actionType === 'reject'}
-                                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent ${
-                                    actionType === 'reject' && !notes.trim() 
-                                        ? 'border-red-300 dark:border-red-600' 
+                                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent ${actionType === 'reject' && !notes.trim()
+                                        ? 'border-red-300 dark:border-red-600'
                                         : 'border-gray-300 dark:border-gray-600'
-                                }`}
+                                    }`}
                                 placeholder={actionType === 'approve' ? 'Add notes (optional)...' : 'Please provide a reason for rejection (required)...'}
                             />
                             {actionType === 'reject' && !notes.trim() && (
