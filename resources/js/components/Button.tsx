@@ -7,15 +7,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ({ variant = 'primary', size = 'md', className = '', children, ...props }, ref) => {
-        const baseStyles = 'font-semibold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
+        const baseStyles = 'inline-flex items-center justify-center font-bold rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95';
 
         const variantStyles = {
-            primary: 'bg-primary text-white hover:bg-primary/90 active:bg-primary/80 dark:bg-primary dark:hover:bg-primary/90',
-            secondary: 'bg-secondary text-white hover:bg-secondary/90 active:bg-secondary/80 dark:bg-secondary dark:hover:bg-secondary/90',
-            accent: 'bg-accent text-white hover:bg-accent/90 active:bg-accent/80 dark:bg-accent dark:hover:bg-accent/90',
-            outline: 'border-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-white active:bg-primary/90 dark:border-primary dark:text-primary dark:hover:bg-primary',
-            ghost: 'bg-transparent text-primary hover:bg-primary/10 active:bg-primary/20 dark:text-primary dark:hover:bg-primary/20',
-            danger: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700',
+            primary: 'bg-gradient-to-br from-primary to-primary/80 text-white shadow-[0_4px_14px_0_rgba(var(--primary-rgb),0.39)] hover:shadow-[0_6px_20px_rgba(var(--primary-rgb),0.23)] hover:brightness-110 -translate-y-[1px]',
+            secondary: 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 -translate-y-[1px]',
+            accent: 'bg-gradient-to-br from-accent to-accent/90 text-white shadow-[0_4px_14px_0_rgba(var(--accent-rgb),0.39)] hover:shadow-[0_6px_20px_rgba(var(--accent-rgb),0.23)] hover:brightness-110 -translate-y-[1px]',
+            outline: 'border-2 border-primary/20 text-primary bg-transparent hover:border-primary hover:bg-primary/5 active:bg-primary/10 dark:border-primary/20 dark:text-primary dark:hover:bg-primary/5 -translate-y-[1px]',
+            ghost: 'bg-transparent text-primary hover:bg-primary/5 active:bg-primary/10 dark:text-primary dark:hover:bg-primary/10',
+            danger: 'bg-gradient-to-br from-red-600 to-red-700 text-white shadow-[0_4px_14px_0_rgba(220,38,38,0.39)] hover:shadow-[0_6px_20px_rgba(220,38,38,0.23)] hover:brightness-110 -translate-y-[1px]',
         };
 
         const sizeStyles = {

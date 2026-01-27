@@ -70,7 +70,7 @@ class Zone extends Model
      */
     public function clearanceApplications(): HasMany
     {
-        return $this->hasMany(ClearanceApplication::class);
+        return $this->hasMany(ZoningApplication::class);
     }
 
     /**

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { router } from '@inertiajs/react';
 import AdminHeader from '../../../components/AdminHeader';
 import Sidebar from '../../../components/Sidebar';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
@@ -756,21 +757,23 @@ export default function ZoningMap() {
         }
 
         setLoading(true);
-        try {
-            const result = await importMunicipalityGeoJson(file);
-            if (result.success) {
-                showSuccess(result.message);
-                await loadAllZonesForMap();
-            } else {
-                showError(result.message || 'Failed to import municipality');
+        router.post('/admin/zoning/zones/import-municipality', {
+            file: file
+        }, {
+            forceFormData: true,
+            onSuccess: (page: any) => {
+                showSuccess(page.props.flash?.success || 'Municipality boundary imported successfully.');
+                loadAllZonesForMap();
+                e.target.value = '';
+            },
+            onError: (errors) => {
+                showError(Object.values(errors)[0] || 'Failed to import municipality');
+                e.target.value = '';
+            },
+            onFinish: () => {
+                setLoading(false);
             }
-        } catch (error) {
-            showError('An error occurred during import');
-            console.error(error);
-        } finally {
-            setLoading(false);
-            e.target.value = '';
-        }
+        });
     };
 
     const filteredZones = zones.filter((zone) => {

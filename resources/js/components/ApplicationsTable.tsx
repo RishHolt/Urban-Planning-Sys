@@ -2,7 +2,7 @@ import { Link } from '@inertiajs/react';
 import { FileText, Eye } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 
-export type ApplicationStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
+export type ApplicationStatus = 'pending' | 'in_review' | 'approved' | 'rejected' | 'under_review' | 'for_inspection';
 
 export interface BaseApplication {
     id: string;
@@ -67,11 +67,12 @@ export default function ApplicationsTable<T extends BaseApplication>({
 
     const isAdminView = columns === 'admin' || (customColumns && customColumns.length > 0);
 
-    const defaultEmptyState = {
+    const defaultEmptyState: { title: string; message: string; action?: React.ReactNode } = {
         title: 'No Applications Found',
         message: isAdminView
             ? 'Try adjusting your search or filter criteria.'
             : 'You haven\'t submitted any applications. Start by creating a new application.',
+        action: undefined,
     };
 
     const emptyStateConfig = emptyState || defaultEmptyState;
@@ -112,7 +113,7 @@ export default function ApplicationsTable<T extends BaseApplication>({
 
             case 'applicant':
                 if (isAdminView && 'applicantName' in application) {
-                    const adminApp = application as AdminApplication;
+                    const adminApp = application as unknown as AdminApplication;
                     return (
                         <div className="text-sm">
                             <div className="font-medium text-gray-900 dark:text-white">
@@ -280,8 +281,8 @@ export default function ApplicationsTable<T extends BaseApplication>({
                                     key={index}
                                     onClick={() => link.url && onPaginationClick(link.url)}
                                     className={`px-3 py-2 border rounded-lg text-sm ${link.active
-                                            ? 'bg-primary text-white border-primary'
-                                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-surface text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                        ? 'bg-primary text-white border-primary'
+                                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-surface text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                                         }`}
                                 >
                                     {link.label.replace('&laquo;', '').replace('&raquo;', '').trim()}

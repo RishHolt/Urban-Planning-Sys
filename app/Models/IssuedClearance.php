@@ -54,7 +54,15 @@ class IssuedClearance extends Model
      */
     public function clearanceApplication(): BelongsTo
     {
-        return $this->belongsTo(ClearanceApplication::class, 'application_id');
+        return $this->belongsTo(ZoningApplication::class, 'application_id');
+    }
+
+    /**
+     * Get the user who issued/approved this clearance.
+     */
+    public function approvedBy(): BelongsTo
+    {
+        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'issued_by');
     }
 
     /**

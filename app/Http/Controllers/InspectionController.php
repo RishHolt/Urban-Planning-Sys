@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreInspectionRequest;
 use App\Models\ApplicationHistory;
-use App\Models\ClearanceApplication;
+use App\Models\ZoningApplication;
 use App\Models\Inspection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,7 +44,7 @@ class InspectionController extends Controller
         ]);
 
         // Update application status
-        $application = ClearanceApplication::findOrFail($validated['application_id']);
+        $application = ZoningApplication::findOrFail($validated['application_id']);
         $application->update(['status' => 'for_inspection']);
 
         // Create history record

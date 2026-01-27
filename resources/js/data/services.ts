@@ -1,3 +1,22 @@
+import { getCookie } from '../lib/utils';
+
+/**
+ * Get the CSRF token from the meta tag or XSRF-TOKEN cookie
+ */
+function getCsrfToken(): string {
+    // Try meta tag first
+    const metaToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    if (metaToken) return metaToken;
+
+    // Fallback to XSRF-TOKEN cookie (will be decoded by Laravel)
+    const cookieToken = getCookie('XSRF-TOKEN');
+    if (cookieToken) {
+        return decodeURIComponent(cookieToken);
+    }
+
+    return '';
+}
+
 export interface DocumentItem {
     title: string;
     description?: string;
@@ -602,7 +621,7 @@ export async function createZone(data: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+            'X-CSRF-TOKEN': getCsrfToken(),
         },
         body: JSON.stringify(data),
     });
@@ -642,7 +661,7 @@ export async function updateZone(
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+            'X-CSRF-TOKEN': getCsrfToken(),
         },
         body: JSON.stringify(data),
     });
@@ -698,7 +717,7 @@ export async function importZonesGeoJson(file: File): Promise<{
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+            'X-CSRF-TOKEN': getCsrfToken(),
         },
         body: formData,
     });
@@ -728,7 +747,7 @@ export async function importMunicipalityGeoJson(file: File): Promise<{
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+            'X-CSRF-TOKEN': getCsrfToken(),
         },
         body: formData,
     });
@@ -788,7 +807,7 @@ export async function createZoningClassification(data: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+            'X-CSRF-TOKEN': getCsrfToken(),
         },
         body: JSON.stringify(data),
     });
@@ -829,7 +848,7 @@ export async function updateZoningClassification(
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+            'X-CSRF-TOKEN': getCsrfToken(),
         },
         body: JSON.stringify(data),
     });
@@ -859,7 +878,7 @@ export async function deleteZoningClassification(id: string): Promise<void> {
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+            'X-CSRF-TOKEN': getCsrfToken(),
         },
     });
 
@@ -878,7 +897,7 @@ export async function deleteZone(id: string): Promise<void> {
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+            'X-CSRF-TOKEN': getCsrfToken(),
         },
     });
 

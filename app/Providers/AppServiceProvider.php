@@ -19,6 +19,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Load migrations from module subdirectories
+        $migrationModules = ['zcs_db', 'hbr_db', 'sbr_db', 'omt_db', 'ipc_db'];
+        
+        foreach ($migrationModules as $module) {
+            $modulePath = database_path("migrations/{$module}");
+            if (is_dir($modulePath)) {
+                $this->loadMigrationsFrom($modulePath);
+            }
+        }
     }
 }

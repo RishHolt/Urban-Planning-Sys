@@ -15,7 +15,8 @@ interface StatusHistoryProps {
 }
 
 export default function StatusHistory({ history, className = '' }: StatusHistoryProps) {
-    const formatStatusName = (status: string): string => {
+    const formatStatusName = (status: string | null): string => {
+        if (!status) return 'N/A';
         const statusLabels: Record<string, string> = {
             'pending': 'Pending',
             'in_review': 'In Review',
@@ -33,7 +34,7 @@ export default function StatusHistory({ history, className = '' }: StatusHistory
             // Pattern: "Document 'Document Name' rejected: notes"
             // Pattern: "Document 'Document Name' uploaded" or "Document 'Document Name' uploaded (Version X)"
             const documentMatch = notes.match(/^Document\s+'([^']+)'\s+(approved|rejected|uploaded)/i);
-            
+
             if (documentMatch) {
                 const action = documentMatch[2].toLowerCase();
                 if (action === 'approved') {
@@ -46,7 +47,7 @@ export default function StatusHistory({ history, className = '' }: StatusHistory
                     return 'Pending';
                 }
             }
-            
+
             // Fallback: check if it starts with "document" and contains approved/rejected/uploaded
             if (lowerNotes.startsWith("document")) {
                 if (lowerNotes.includes("approved")) {
@@ -144,9 +145,8 @@ export default function StatusHistory({ history, className = '' }: StatusHistory
                     return (
                         <div key={item.id} className="flex gap-3">
                             <div className="flex flex-col items-center">
-                                <div className={`w-2 h-2 rounded-full ${
-                                    index === 0 ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
-                                }`} />
+                                <div className={`w-2 h-2 rounded-full ${index === 0 ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+                                    }`} />
                                 {index < history.length - 1 && (
                                     <div className="w-0.5 h-full bg-gray-300 dark:bg-gray-600 mt-1" />
                                 )}

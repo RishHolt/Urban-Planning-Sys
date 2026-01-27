@@ -74,9 +74,8 @@ const CollapsibleSection = ({ config, isOpen, onToggle, children }: CollapsibleS
                     <ChevronDown size={20} className="text-gray-500 dark:text-gray-400" />
                 )}
             </button>
-            <div className={`overflow-hidden transition-all duration-300 ease-out ${
-                isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
-            }`}>
+            <div className={`overflow-hidden transition-all duration-300 ease-out ${isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                }`}>
                 <div className="space-y-3 pt-2 pl-14">
                     {children}
                 </div>
@@ -126,11 +125,10 @@ const WhoCanApplySection = ({ items, isOpen, onToggle, expandedItems, onToggleIt
                         <button
                             type="button"
                             onClick={() => hasDocuments && onToggleItem(index)}
-                            className={`w-full text-left flex justify-between items-start gap-3 transition-colors ${
-                                hasDocuments
-                                    ? 'hover:bg-gray-50 dark:hover:bg-gray-800/30 cursor-pointer'
-                                    : 'cursor-default'
-                            } rounded-lg p-3`}
+                            className={`w-full text-left flex justify-between items-start gap-3 transition-colors ${hasDocuments
+                                ? 'hover:bg-gray-50 dark:hover:bg-gray-800/30 cursor-pointer'
+                                : 'cursor-default'
+                                } rounded-lg p-3`}
                         >
                             <div className="flex-1">
                                 <h4 className="font-semibold text-gray-900 dark:text-white">
@@ -153,27 +151,26 @@ const WhoCanApplySection = ({ items, isOpen, onToggle, expandedItems, onToggleIt
                             )}
                         </button>
                         {hasDocuments && (
-                            <div className={`overflow-hidden transition-all duration-300 ease-out ${
-                                isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
-                            }`}>
-                            <div className="space-y-3 pt-3 pl-4">
-                                <h5 className="mb-2 font-semibold text-gray-800 dark:text-gray-200 text-sm">
-                                    Required Documents:
-                                </h5>
-                                {item.documents?.map((doc, docIndex) => (
-                                    <div key={docIndex} className="pl-4 border-indigo-200 dark:border-indigo-800 border-l-2">
-                                        <h6 className="font-medium text-gray-900 dark:text-white text-sm">
-                                            {doc.title}
-                                        </h6>
-                                        {doc.description && (
-                                            <p className="mt-1 text-gray-600 dark:text-gray-400 text-xs">
-                                                {doc.description}
-                                            </p>
-                                        )}
-                                    </div>
-                                ))}
+                            <div className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                                }`}>
+                                <div className="space-y-3 pt-3 pl-4">
+                                    <h5 className="mb-2 font-semibold text-gray-800 dark:text-gray-200 text-sm">
+                                        Required Documents:
+                                    </h5>
+                                    {item.documents?.map((doc, docIndex) => (
+                                        <div key={docIndex} className="pl-4 border-indigo-200 dark:border-indigo-800 border-l-2">
+                                            <h6 className="font-medium text-gray-900 dark:text-white text-sm">
+                                                {doc.title}
+                                            </h6>
+                                            {doc.description && (
+                                                <p className="mt-1 text-gray-600 dark:text-gray-400 text-xs">
+                                                    {doc.description}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
                         )}
                     </div>
                 );
@@ -197,7 +194,7 @@ export default function ServiceModal({
         whoCanApply: true,
     });
     const [expandedApplicantItems, setExpandedApplicantItems] = useState<Record<number, boolean>>({});
-    
+
     // Initialize document sections as open
     useEffect(() => {
         if (documents.length > 0) {
@@ -273,15 +270,15 @@ export default function ServiceModal({
                 iconColor: 'text-blue-600 dark:text-blue-400',
             },
             'zoning-requirements': {
-            icon: MapPin,
-            iconBg: 'bg-green-100 dark:bg-green-900/30',
-            iconColor: 'text-green-600 dark:text-green-400',
+                icon: MapPin,
+                iconBg: 'bg-green-100 dark:bg-green-900/30',
+                iconColor: 'text-green-600 dark:text-green-400',
             },
             'subdivision-building-review': {
                 icon: Building,
                 iconBg: 'bg-purple-100 dark:bg-purple-900/30',
                 iconColor: 'text-purple-600 dark:text-purple-400',
-        },
+            },
         };
 
         const defaultConfig = {
@@ -301,11 +298,11 @@ export default function ServiceModal({
     };
 
     return (
-        <div 
+        <div
             className="z-50 fixed inset-0 flex justify-center items-center bg-black/50 backdrop-blur-sm p-4"
             onClick={onClose}
         >
-            <div 
+            <div
                 className="relative flex flex-col bg-white dark:bg-dark-surface shadow-2xl rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
@@ -336,159 +333,159 @@ export default function ServiceModal({
                         <div className="space-y-6">
                             {/* Service Description */}
                             {serviceDetails.description && (
-                            <section>
-                                <h3 className="mb-3 font-bold text-gray-900 dark:text-white text-xl">
-                                    Service Description
-                                </h3>
-                                <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                                <section>
+                                    <h3 className="mb-3 font-bold text-gray-900 dark:text-white text-xl">
+                                        Service Description
+                                    </h3>
+                                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
                                         {serviceDetails.description}
-                                </p>
-                            </section>
+                                    </p>
+                                </section>
                             )}
 
                             {/* Purpose of the Service */}
                             {serviceDetails.purpose && serviceDetails.purpose.length > 0 && (
-                            <section>
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="flex justify-center items-center bg-primary/10 dark:bg-primary/20 rounded-lg w-10 h-10">
-                                        <Target size={20} className="text-primary" />
+                                <section>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="flex justify-center items-center bg-primary/10 dark:bg-primary/20 rounded-lg w-10 h-10">
+                                            <Target size={20} className="text-primary" />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900 dark:text-white text-xl">
+                                            Purpose of the Service
+                                        </h3>
                                     </div>
-                                    <h3 className="font-bold text-gray-900 dark:text-white text-xl">
-                                        Purpose of the Service
-                                    </h3>
-                                </div>
-                                <p className="mb-3 text-gray-700 dark:text-gray-300">
-                                    This service is required to:
-                                </p>
-                                <ul className="space-y-2 pl-14 list-disc">
+                                    <p className="mb-3 text-gray-700 dark:text-gray-300">
+                                        This service is required to:
+                                    </p>
+                                    <ul className="space-y-2 pl-14 list-disc">
                                         {serviceDetails.purpose.map((item, index) => (
                                             <li key={index} className="text-gray-700 dark:text-gray-300">
                                                 {item}
                                             </li>
                                         ))}
-                                </ul>
-                            </section>
+                                    </ul>
+                                </section>
                             )}
 
                             {/* Types of Activities Covered */}
                             {serviceDetails.activitiesCovered && serviceDetails.activitiesCovered.length > 0 && (
-                            <section>
-                                <h3 className="mb-3 font-bold text-gray-900 dark:text-white text-xl">
-                                    Types of Activities Covered
-                                </h3>
-                                <ul className="space-y-2 pl-6 list-disc">
+                                <section>
+                                    <h3 className="mb-3 font-bold text-gray-900 dark:text-white text-xl">
+                                        Types of Activities Covered
+                                    </h3>
+                                    <ul className="space-y-2 pl-6 list-disc">
                                         {serviceDetails.activitiesCovered.map((item, index) => (
                                             <li key={index} className="text-gray-700 dark:text-gray-300">
                                                 {item}
                                             </li>
                                         ))}
-                                </ul>
-                            </section>
+                                    </ul>
+                                </section>
                             )}
 
                             {/* Considerations */}
                             {serviceDetails.considerations && (
-                            <section>
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="flex justify-center items-center bg-green-100 dark:bg-green-900/30 rounded-lg w-10 h-10">
-                                        <MapPin size={20} className="text-green-600 dark:text-green-400" />
-                                    </div>
-                                    <h3 className="font-bold text-gray-900 dark:text-white text-xl">
+                                <section>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="flex justify-center items-center bg-green-100 dark:bg-green-900/30 rounded-lg w-10 h-10">
+                                            <MapPin size={20} className="text-green-600 dark:text-green-400" />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900 dark:text-white text-xl">
                                             {serviceDetails.considerations.title}
-                                    </h3>
-                                </div>
-                                <p className="mb-3 text-gray-700 dark:text-gray-300">
-                                    Approval is evaluated based on:
-                                </p>
-                                <ul className="space-y-2 pl-14 list-disc">
+                                        </h3>
+                                    </div>
+                                    <p className="mb-3 text-gray-700 dark:text-gray-300">
+                                        Approval is evaluated based on:
+                                    </p>
+                                    <ul className="space-y-2 pl-14 list-disc">
                                         {serviceDetails.considerations.items.map((item, index) => (
                                             <li key={index} className="text-gray-700 dark:text-gray-300">
                                                 {item}
                                             </li>
                                         ))}
-                                </ul>
-                            </section>
+                                    </ul>
+                                </section>
                             )}
 
                             {/* Evaluation Process */}
                             {serviceDetails.evaluationProcess && serviceDetails.evaluationProcess.length > 0 && (
-                            <section>
-                                <h3 className="mb-3 font-bold text-gray-900 dark:text-white text-xl">
-                                    Evaluation Process
-                                </h3>
-                                <ol className="space-y-2 pl-6 list-decimal">
+                                <section>
+                                    <h3 className="mb-3 font-bold text-gray-900 dark:text-white text-xl">
+                                        Evaluation Process
+                                    </h3>
+                                    <ol className="space-y-2 pl-6 list-decimal">
                                         {serviceDetails.evaluationProcess.map((item, index) => (
                                             <li key={index} className="text-gray-700 dark:text-gray-300">
                                                 {item}
                                             </li>
                                         ))}
-                                </ol>
-                            </section>
+                                    </ol>
+                                </section>
                             )}
 
                             {/* Processing Time */}
                             {serviceDetails.processingTime && (
-                            <section>
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="flex justify-center items-center bg-blue-100 dark:bg-blue-900/30 rounded-lg w-10 h-10">
-                                        <Clock size={20} className="text-blue-600 dark:text-blue-400" />
+                                <section>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="flex justify-center items-center bg-blue-100 dark:bg-blue-900/30 rounded-lg w-10 h-10">
+                                            <Clock size={20} className="text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900 dark:text-white text-xl">
+                                            Processing Time
+                                        </h3>
                                     </div>
-                                    <h3 className="font-bold text-gray-900 dark:text-white text-xl">
-                                        Processing Time
-                                    </h3>
-                                </div>
-                                <p className="text-gray-700 dark:text-gray-300">
+                                    <p className="text-gray-700 dark:text-gray-300">
                                         Estimated processing time: <span className="font-semibold">{serviceDetails.processingTime}</span>
-                                </p>
+                                    </p>
                                     {serviceDetails.processingTimeNote && (
-                                <p className="mt-2 text-gray-600 dark:text-gray-400 text-sm">
+                                        <p className="mt-2 text-gray-600 dark:text-gray-400 text-sm">
                                             {serviceDetails.processingTimeNote}
-                                </p>
+                                        </p>
                                     )}
-                            </section>
+                                </section>
                             )}
 
                             {/* Fees */}
                             {serviceDetails.fees && (
-                            <section>
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="flex justify-center items-center bg-yellow-100 dark:bg-yellow-900/30 rounded-lg w-10 h-10">
-                                        <DollarSign size={20} className="text-yellow-600 dark:text-yellow-400" />
+                                <section>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="flex justify-center items-center bg-yellow-100 dark:bg-yellow-900/30 rounded-lg w-10 h-10">
+                                            <DollarSign size={20} className="text-yellow-600 dark:text-yellow-400" />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900 dark:text-white text-xl">
+                                            Fees
+                                        </h3>
                                     </div>
-                                    <h3 className="font-bold text-gray-900 dark:text-white text-xl">
-                                        Fees
-                                    </h3>
-                                </div>
-                                <p className="text-gray-700 dark:text-gray-300">
+                                    <p className="text-gray-700 dark:text-gray-300">
                                         {serviceDetails.fees}
-                                </p>
+                                    </p>
                                     {serviceDetails.feesNote && (
-                                <p className="mt-2 text-gray-600 dark:text-gray-400 text-sm">
+                                        <p className="mt-2 text-gray-600 dark:text-gray-400 text-sm">
                                             {serviceDetails.feesNote}
-                                </p>
+                                        </p>
                                     )}
-                            </section>
+                                </section>
                             )}
 
                             {/* Important Reminders */}
                             {serviceDetails.importantReminders && serviceDetails.importantReminders.length > 0 && (
-                            <section>
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="flex justify-center items-center bg-orange-100 dark:bg-orange-900/30 rounded-lg w-10 h-10">
-                                        <AlertCircle size={20} className="text-orange-600 dark:text-orange-400" />
+                                <section>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="flex justify-center items-center bg-orange-100 dark:bg-orange-900/30 rounded-lg w-10 h-10">
+                                            <AlertCircle size={20} className="text-orange-600 dark:text-orange-400" />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900 dark:text-white text-xl">
+                                            Important Reminders
+                                        </h3>
                                     </div>
-                                    <h3 className="font-bold text-gray-900 dark:text-white text-xl">
-                                        Important Reminders
-                                    </h3>
-                                </div>
-                                <ul className="space-y-2 pl-14 list-disc">
+                                    <ul className="space-y-2 pl-14 list-disc">
                                         {serviceDetails.importantReminders.map((item, index) => (
                                             <li key={index} className="text-gray-700 dark:text-gray-300">
                                                 {item}
                                             </li>
                                         ))}
-                                </ul>
-                            </section>
+                                    </ul>
+                                </section>
                             )}
                         </div>
                     ) : showDocuments ? (
@@ -538,11 +535,10 @@ export default function ServiceModal({
                             <button
                                 key={page}
                                 onClick={() => setCurrentPage(page)}
-                                className={`w-8 h-8 rounded-lg transition-colors ${
-                                    currentPage === page
-                                        ? 'bg-primary text-white'
-                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                                }`}
+                                className={`w-8 h-8 rounded-lg transition-colors ${currentPage === page
+                                    ? 'bg-primary text-white'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                    }`}
                                 aria-label={`Go to page ${page}`}
                             >
                                 {page}
@@ -557,9 +553,9 @@ export default function ServiceModal({
                             onClick={() => {
                                 onClose();
                                 // Route based on service ID
-                                const applicationRoute = serviceId === 'housing-beneficiary' 
-                                    ? '/applications/housing/create'
-                                    : '/clearance-applications/category';
+                                const applicationRoute = serviceId === 'housing-beneficiary'
+                                    ? '/applications/housing'
+                                    : '/zoning-applications';
                                 router.visit(applicationRoute);
                             }}
                         >

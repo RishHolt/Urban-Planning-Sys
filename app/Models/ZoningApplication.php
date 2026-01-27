@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ZoningApplication extends Model
 {
-    use HasFactory;
     /**
      * The connection name for the model.
      *
@@ -17,55 +17,65 @@ class ZoningApplication extends Model
     protected $connection = 'zcs_db';
 
     /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
+    protected $table = 'zoning_applications';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
      */
     protected $fillable = [
-        'user_id',
         'application_number',
+        'reference_no',
         'service_id',
-        'status',
-        'submitted_at',
+        'user_id',
+        'zone_id',
         'applicant_type',
+        'is_representative',
+        'representative_name',
         'applicant_name',
         'applicant_email',
         'applicant_contact',
-        'valid_id_path', // Only Valid ID stays in main table
-        'company_name',
-        'sec_dti_reg_no',
-        'authorized_representative',
-        'is_property_owner',
-        // authorization_letter_path - moved to documents table
-        'owner_name',
-        'owner_address',
-        'owner_contact',
-        // proof_of_ownership_path - moved to documents table
-        // tax_declaration_type, tax_declaration_id, tax_declaration_path - moved to documents table
+        'contact_number',
+        'contact_email',
+        'valid_id_path',
+        'tax_dec_ref_no',
+        'barangay_permit_ref_no',
+        'pin_lat',
+        'pin_lng',
+        'lot_address',
         'province',
         'municipality',
         'barangay',
-        'lot_no',
-        'block_no',
         'street_name',
-        'latitude',
-        'longitude',
-        'land_type',
-        'has_existing_structure',
-        'number_of_buildings',
-        'lot_area',
-        'application_type',
-        'proposed_use',
+        'lot_owner',
+        'lot_owner_contact_number',
+        'lot_owner_contact_email',
+        'lot_area_total',
+        'lot_area_used',
+        'is_subdivision',
+        'subdivision_name',
+        'block_no',
+        'lot_no',
+        'total_lots_planned',
+        'has_subdivision_plan',
+        'land_use_type',
+        'project_type',
+        'building_type',
         'project_description',
-        // site_development_plan_path - moved to documents table
-        'previous_use',
-        'justification',
-        // location_map_path, vicinity_map_path - moved to documents table
-        // barangay_clearance_type, barangay_clearance_id, barangay_clearance_path - moved to documents table
-        // signature_path - moved to documents table
-        'declaration_truthfulness',
-        'agreement_compliance',
-        'data_privacy_consent',
+        'number_of_storeys',
+        'floor_area_sqm',
+        'number_of_units',
+        'purpose',
+        'assessed_fee',
+        'status',
+        'is_active',
+        'submitted_at',
+        'processed_at',
         'application_date',
         'notes',
         'rejection_reason',
@@ -83,55 +93,118 @@ class ZoningApplication extends Model
     protected function casts(): array
     {
         return [
-            'submitted_at' => 'datetime',
-            'is_property_owner' => 'boolean',
-            'latitude' => 'decimal:8',
-            'longitude' => 'decimal:8',
-            'has_existing_structure' => 'boolean',
-            'number_of_buildings' => 'integer',
-            'lot_area' => 'decimal:2',
+            'pin_lat' => 'decimal:8',
+            'pin_lng' => 'decimal:8',
+            'lot_area_total' => 'decimal:2',
+            'lot_area_used' => 'decimal:2',
+            'is_representative' => 'boolean',
+            'is_subdivision' => 'boolean',
+            'has_subdivision_plan' => 'boolean',
+            'floor_area_sqm' => 'decimal:2',
+            'assessed_fee' => 'decimal:2',
+            'is_active' => 'boolean',
             'application_date' => 'date',
-            'declaration_truthfulness' => 'boolean',
-            'agreement_compliance' => 'boolean',
-            'data_privacy_consent' => 'boolean',
+            'submitted_at' => 'datetime',
+            'processed_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'approved_at' => 'datetime',
         ];
     }
 
     /**
-     * Get the documents for the zoning application.
+     * Get the zone for this application.
+     */
+    public function zone(): BelongsTo
+    {
+        return $this->belongsTo(Zone::class);
+    }
+
+    /**
+     * Get the user who created this application.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class);
+    }
+
+    /**
+     * Get the application history records.
+     */
+    public function history(): HasMany
+    {
+        return $this->hasMany(ApplicationHistory::class, 'application_id');
+    }
+
+    /**
+     * Get the external verifications for this application.
+     */
+    public function verifications(): HasMany
+    {
+        return $this->hasMany(ExternalVerification::class, 'application_id');
+    }
+
+    /**
+     * Scope a query to filter by status.
+     */
+    public function scopeByStatus($query, string $status)
+    {
+        return $query->where('status', $status);
+    }
+    /**
+     * Get the documents for the application.
      */
     public function documents(): HasMany
     {
-        return $this->hasMany(ZoningApplicationDocument::class);
+        return $this->hasMany(ZoningApplicationDocument::class, 'zoning_application_id');
     }
 
     /**
-     * Get the status history for the zoning application.
+     * Get the inspection record for the application.
      */
+    public function inspection(): HasOne
+    {
+        return $this->hasOne(Inspection::class, 'application_id');
+    }
+
+    /**
+     * Get the issued clearance for the application.
+     */
+    public function issuedClearance(): HasOne
+    {
+        return $this->hasOne(IssuedClearance::class, 'application_id');
+    }
+
+    /**
+     * Get the external verifications for this application.
+     * Alias for verifications() to match controller/resource usage.
+     */
+    public function externalVerifications(): HasMany
+    {
+        return $this->hasMany(ExternalVerification::class, 'application_id');
+    }
+
     public function statusHistory(): HasMany
     {
-        return $this->hasMany(ZoningApplicationStatusHistory::class);
+        return $this->hasMany(ZoningApplicationStatusHistory::class, 'zoning_application_id');
     }
 
     /**
-     * Generate a unique application number.
+     * Generate a unique reference number.
+     * Format: ZC-YYYY-MM-XXXX
      */
-    public static function generateApplicationNumber(): string
+    public static function generateReferenceNo(): string
     {
-        $year = date('Y');
-        $lastNumber = self::where('application_number', 'like', "ZON-{$year}-%")
-            ->orderBy('application_number', 'desc')
-            ->value('application_number');
+        $prefix = 'ZC-' . date('Y-m');
+        $lastRecord = self::where('reference_no', 'like', "{$prefix}-%")
+            ->orderBy('id', 'desc')
+            ->first();
 
-        if ($lastNumber) {
-            $lastSequence = (int) substr($lastNumber, -4);
-            $newSequence = $lastSequence + 1;
-        } else {
-            $newSequence = 1;
+        $sequence = 1;
+        if ($lastRecord) {
+            $parts = explode('-', $lastRecord->reference_no);
+            $sequence = (int) end($parts) + 1;
         }
 
-        return sprintf('ZON-%s-%04d', $year, $newSequence);
+        return $prefix . '-' . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
     }
 }

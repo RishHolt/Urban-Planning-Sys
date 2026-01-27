@@ -293,7 +293,7 @@ class ZoneController extends Controller
     /**
      * Import zones from a GeoJSON FeatureCollection.
      */
-    public function importGeoJson(\App\Http\Requests\ImportZoneRequest $request): JsonResponse
+    public function importGeoJson(\App\Http\Requests\ImportZoneRequest $request): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         $file = $request->file('file');
         $geoJson = json_decode(file_get_contents($file->path()), true);
@@ -368,6 +368,10 @@ class ZoneController extends Controller
             }
         }
 
+        if ($request->header('X-Inertia')) {
+            return back()->with('success', "Import completed: {$importedCount} new, {$updatedCount} updated.");
+        }
+
         return response()->json([
             'success' => count($errors) < count($geoJson['features']),
             'message' => "Import completed: {$importedCount} new, {$updatedCount} updated.",
@@ -378,7 +382,7 @@ class ZoneController extends Controller
     /**
      * Import a municipality boundary from a GeoJSON FeatureCollection.
      */
-    public function importMunicipality(\App\Http\Requests\ImportZoneRequest $request): JsonResponse
+    public function importMunicipality(\App\Http\Requests\ImportZoneRequest $request): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         $file = $request->file('file');
         $geoJson = json_decode(file_get_contents($file->path()), true);
@@ -423,6 +427,10 @@ class ZoneController extends Controller
             'is_active' => true,
             'is_municipality' => true,
         ]);
+
+        if ($request->header('X-Inertia')) {
+            return back()->with('success', 'Municipality boundary imported successfully.');
+        }
 
         return response()->json([
             'success' => true,

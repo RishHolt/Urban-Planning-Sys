@@ -22,7 +22,7 @@ class IssueClearanceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'application_id' => ['required', 'exists:zcs_db.clearance_applications,id'],
+            'application_id' => ['required', 'exists:zcs_db.zoning_applications,id'],
             'issue_date' => ['required', 'date'],
             'valid_until' => ['nullable', 'date', 'after:issue_date'],
             'conditions' => ['nullable', 'string'],

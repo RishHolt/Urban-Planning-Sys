@@ -7,24 +7,6 @@ import { detectZoneFromPin, Zone } from '../../lib/zoneDetection';
 import { searchAddressSuggestions, reverseGeocode } from '../../lib/geocoding';
 import { MapPin, CheckCircle, AlertCircle, Search, Loader2 } from 'lucide-react';
 
-// Address data (same as PropertyLocationStep)
-const PROVINCES = ['Metro Manila', 'Cavite', 'Laguna', 'Rizal', 'Bulacan'];
-const MUNICIPALITIES: Record<string, string[]> = {
-    'Metro Manila': ['Manila', 'Quezon City', 'Makati', 'Pasig', 'Taguig'],
-    'Cavite': ['Bacoor', 'Imus', 'Dasmarinas', 'General Trias'],
-    'Laguna': ['Calamba', 'San Pedro', 'Biñan', 'Santa Rosa'],
-    'Rizal': ['Antipolo', 'Taytay', 'Cainta', 'Angono'],
-    'Bulacan': ['Malolos', 'Meycauayan', 'Marilao', 'San Jose del Monte'],
-};
-
-const BARANGAYS: Record<string, string[]> = {
-    'Manila': ['Ermita', 'Malate', 'Intramuros', 'Binondo', 'Quiapo'],
-    'Quezon City': ['Diliman', 'Cubao', 'Kamuning', 'Project 4', 'Project 6'],
-    'Makati': ['Bel-Air', 'Poblacion', 'San Antonio', 'Guadalupe'],
-    'Pasig': ['Ortigas', 'San Antonio', 'Rosario', 'Santolan'],
-    'Taguig': ['Fort Bonifacio', 'Upper Bicutan', 'Lower Bicutan', 'Tuktukan'],
-};
-
 interface PropertyLocationProps {
     mode: 'form' | 'edit' | 'view';
     // Form/Edit mode props
@@ -60,7 +42,6 @@ export default function PropertyLocation({
     errors = {},
     showMap = true,
 }: PropertyLocationProps) {
-    const [addressMode, setAddressMode] = useState<'full' | 'structured'>('full');
     const [detectedZone, setDetectedZone] = useState<Zone | null>(zone || null);
     const [loadingZones, setLoadingZones] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -69,22 +50,6 @@ export default function PropertyLocation({
     const [geocoding, setGeocoding] = useState(false);
     const [geocodingError, setGeocodingError] = useState<string | null>(null);
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-    // Load zones if not provided and in form mode
-    useEffect(() => {
-        if (mode === 'form' && zones.length === 0) {
-            setLoadingZones(true);
-            fetch('/api/zones')
-                .then(res => res.json())
-                .then(data => {
-                    // Zones will be passed via props, this is fallback
-                    setLoadingZones(false);
-                })
-                .catch(() => {
-                    setLoadingZones(false);
-                });
-        }
-    }, [mode, zones.length]);
 
     // Detect zone when pin location changes (form mode)
     useEffect(() => {
@@ -112,31 +77,21 @@ export default function PropertyLocation({
                             onAddressChange('lot_address', result.displayName);
                         }
 
-                        // Populate structured address fields
-                        if (result.address.province) {
-                            onAddressChange('province', result.address.province);
-                        }
-                        if (result.address.municipality) {
-                            onAddressChange('municipality', result.address.municipality);
-                        }
-                        if (result.address.barangay) {
-                            onAddressChange('barangay', result.address.barangay);
-                        }
-                        if (result.address.street) {
-                            onAddressChange('street_name', result.address.street);
-                        }
+                        // Populate structured address fields in the background
+                        if (result.address.province) onAddressChange('province', result.address.province);
+                        if (result.address.municipality) onAddressChange('municipality', result.address.municipality);
+                        if (result.address.barangay) onAddressChange('barangay', result.address.barangay);
+                        if (result.address.street) onAddressChange('street_name', result.address.street);
 
                         setGeocodingError(null);
-                    } else {
-                        setGeocodingError('Unable to determine address for this location.');
                     }
                 } catch (error) {
                     console.error('Reverse geocoding failed:', error);
-                    setGeocodingError('Failed to fetch address. Please enter manually.');
+                    setGeocodingError('Failed to fetch address details. You can still type it manually.');
                 } finally {
                     setGeocoding(false);
                 }
-            }, 800); // Slightly longer debounce for API stability
+            }, 800);
 
             return () => clearTimeout(timeoutId);
         }
@@ -150,11 +105,7 @@ export default function PropertyLocation({
 
     const handleAddressSearch = async (query: string) => {
         setSearchQuery(query);
-
-        // Clear previous timeout if exists
-        if (searchTimeoutRef.current) {
-            clearTimeout(searchTimeoutRef.current);
-        }
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
 
         if (query.length < 3) {
             setSuggestions([]);
@@ -162,7 +113,6 @@ export default function PropertyLocation({
             return;
         }
 
-        // Debounce the search with 600ms delay to respect Nominatim rate limits
         searchTimeoutRef.current = setTimeout(async () => {
             try {
                 const results = await searchAddressSuggestions(query, 10);
@@ -170,8 +120,6 @@ export default function PropertyLocation({
                 setShowSuggestions(results.length > 0);
             } catch (error) {
                 console.error('Search failed:', error);
-                setSuggestions([]);
-                setShowSuggestions(false);
             }
         }, 600);
     };
@@ -180,18 +128,9 @@ export default function PropertyLocation({
         setSearchQuery(suggestion.displayName);
         setShowSuggestions(false);
 
-        // Immediately update lot_address with the selected suggestion
-        if (onAddressChange) {
-            onAddressChange('lot_address', suggestion.displayName);
-        }
+        if (onAddressChange) onAddressChange('lot_address', suggestion.displayName);
+        if (onLocationSelect) onLocationSelect(suggestion.lat, suggestion.lng);
 
-        // Update pin location
-        if (onLocationSelect) {
-            onLocationSelect(suggestion.lat, suggestion.lng);
-        }
-
-        // Then reverse geocode to populate structured fields (province, municipality, etc.)
-        // This runs in background and won't overwrite lot_address
         try {
             const result = await reverseGeocode(suggestion.lat, suggestion.lng);
             if (result && onAddressChange) {
@@ -199,50 +138,32 @@ export default function PropertyLocation({
                 if (result.address.municipality) onAddressChange('municipality', result.address.municipality);
                 if (result.address.barangay) onAddressChange('barangay', result.address.barangay);
                 if (result.address.street) onAddressChange('street_name', result.address.street);
-                // Note: We don't override lot_address here since user selected a specific address
             }
         } catch (error) {
-            console.error('Failed to get address details:', error);
+            console.error('Geocoding details failed:', error);
         }
     };
 
-    const municipalitiesList = province ? MUNICIPALITIES[province] || [] : [];
-    const barangaysList = municipality ? BARANGAYS[municipality] || [] : [];
-
     // View Mode
     if (mode === 'view') {
-        const formattedAddress = useMemo(() => {
-            if (addressMode === 'structured' && (province || municipality || barangay || streetName)) {
-                const parts = [];
-                if (streetName) parts.push(streetName);
-                if (barangay) parts.push(barangay);
-                if (municipality) parts.push(municipality);
-                if (province) parts.push(province);
-                return parts.join(', ') || lotAddress;
-            }
-            return lotAddress;
-        }, [addressMode, province, municipality, barangay, streetName, lotAddress]);
-
         return (
             <div className="space-y-4">
                 {showMap && pinLat && pinLng && (
-                    <div>
-                        <MapDisplay
-                            latitude={pinLat}
-                            longitude={pinLng}
-                            zone={detectedZone || undefined}
-                            height="300px"
-                        />
-                    </div>
+                    <MapDisplay
+                        latitude={pinLat}
+                        longitude={pinLng}
+                        zone={detectedZone || undefined}
+                        height="300px"
+                    />
                 )}
-                <div className="gap-4 grid grid-cols-1 md:grid-cols-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <span className="flex items-center gap-1 mb-1 text-gray-500 dark:text-gray-400 text-sm">
                             <MapPin size={14} />
-                            Address
+                            Property Address
                         </span>
                         <p className="font-medium text-gray-900 dark:text-white text-sm">
-                            {formattedAddress}
+                            {lotAddress || `${streetName}, ${barangay}, ${municipality}, ${province}`.replace(/^[ ,]+|[ ,]+$/g, '')}
                         </p>
                     </div>
                     {detectedZone && (
@@ -254,14 +175,11 @@ export default function PropertyLocation({
                         </div>
                     )}
                 </div>
-                {pinLat && pinLng && (
-                    <CoordinateDisplay latitude={pinLat} longitude={pinLng} />
-                )}
+                {pinLat && pinLng && <CoordinateDisplay latitude={pinLat} longitude={pinLng} />}
             </div>
         );
     }
 
-    // Form/Edit Mode
     return (
         <div className="space-y-6">
             {/* Map Picker */}
@@ -276,207 +194,69 @@ export default function PropertyLocation({
                     error={errors.pin_lat || errors.pin_lng}
                     zones={zones}
                 />
+
                 {geocoding && (
-                    <div className="flex items-center gap-2 mt-2 text-blue-600 dark:text-blue-400 text-sm">
-                        <Loader2 size={14} className="animate-spin" />
-                        <span>Getting address from location...</span>
+                    <div className="flex items-center gap-2 mt-2 text-blue-600 dark:text-blue-400 text-xs">
+                        <Loader2 size={12} className="animate-spin" />
+                        <span>Autofilling address details...</span>
                     </div>
                 )}
-                {geocodingError && (
-                    <div className="flex items-center gap-2 mt-2 text-orange-600 dark:text-orange-400 text-sm">
-                        <AlertCircle size={14} />
-                        <span>{geocodingError}</span>
-                    </div>
-                )}
+
                 {detectedZone && (
-                    <div className="flex items-center gap-2 mt-2 text-green-600 dark:text-green-400">
+                    <div className="flex items-center gap-2 mt-2 text-green-600 dark:text-green-400 text-sm font-medium">
                         <CheckCircle size={16} />
                         <span>Zone detected: {detectedZone.name} ({detectedZone.code})</span>
                     </div>
                 )}
-                {pinLat && pinLng && !detectedZone && (
-                    <div className="flex items-center gap-2 mt-2 text-orange-600 dark:text-orange-400">
-                        <AlertCircle size={16} />
-                        <span>No zone detected at this location. Please select a different location.</span>
-                    </div>
-                )}
             </div>
 
-            {/* Address Search Autocomplete */}
+            {/* Address Search */}
             <div>
                 <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                    Search Address (Optional)
+                    Search or Type Address *
                 </label>
                 <div className="relative">
-                    <div className="relative">
-                        <Search className="top-1/2 left-3 absolute text-gray-400 -translate-y-1/2 transform" size={16} />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => handleAddressSearch(e.target.value)}
-                            placeholder="Search for an address..."
-                            className="bg-white dark:bg-dark-surface py-2 pr-3 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg w-full text-gray-900 dark:text-white"
-                        />
-                    </div>
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input
+                        id="lot_address"
+                        name="lot_address"
+                        type="text"
+                        value={lotAddress}
+                        onChange={(e) => {
+                            onAddressChange?.('lot_address', e.target.value);
+                            handleAddressSearch(e.target.value);
+                        }}
+                        placeholder="Search for an address or type manually..."
+                        className={`w-full pl-10 pr-3 py-2 bg-white dark:bg-dark-surface border rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent ${errors.lot_address ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                    />
+
                     {showSuggestions && suggestions.length > 0 && (
-                        <div className="z-10 absolute bg-white dark:bg-dark-surface shadow-lg mt-1 border border-gray-300 dark:border-gray-600 rounded-lg w-full max-h-60 overflow-y-auto">
-                            {suggestions.map((suggestion, index) => (
+                        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                            {suggestions.map((s, i) => (
                                 <button
-                                    key={index}
+                                    key={i}
                                     type="button"
-                                    onClick={() => handleSuggestionSelect(suggestion)}
-                                    className="hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 w-full text-gray-900 dark:text-white text-sm text-left"
+                                    onClick={() => handleSuggestionSelect(s)}
+                                    className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm text-gray-700 dark:text-gray-300"
                                 >
-                                    {suggestion.displayName}
+                                    {s.displayName}
                                 </button>
                             ))}
                         </div>
                     )}
                 </div>
+                {errors.lot_address && <p className="mt-1 text-red-500 text-xs">{errors.lot_address}</p>}
             </div>
 
-            {/* Address Input Toggle */}
-            <div>
-                <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                    Address Input Method
-                </label>
-                <div className="flex gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setAddressMode('full')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${addressMode === 'full'
-                            ? 'bg-primary text-white'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                            }`}
-                    >
-                        Full Address
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setAddressMode('structured')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${addressMode === 'structured'
-                            ? 'bg-primary text-white'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                            }`}
-                    >
-                        Structured Address
-                    </button>
-                </div>
-            </div>
-
-            {/* Address Inputs */}
-            {addressMode === 'full' ? (
-                <div>
-                    <Input
-                        label="Lot Address *"
-                        value={lotAddress}
-                        onChange={(e) => onAddressChange?.('lot_address', e.target.value)}
-                        error={errors.lot_address}
-                        required
-                    />
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    <div>
-                        <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                            Province
-                        </label>
-                        <select
-                            value={province}
-                            onChange={(e) => {
-                                onAddressChange?.('province', e.target.value);
-                                onAddressChange?.('municipality', '');
-                                onAddressChange?.('barangay', '');
-                            }}
-                            className="bg-white dark:bg-dark-surface px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg w-full text-gray-900 dark:text-white"
-                        >
-                            <option value="">Select Province</option>
-                            {PROVINCES.map((p) => (
-                                <option key={p} value={p}>
-                                    {p}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                            Municipality/City
-                        </label>
-                        <select
-                            value={municipality}
-                            onChange={(e) => {
-                                onAddressChange?.('municipality', e.target.value);
-                                onAddressChange?.('barangay', '');
-                            }}
-                            disabled={!province}
-                            className="bg-white dark:bg-dark-surface disabled:opacity-50 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg w-full text-gray-900 dark:text-white disabled:cursor-not-allowed"
-                        >
-                            <option value="">Select Municipality</option>
-                            {municipalitiesList.map((m) => (
-                                <option key={m} value={m}>
-                                    {m}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                            Barangay
-                        </label>
-                        <select
-                            value={barangay}
-                            onChange={(e) => onAddressChange?.('barangay', e.target.value)}
-                            disabled={!municipality}
-                            className="bg-white dark:bg-dark-surface disabled:opacity-50 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg w-full text-gray-900 dark:text-white disabled:cursor-not-allowed"
-                        >
-                            <option value="">Select Barangay</option>
-                            {barangaysList.map((b) => (
-                                <option key={b} value={b}>
-                                    {b}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <Input
-                            label="Street Name"
-                            value={streetName}
-                            onChange={(e) => onAddressChange?.('street_name', e.target.value)}
-                            error={errors.street_name}
-                            placeholder="e.g., Rizal Street"
-                        />
-                    </div>
-                    <div>
-                        <Input
-                            label="Lot Address (Additional Details)"
-                            value={lotAddress}
-                            onChange={(e) => onAddressChange?.('lot_address', e.target.value)}
-                            error={errors.lot_address}
-                            placeholder="House number, building name, etc."
-                        />
-                        <p className="mt-1 text-gray-500 dark:text-gray-400 text-xs">Optional - Additional address details</p>
-                    </div>
-                </div>
-            )}
-
-            {/* Zone Display */}
+            {/* Zone Display (Fallback/Info) */}
             {detectedZone && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <h4 className="mb-2 font-semibold text-blue-900 dark:text-blue-200 text-sm">
-                        Detected Zone: {detectedZone.name}
+                    <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                        Zoning Information Loaded
                     </h4>
-                    <p className="text-blue-700 dark:text-blue-300 text-xs">
-                        Code: {detectedZone.code}
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                        Location: {detectedZone.name}
                     </p>
-                    {detectedZone.color && (
-                        <div className="flex items-center gap-2 mt-2">
-                            <div
-                                className="rounded w-4 h-4"
-                                style={{ backgroundColor: detectedZone.color }}
-                            />
-                            <span className="text-blue-700 dark:text-blue-300 text-xs">Zone Color</span>
-                        </div>
-                    )}
                 </div>
             )}
         </div>

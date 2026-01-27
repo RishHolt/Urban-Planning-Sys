@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\IssueClearanceRequest;
 use App\Models\ApplicationHistory;
-use App\Models\ClearanceApplication;
+use App\Models\ZoningApplication;
 use App\Models\IssuedClearance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,7 +54,7 @@ class IssuedClearanceController extends Controller
                 ];
             });
 
-        return Inertia::render('Admin/Clearance/ClearancesIndex', [
+        return Inertia::render('Admin/Zoning/ClearancesIndex', [
             'clearances' => $clearances,
             'filters' => [
                 'search' => $request->search,
@@ -71,7 +71,7 @@ class IssuedClearanceController extends Controller
         $clearance = IssuedClearance::with(['clearanceApplication.zone.classification'])
             ->findOrFail($id);
 
-        return Inertia::render('Admin/Clearance/ClearanceDetails', [
+        return Inertia::render('Admin/Zoning/ClearanceDetails', [
             'clearance' => [
                 'id' => $clearance->id,
                 'clearance_no' => $clearance->clearance_no,
@@ -84,7 +84,7 @@ class IssuedClearanceController extends Controller
                 'clearanceApplication' => [
                     'id' => $clearance->clearanceApplication->id,
                     'reference_no' => $clearance->clearanceApplication->reference_no,
-                    'application_category' => $clearance->clearanceApplication->application_category,
+                    'applicant_type' => $clearance->clearanceApplication->applicant_type,
                     'lot_address' => $clearance->clearanceApplication->lot_address,
                     'lot_owner' => $clearance->clearanceApplication->lot_owner,
                     'zone' => $clearance->clearanceApplication->zone ? [
@@ -102,9 +102,9 @@ class IssuedClearanceController extends Controller
     public function create(Request $request): Response
     {
         $applicationId = $request->query('application_id');
-        $application = ClearanceApplication::findOrFail($applicationId);
+        $application = ZoningApplication::findOrFail($applicationId);
 
-        return Inertia::render('Admin/Clearance/IssueClearance', [
+        return Inertia::render('Admin/Zoning/IssueClearance', [
             'application' => [
                 'id' => $application->id,
                 'reference_no' => $application->reference_no,
@@ -122,7 +122,7 @@ class IssuedClearanceController extends Controller
     {
         $validated = $request->validated();
 
-        $application = ClearanceApplication::findOrFail($validated['application_id']);
+        $application = ZoningApplication::findOrFail($validated['application_id']);
 
         if ($application->status !== 'approved') {
             return back()->withErrors([
@@ -160,5 +160,75 @@ class IssuedClearanceController extends Controller
 
         return redirect()->route('clearances.show', $clearance->id)
             ->with('success', 'Clearance issued successfully. Clearance Number: '.$clearanceNo);
+    }
+
+    /**
+     * Download the clearance certificate as PDF.
+     */
+    public function download(string $id)
+    {
+        $clearance = IssuedClearance::with(['clearanceApplication.zone', 'approvedBy'])->findOrFail($id);
+        $application = $clearance->clearanceApplication;
+
+        // Generate QR code for verification
+        $verificationUrl = url("/clearances/{$clearance->id}/verify");
+        
+        $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+            new \BaconQrCode\Renderer\RendererStyle\RendererStyle(100),
+            new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+        );
+        $writer = new \BaconQrCode\Writer($renderer);
+        $qrCode = base64_encode($writer->writeString($verificationUrl));
+
+        // Load and encode logo
+        $logoPath = public_path('logo.png');
+        $logo = base64_encode(file_get_contents($logoPath));
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.clearance', [
+            'clearance' => $clearance,
+            'application' => $application,
+            'qrCode' => $qrCode,
+            'logo' => $logo,
+        ]);
+
+        $pdf->setPaper('a4', 'portrait');
+
+        $filename = 'Zoning_Clearance_' . $clearance->clearance_no . '.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    /**
+     * View the clearance certificate as PDF in browser.
+     */
+    public function view(string $id)
+    {
+        $clearance = IssuedClearance::with(['clearanceApplication.zone', 'approvedBy'])->findOrFail($id);
+        $application = $clearance->clearanceApplication;
+
+        // Generate QR code for verification
+        $verificationUrl = url("/clearances/{$clearance->id}/verify");
+        
+        $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+            new \BaconQrCode\Renderer\RendererStyle\RendererStyle(100),
+            new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+        );
+        $writer = new \BaconQrCode\Writer($renderer);
+        $qrCode = base64_encode($writer->writeString($verificationUrl));
+
+        // Load and encode logo
+        $logoPath = public_path('logo.png');
+        $logo = base64_encode(file_get_contents($logoPath));
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.clearance', [
+            'clearance' => $clearance,
+            'application' => $application,
+            'qrCode' => $qrCode,
+            'logo' => $logo,
+        ]);
+
+        $pdf->setPaper('a4', 'portrait');
+
+        return $pdf->stream('Zoning_Clearance_' . $clearance->clearance_no . '.pdf');
     }
 }

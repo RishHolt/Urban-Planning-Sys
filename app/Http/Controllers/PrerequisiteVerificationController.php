@@ -19,28 +19,23 @@ class PrerequisiteVerificationController extends Controller
      */
     public function verify(Request $request): JsonResponse
     {
-        // Bypass verification for testing
+        $validated = $request->validate([
+            'tax_dec_ref_no' => 'required|string',
+            'barangay_permit_ref_no' => 'required|string',
+        ]);
+
+        $taxDecResult = $this->treasuryService->verifyTaxDeclaration($validated['tax_dec_ref_no']);
+        $barangayPermitResult = $this->permitLicensingService->verifyBarangayPermit($validated['barangay_permit_ref_no']);
+
+        $allVerified = $taxDecResult['verified'] && $barangayPermitResult['verified'];
+
         return response()->json([
-            'verified' => true,
-            'tax_declaration' => [
-                'verified' => true,
-                'message' => 'Tax Declaration verified (TEST MODE).',
-                'data' => [
-                    'owner' => 'Test Owner',
-                    'location' => 'Test Location',
-                    'assessed_value' => 100000
-                ],
-            ],
-            'barangay_permit' => [
-                'verified' => true,
-                'message' => 'Barangay Permit verified (TEST MODE).',
-                'data' => [
-                    'business_name' => 'Test Business',
-                    'issued_date' => now()->toDateString(),
-                    'expiry_date' => now()->addYear()->toDateString()
-                ],
-            ],
-            'message' => 'All prerequisites verified (TEST MODE). You can proceed with the application.',
+            'verified' => $allVerified,
+            'tax_declaration' => $taxDecResult,
+            'barangay_permit' => $barangayPermitResult,
+            'message' => $allVerified 
+                ? 'All prerequisites verified successfully. You can proceed with the application.'
+                : 'Some prerequisites could not be verified. Please check the reference numbers.',
         ]);
     }
 }

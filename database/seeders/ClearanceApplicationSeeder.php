@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\ClearanceApplication;
+use App\Models\ZoningApplication;
 use App\Models\Document;
 use App\Models\User;
 use App\Models\Zone;
@@ -40,7 +40,7 @@ class ClearanceApplicationSeeder extends Seeder
         $manilaLng = 120.9842;
 
         // Get the last reference number to generate unique ones
-        $lastRef = ClearanceApplication::where('reference_no', 'like', 'ZC-'.date('Y').'-%')
+        $lastRef = ZoningApplication::where('reference_no', 'like', 'ZC-'.date('Y').'-%')
             ->orderBy('reference_no', 'desc')
             ->value('reference_no');
 
@@ -62,7 +62,7 @@ class ClearanceApplicationSeeder extends Seeder
             $pinLat = $manilaLat + ($faker->randomFloat(4, -0.1, 0.1));
             $pinLng = $manilaLng + ($faker->randomFloat(4, -0.1, 0.1));
 
-            $application = ClearanceApplication::create([
+            $application = ZoningApplication::create([
                 'reference_no' => $referenceNo,
                 'user_id' => $user->id,
                 'zone_id' => $zone?->id,

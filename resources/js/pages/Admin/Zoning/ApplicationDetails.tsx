@@ -5,8 +5,8 @@ import Button from '../../../components/Button';
 import AdminDocumentViewerModal from '../../../components/AdminDocumentViewerModal';
 import VersionHistoryModal from '../../../components/VersionHistoryModal';
 import StatusHistory from '../../../components/StatusHistory';
-import RequiredDocumentCard from '../../../components/RequiredDocumentCard';
-import AdditionalDocumentCard from '../../../components/AdditionalDocumentCard';
+import RequirementManager from '../../../components/Applications/Zoning/RequirementManager';
+import PropertyLocation from '../../../components/Applications/PropertyLocation';
 import StatusBadge from '../../../components/StatusBadge';
 import { showDocumentApproved, showDocumentRejected, showError, showNotesRequired } from '../../../lib/swal';
 import {
@@ -23,6 +23,7 @@ import {
     Download,
     Eye,
     File,
+    Info
 } from 'lucide-react';
 
 interface Document {
@@ -38,7 +39,7 @@ interface Document {
     version?: number;
 }
 
-interface StatusHistory {
+interface StatusHistoryEntry {
     id: number;
     statusFrom: string | null;
     statusTo: string;
@@ -47,20 +48,68 @@ interface StatusHistory {
     createdAt: string;
 }
 
+interface ExternalVerification {
+    id: number;
+    verificationType: string;
+    referenceNo: string;
+    status: string;
+    responseData: any;
+    externalSystem: string;
+    verifiedAt: string | null;
+}
+
 interface Application {
     id: string;
     applicationNumber: string;
-    status: 'pending' | 'in_review' | 'approved' | 'rejected';
-    submittedAt: string;
+    referenceNo: string;
+    status: 'pending' | 'in_review' | 'approved' | 'rejected' | 'under_review' | 'for_inspection';
+    submittedAt: string | null;
     createdAt: string;
     updatedAt: string;
     projectType: string;
-    landType: string;
-    proposedUse: string;
+    landUseType: string;
+    buildingType: string | null;
     applicantType: string;
-    data: Record<string, unknown>;
+    isRepresentative: boolean;
+    representativeName: string | null;
+    applicantName: string;
+    applicantEmail: string;
+    applicantContact: string;
+    contactNumber: string;
+    contactEmail: string | null;
+    taxDecRefNo: string;
+    barangayPermitRefNo: string;
+    lotAddress: string;
+    province: string;
+    municipality: string;
+    barangay: string;
+    streetName: string | null;
+    lotAreaTotal: number;
+    lotAreaUsed: number | null;
+    lotOwner: string;
+    lotOwnerContactNumber: string | null;
+    lotOwnerContactEmail: string | null;
+    isSubdivision: boolean;
+    subdivisionName: string | null;
+    blockNo: string | null;
+    lotNo: string | null;
+    pinLat: number | null;
+    pinLng: number | null;
+    numberOfStoreys: number | null;
+    floorAreaSqm: number | null;
+    numberOfUnits: number | null;
+    projectDescription: string;
+    purpose: string;
+    assessedFee: number | null;
+    rejectionReason: string | null;
+    reviewedBy: number | null;
+    reviewedAt: string | null;
+    approvedBy: number | null;
+    approvedAt: string | null;
     documents: Document[];
-    statusHistory: StatusHistory[];
+    statusHistory: StatusHistoryEntry[];
+    externalVerifications?: ExternalVerification[];
+    zone?: any;
 }
 
 interface ApplicationDetailsProps {
@@ -69,6 +118,7 @@ interface ApplicationDetailsProps {
 
 export default function ApplicationDetails({ application }: ApplicationDetailsProps) {
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
+
     const [viewingDocument, setViewingDocument] = useState<{
         url: string;
         fileName: string;
@@ -78,6 +128,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         version?: number;
         documentType?: string;
     } | null>(null);
+
     const [versionHistory, setVersionHistory] = useState<{
         isOpen: boolean;
         documentId: number;
@@ -97,7 +148,28 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         }>;
     } | null>(null);
 
-    const [processing, setProcessing] = useState(false);
+    const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [statusForm, setStatusForm] = useState({
+        status: application.status,
+        notes: '',
+        rejection_reason: application.rejectionReason || '',
+    });
+
+    const handleUpdateStatus = () => {
+        setUpdatingStatus(true);
+        router.patch(`/admin/zoning/applications/${application.id}/status`, {
+            status: statusForm.status,
+            notes: statusForm.notes,
+            rejection_reason: statusForm.rejection_reason,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setUpdatingStatus(false);
+                setStatusForm(prev => ({ ...prev, notes: '' }));
+            },
+            onError: () => setUpdatingStatus(false),
+        });
+    };
 
     const handleViewDocument = (url: string, fileName: string, mimeType: string | undefined, documentId: number, documentStatus?: 'pending' | 'approved' | 'rejected', version?: number, documentType?: string): void => {
         setViewingDocument({ url, fileName, mimeType, documentId, documentStatus, version, documentType });
@@ -119,7 +191,6 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
             }
 
             const data = await response.json();
-            console.log('Version history data:', data);
 
             if (data.versions && Array.isArray(data.versions)) {
                 setVersionHistory({
@@ -188,82 +259,18 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         });
     };
 
-
-
-    const getDocumentStatusColor = (status?: 'pending' | 'approved' | 'rejected', version?: number): string => {
-        // Yellow for pending documents (new versions)
-        if (status === 'pending' && version && version > 1) {
-            return 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20';
-        }
-        switch (status) {
-            case 'approved':
-                return 'border-green-500 bg-green-50 dark:bg-green-900/20';
-            case 'rejected':
-                return 'border-red-500 bg-red-50 dark:bg-red-900/20';
-            default:
-                return 'border-gray-200 dark:border-gray-700';
-        }
+    const formatDate = (dateString: string | null): string => {
+        if (!dateString) return 'N/A';
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
     };
 
-    const canViewFile = (url: string | null, mimeType?: string): boolean => {
-        if (!url) {
-            return false;
-        }
-        const type = mimeType || '';
-        return type.startsWith('image/') || type === 'application/pdf';
-    };
-
-    const formatFileSize = (bytes: number | null): string => {
-        if (!bytes) {
-            return 'N/A';
-        }
-        if (bytes < 1024) {
-            return `${bytes} B`;
-        }
-        if (bytes < 1024 * 1024) {
-            return `${(bytes / 1024).toFixed(2)} KB`;
-        }
-        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-    };
-
-    const getDocumentByType = (documentType: string): Document | undefined => {
-        return (application.documents || []).find((doc) => doc.documentType === documentType);
-    };
-
-    const getDocumentDisplayName = (documentType: string, version?: number): string => {
-        const typeNames: Record<string, string> = {
-            'authorization_letter': 'Authorization Letter',
-            'proof_of_ownership': 'Proof of Ownership',
-            'tax_declaration': 'Tax Declaration',
-            'site_development_plan': 'Site Development Plan',
-            'location_map': 'Location Map / Vicinity Map',
-            'vicinity_map': 'Vicinity Map',
-            'barangay_clearance': 'Barangay Clearance',
-            'letter_of_intent': 'Letter of Intent',
-            'proof_of_legal_authority': 'Proof of Legal Authority',
-            'endorsements_approvals': 'Endorsements / Approvals',
-            'environmental_compliance': 'Environmental Compliance Certificate',
-            'signature': 'Digital Signature',
-            'existing_building_photos': 'Existing Building Photos',
-            'other_documents': 'Other Documents',
-            'requested_documents': 'Requested Documents',
-        };
-        const baseName = typeNames[documentType] || documentType.replace(/_/g, ' ');
-        return version && version > 1 ? `${baseName} Version-${version}` : baseName;
-    };
-
-    const appData = application.data;
-
-    // Helper function to safely get string value from unknown
-    const getStringValue = (value: unknown): string => {
-        if (value == null) {
-            return '';
-        }
-        return String(value);
-    };
-
-    // Helper function to check if value exists
-    const hasValue = (value: unknown): boolean => {
+    const hasValue = (value: any): boolean => {
         return value != null && value !== '';
     };
 
@@ -277,7 +284,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
             }}
         >
             <div className="flex justify-end items-center mb-6">
-                <StatusBadge status={application.status} />
+                <StatusBadge status={application.status as any} />
             </div>
 
             {/* Success/Error Messages */}
@@ -306,670 +313,451 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
             <div className="gap-6 grid grid-cols-1 lg:grid-cols-3">
                 {/* Main Content */}
                 <div className="space-y-6 lg:col-span-2">
-                    {/* Applicant Information */}
+
+                    {/* Project Classification (Matched to User View) */}
+                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white text-xl">
+                                <Building size={20} />
+                                Project Classification
+                            </h2>
+                            {application.assessedFee && (
+                                <div className="text-right">
+                                    <p className="text-xs text-gray-500 uppercase font-medium">Assessed Fee</p>
+                                    <p className="text-primary font-bold">₱{Number(application.assessedFee).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Application Type
+                                </label>
+                                <p className="text-gray-900 dark:text-white capitalize">
+                                    {application.applicantType?.replace('_', ' ')}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Land Use Type
+                                </label>
+                                <p className="text-gray-900 dark:text-white capitalize">
+                                    {application.landUseType?.replace('_', ' ')}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Project Type
+                                </label>
+                                <p className="text-gray-900 dark:text-white capitalize">
+                                    {application.projectType?.replace('_', ' ')}
+                                </p>
+                            </div>
+                            {application.buildingType && (
+                                <div>
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Building Type
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white">{application.buildingType}</p>
+                                </div>
+                            )}
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Total Lot Area
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
+                                    {application.lotAreaTotal?.toLocaleString()} sqm
+                                </p>
+                            </div>
+                            {application.lotAreaUsed && (
+                                <div>
+                                    <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Used Lot Area
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white">
+                                        {application.lotAreaUsed?.toLocaleString()} sqm
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-6 grid gap-4 md:grid-cols-3 pt-6 border-t border-gray-100 dark:border-gray-800">
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    No. of Storeys
+                                </label>
+                                <p className="text-gray-900 dark:text-white">{application.numberOfStoreys || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Floor Area
+                                </label>
+                                <p className="text-gray-900 dark:text-white">{application.floorAreaSqm ? `${application.floorAreaSqm.toLocaleString()} sqm` : 'N/A'}</p>
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    No. of Units
+                                </label>
+                                <p className="text-gray-900 dark:text-white">{application.numberOfUnits || 'N/A'}</p>
+                            </div>
+                        </div>
+
+                        {application.projectDescription && (
+                            <div className="mt-6">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Project Description
+                                </label>
+                                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm">{application.projectDescription}</div>
+                            </div>
+                        )}
+                        {application.purpose && (
+                            <div className="mt-4">
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Purpose / Intent
+                                </label>
+                                <p className="text-gray-900 dark:text-white italics">"{application.purpose}"</p>
+                            </div>
+                        )}
+                    </section>
+
+                    {/* Applicant & Property Owner */}
                     <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
                         <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
                             <User size={20} />
-                            Applicant Information
+                            Applicant & Property Owner
                         </h2>
-                        <div className="gap-4 grid grid-cols-1 md:grid-cols-2">
-                            <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Applicant Type
-                                </label>
-                                <p className="font-medium text-gray-900 dark:text-white">{application.applicantType}</p>
-                            </div>
-                            {hasValue(appData.applicant_name) && (
+                        <div className="grid gap-6 md:grid-cols-2">
+                            <div className="space-y-4">
                                 <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Full Name
+                                    <label className="block mb-1 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Lot Owner / Title Holder
                                     </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.applicant_name)}</p>
+                                    <p className="font-semibold text-gray-900 dark:text-white text-lg">
+                                        {application.lotOwner}
+                                    </p>
                                 </div>
-                            )}
-                            {hasValue(appData.company_name) && (
-                                <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Company Name
-                                    </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.company_name)}</p>
-                                </div>
-                            )}
-                            {hasValue(appData.sec_dti_reg_no) && (
-                                <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        SEC/DTI Registration No.
-                                    </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.sec_dti_reg_no)}</p>
-                                </div>
-                            )}
-                            {hasValue(appData.authorized_representative) && (
-                                <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Authorized Representative
-                                    </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.authorized_representative)}</p>
-                                </div>
-                            )}
-                            <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Email
-                                </label>
-                                <p className="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
-                                    <Mail size={16} />
-                                    {getStringValue(appData.applicant_email)}
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Contact Number
-                                </label>
-                                <p className="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
-                                    <Phone size={16} />
-                                    {getStringValue(appData.applicant_contact)}
-                                </p>
-                            </div>
-                            {hasValue(appData.valid_id_path) && hasValue(appData.valid_id_path_url) && (
-                                <div className="md:col-span-2">
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Valid ID
-                                    </label>
-                                    <div className="flex items-center gap-3">
-                                        {canViewFile(getStringValue(appData.valid_id_path_url)) && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleViewDocument(
-                                                    getStringValue(appData.valid_id_path_url),
-                                                    'Valid ID',
-                                                    undefined,
-                                                    0, // Valid ID is not in documents table, so no documentId
-                                                    undefined // No status for Valid ID
-                                                )}
-                                                className="flex items-center gap-2 text-primary hover:text-primary/80"
-                                            >
-                                                <Eye size={16} />
-                                                View
-                                            </button>
-                                        )}
-                                        <a
-                                            href={getStringValue(appData.valid_id_path_url)}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            download
-                                            className="flex items-center gap-2 text-primary hover:text-primary/80"
-                                        >
-                                            <Download size={16} />
-                                            Download Valid ID
-                                        </a>
-                                    </div>
-                                </div>
-                            )}
-                            {(() => {
-                                const doc = getDocumentByType('authorization_letter');
-                                return doc && doc.url ? (
-                                    <div className="md:col-span-2">
-                                        <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                            Authorization Letter
+                                {application.lotOwnerContactNumber && (
+                                    <div>
+                                        <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                            Owner Contact Number
                                         </label>
-                                        <div className="flex items-center gap-3">
-                                            {canViewFile(doc.url, doc.mimeType || undefined) && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleViewDocument(
-                                                        doc.url!,
-                                                        doc.fileName || getDocumentDisplayName(doc.documentType, doc.version),
-                                                        doc.mimeType || undefined,
-                                                        doc.id,
-                                                        doc.status,
-                                                        doc.version,
-                                                        doc.documentType
-                                                    )}
-                                                    className="flex items-center gap-2 text-primary hover:text-primary/80"
-                                                >
-                                                    <Eye size={16} />
-                                                    View
-                                                </button>
-                                            )}
-                                        </div>
+                                        <p className="text-gray-900 dark:text-white flex items-center gap-2">
+                                            <Phone size={14} className="text-gray-400" />
+                                            {application.lotOwnerContactNumber}
+                                        </p>
                                     </div>
-                                ) : null;
-                            })()}
+                                )}
+                                {application.lotOwnerContactEmail && (
+                                    <div>
+                                        <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                            Owner Contact Email
+                                        </label>
+                                        <p className="text-gray-900 dark:text-white flex items-center gap-2">
+                                            <Mail size={14} className="text-gray-400" />
+                                            {application.lotOwnerContactEmail}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-4 pt-4 md:pt-0 md:pl-6 md:border-l border-gray-100 dark:border-gray-800">
+                                <div>
+                                    <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                        Application Filed By
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white capitalize">
+                                        {application.isRepresentative ? 'Authorized Representative' : 'Self / Lot Owner'}
+                                    </p>
+                                </div>
+                                {application.isRepresentative && application.representativeName && (
+                                    <div>
+                                        <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                            Representative Name
+                                        </label>
+                                        <p className="text-gray-900 dark:text-white font-medium">
+                                            {application.representativeName}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </section>
 
-                    {/* Property Owner Information - Only for non-Government applicants */}
-                    {application.applicantType !== 'Government' && (
+                    {/* Property Location & Map */}
+                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
+                            <MapPin size={20} />
+                            Property Location & Map
+                        </h2>
+
+                        <PropertyLocation
+                            mode="view"
+                            pinLat={application.pinLat ?? undefined}
+                            pinLng={application.pinLng ?? undefined}
+                            lotAddress={application.lotAddress}
+                            province={application.province}
+                            municipality={application.municipality}
+                            barangay={application.barangay}
+                            streetName={application.streetName ?? undefined}
+                            zone={application.zone}
+                            showMap={true}
+                        />
+
+                        {application.isSubdivision && (
+                            <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
+                                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Subdivision Details</h4>
+                                <div className="grid gap-3 md:grid-cols-3">
+                                    {application.subdivisionName && (
+                                        <div>
+                                            <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                                Subdivision Name
+                                            </label>
+                                            <p className="text-gray-900 dark:text-white">{application.subdivisionName}</p>
+                                        </div>
+                                    )}
+                                    {application.blockNo && (
+                                        <div>
+                                            <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                                Block No.
+                                            </label>
+                                            <p className="text-gray-900 dark:text-white">{application.blockNo}</p>
+                                        </div>
+                                    )}
+                                    {application.lotNo && (
+                                        <div>
+                                            <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                                Lot No.
+                                            </label>
+                                            <p className="text-gray-900 dark:text-white">{application.lotNo}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </section>
+
+                    {/* Verified Prerequisites */}
+                    {application.externalVerifications && application.externalVerifications.length > 0 && (
                         <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
                             <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
-                                <Building size={20} />
-                                Property Owner Information
+                                <CheckCircle size={20} />
+                                Verified Prerequisites
                             </h2>
-                            <div className="gap-4 grid grid-cols-1 md:grid-cols-2">
-                                {hasValue(appData.owner_name) && (
-                                    <div>
-                                        <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                            Owner Name
-                                        </label>
-                                        <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.owner_name)}</p>
-                                    </div>
-                                )}
-                                {hasValue(appData.owner_contact) && (
-                                    <div>
-                                        <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                            Contact Number
-                                        </label>
-                                        <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.owner_contact)}</p>
-                                    </div>
-                                )}
-                                {hasValue(appData.owner_address) && (
-                                    <div className="md:col-span-2">
-                                        <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                            Address
-                                        </label>
-                                        <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.owner_address)}</p>
-                                    </div>
-                                )}
-                                {(() => {
-                                    const doc = getDocumentByType('proof_of_ownership');
-                                    return doc && doc.type === 'upload' && doc.url ? (
-                                        <div>
-                                            <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                                Transfer Certificate of Title (TCT)
-                                            </label>
-                                            <div className="flex items-center gap-3">
-                                                {canViewFile(doc.url, doc.mimeType || undefined) && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleViewDocument(
-                                                            doc.url!,
-                                                            doc.fileName || 'Transfer Certificate of Title (TCT)',
-                                                            doc.mimeType || undefined,
-                                                            doc.id,
-                                                            doc.status
-                                                        )}
-                                                        className="flex items-center gap-2 text-primary hover:text-primary/80"
-                                                    >
-                                                        <Eye size={16} />
-                                                        View
-                                                    </button>
-                                                )}
+                            <div className="space-y-4">
+                                {application.externalVerifications.map((verification) => (
+                                    <div
+                                        key={verification.id}
+                                        className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800"
+                                    >
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div>
+                                                <h3 className="font-semibold text-gray-900 dark:text-white capitalize mb-1">
+                                                    {verification.verificationType?.replace('_', ' ')}
+                                                </h3>
+                                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                    Reference: <span className="font-mono">{verification.referenceNo}</span>
+                                                </p>
                                             </div>
+                                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${verification.status === 'verified'
+                                                ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                                                : verification.status === 'failed'
+                                                    ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200'
+                                                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200'
+                                                }`}>
+                                                {verification.status}
+                                            </span>
                                         </div>
-                                    ) : null;
-                                })()}
-                                {(() => {
-                                    const doc = getDocumentByType('tax_declaration');
-                                    return doc ? (
-                                        doc.type === 'manual' && doc.manualId ? (
-                                            <div>
-                                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                                    Tax Declaration ID
-                                                </label>
-                                                <p className="font-medium text-gray-900 dark:text-white">{doc.manualId}</p>
-                                            </div>
-                                        ) : doc.type === 'upload' && doc.url ? (
-                                            <div>
-                                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                                    Tax Declaration
-                                                </label>
-                                                <div className="flex items-center gap-3">
-                                                    {canViewFile(doc.url, doc.mimeType || undefined) && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleViewDocument(
-                                                                doc.url!,
-                                                                doc.fileName || 'Tax Declaration',
-                                                                doc.mimeType || undefined,
-                                                                doc.id,
-                                                                doc.status
+
+                                        {/* Display response data */}
+                                        {verification.responseData && (
+                                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                    Verified Information
+                                                </h4>
+                                                <div className="grid gap-2 text-sm">
+                                                    {verification.verificationType === 'tax_declaration' && (
+                                                        <>
+                                                            {verification.responseData.owner && (
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-gray-600 dark:text-gray-400">Owner:</span>
+                                                                    <span className="text-gray-900 dark:text-white font-medium">
+                                                                        {verification.responseData.owner}
+                                                                    </span>
+                                                                </div>
                                                             )}
-                                                            className="flex items-center gap-2 text-primary hover:text-primary/80"
-                                                        >
-                                                            <Eye size={16} />
-                                                            View
-                                                        </button>
+                                                            {verification.responseData.area && (
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-gray-600 dark:text-gray-400">Area:</span>
+                                                                    <span className="text-gray-900 dark:text-white font-medium">
+                                                                        {verification.responseData.area} sqm
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>
-                                        ) : null
-                                    ) : null;
-                                })()}
+                                        )}
+
+                                        {verification.verifiedAt && (
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                                                Verified on {formatDate(verification.verifiedAt)}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </section>
                     )}
 
-                    {/* Property Location */}
-                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
-                            <MapPin size={20} />
-                            Property Location
-                        </h2>
-                        <div className="gap-4 grid grid-cols-1 md:grid-cols-2">
-                            <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Province
-                                </label>
-                                <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.province)}</p>
-                            </div>
-                            <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Municipality/City
-                                </label>
-                                <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.municipality)}</p>
-                            </div>
-                            <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Barangay
-                                </label>
-                                <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.barangay)}</p>
-                            </div>
-                            {hasValue(appData.street_name) && (
-                                <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Street Name
-                                    </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.street_name)}</p>
-                                </div>
-                            )}
-                            {hasValue(appData.lot_no) && (
-                                <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Lot No.
-                                    </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.lot_no)}</p>
-                                </div>
-                            )}
-                            {hasValue(appData.block_no) && (
-                                <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Block No.
-                                    </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.block_no)}</p>
-                                </div>
-                            )}
-                            {hasValue(appData.latitude) && hasValue(appData.longitude) && (
-                                <div className="md:col-span-2">
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        GPS Coordinates
-                                    </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                        {Number(appData.latitude ?? 0).toFixed(6)}, {Number(appData.longitude ?? 0).toFixed(6)}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </section>
+                    {/* Requirements Management (New System) */}
+                    <RequirementManager
+                        applicationId={application.id}
+                        documents={application.documents as any[]}
+                        applicantType={application.applicantType}
+                        isRepresentative={application.isRepresentative}
+                    />
+                </div>
 
-                    {/* Land & Property Details */}
-                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
-                            <Building size={20} />
-                            Land & Property Details
-                        </h2>
-                        <div className="gap-4 grid grid-cols-1 md:grid-cols-2">
-                            <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Land Type
-                                </label>
-                                <p className="font-medium text-gray-900 dark:text-white">{application.landType}</p>
-                            </div>
-                            {hasValue(appData.lot_area) && (
-                                <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Lot Area
-                                    </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                        {Number(appData.lot_area ?? 0).toLocaleString()} sqm
-                                    </p>
-                                </div>
-                            )}
-                            {hasValue(appData.has_existing_structure) && hasValue(appData.number_of_buildings) && (
-                                <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Number of Buildings
-                                    </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.number_of_buildings)}</p>
-                                </div>
-                            )}
-                        </div>
-                    </section>
-
-                    {/* Proposed Development */}
-                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
-                            <FileText size={20} />
-                            Proposed Development
+                {/* Sidebar */}
+                <div className="space-y-6">
+                    {/* Admin Status Update */}
+                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg border-2 border-primary/20">
+                        <h2 className="flex items-center gap-2 mb-4 font-bold text-gray-900 dark:text-white text-lg">
+                            Admin Actions
                         </h2>
                         <div className="space-y-4">
                             <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Project Type
-                                </label>
-                                <p className="font-medium text-gray-900 dark:text-white">{application.projectType}</p>
+                                <label className="block mb-1 text-xs font-bold text-gray-500 uppercase">Update Status</label>
+                                <select
+                                    className="w-full p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"
+                                    value={statusForm.status}
+                                    onChange={(e) => setStatusForm({ ...statusForm, status: e.target.value as any })}
+                                >
+                                    <option value="pending">Pending</option>
+                                    <option value="under_review">Under Review</option>
+                                    <option value="for_inspection">For Inspection</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="rejected">Rejected</option>
+                                </select>
                             </div>
+
+                            {statusForm.status === 'rejected' && (
+                                <div>
+                                    <label className="block mb-1 text-xs font-bold text-red-500 uppercase">Rejection Reason</label>
+                                    <textarea
+                                        className="w-full p-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"
+                                        rows={3}
+                                        value={statusForm.rejection_reason}
+                                        onChange={(e) => setStatusForm({ ...statusForm, rejection_reason: e.target.value })}
+                                        placeholder="Reason for denial..."
+                                    />
+                                </div>
+                            )}
+
                             <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Proposed Use
-                                </label>
-                                <p className="font-medium text-gray-900 dark:text-white">{application.proposedUse}</p>
+                                <label className="block mb-1 text-xs font-bold text-gray-500 uppercase">Notes (Internal)</label>
+                                <textarea
+                                    className="w-full p-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"
+                                    rows={2}
+                                    value={statusForm.notes}
+                                    onChange={(e) => setStatusForm({ ...statusForm, notes: e.target.value })}
+                                    placeholder="Add internal remarks..."
+                                />
                             </div>
-                            {hasValue(appData.project_description) && (
-                                <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Project Description
-                                    </label>
-                                    <p className="text-gray-900 dark:text-white whitespace-pre-wrap">{getStringValue(appData.project_description)}</p>
-                                </div>
-                            )}
-                            {hasValue(appData.previous_use) && (
-                                <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Previous Use
-                                    </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{getStringValue(appData.previous_use)}</p>
-                                </div>
-                            )}
-                            {hasValue(appData.justification) && (
-                                <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Justification
-                                    </label>
-                                    <p className="text-gray-900 dark:text-white whitespace-pre-wrap">{getStringValue(appData.justification)}</p>
-                                </div>
+
+
+                            <Button
+                                className="w-full"
+                                onClick={handleUpdateStatus}
+                                disabled={updatingStatus}
+                            >
+                                {updatingStatus ? 'Updating...' : 'Save Changes'}
+                            </Button>
+
+                            {/* Issue Clearance Button - Only show when approved */}
+                            {application.status === 'approved' && (
+                                <Button
+                                    className="w-full"
+                                    variant="primary"
+                                    onClick={() => router.visit(`/clearances/create?application_id=${application.id}`)}
+                                >
+                                    <FileText size={16} className="mr-2" />
+                                    Issue Clearance
+                                </Button>
                             )}
                         </div>
                     </section>
 
-                    {/* Project Details */}
+                    {/* Timeline Summary */}
                     <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
-                            <Building size={20} />
-                            Project Details
+                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-lg">
+                            <Clock size={18} />
+                            Timeline
                         </h2>
-                        <div className="gap-4 grid grid-cols-1 md:grid-cols-2">
+                        <div className="space-y-4 text-sm">
                             <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Project Type
-                                </label>
-                                <p className="font-medium text-gray-900 dark:text-white">{application.projectType}</p>
+                                <label className="block text-gray-500 dark:text-gray-400">Created</label>
+                                <p className="font-medium text-gray-900 dark:text-white">{formatDate(application.createdAt)}</p>
                             </div>
-                            <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Land Type
-                                </label>
-                                <p className="font-medium text-gray-900 dark:text-white">{application.landType}</p>
-                            </div>
-                            <div>
-                                <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                    Proposed Use
-                                </label>
-                                <p className="font-medium text-gray-900 dark:text-white">{application.proposedUse}</p>
-                            </div>
-                            {hasValue(appData.lot_area) && (
+                            {application.submittedAt && (
                                 <div>
-                                    <label className="block mb-1 font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        Lot Area
-                                    </label>
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                        {Number(appData.lot_area ?? 0).toLocaleString()} sq.m.
-                                    </p>
+                                    <label className="block text-gray-500 dark:text-gray-400">Submitted</label>
+                                    <p className="font-medium text-gray-900 dark:text-white">{formatDate(application.submittedAt)}</p>
+                                </div>
+                            )}
+                            {application.reviewedAt && (
+                                <div>
+                                    <label className="block text-gray-500 dark:text-gray-400">Reviewed</label>
+                                    <p className="font-medium text-gray-900 dark:text-white">{formatDate(application.reviewedAt)}</p>
                                 </div>
                             )}
                         </div>
                     </section>
 
-                    {/* Required Documents */}
-                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
-                            <File size={20} />
-                            Required Documents
-                        </h2>
-                        <div className="space-y-2">
-                            {/* Location Map */}
-                            {(() => {
-                                const doc = getDocumentByType('location_map');
-                                return doc && doc.url ? (
-                                    <RequiredDocumentCard
-                                        document={doc}
-                                        displayName="Location Map / Vicinity Map"
-                                        onView={handleViewDocument}
-                                        canViewFile={canViewFile}
-                                        getDocumentStatusColor={getDocumentStatusColor}
-                                        getDocumentDisplayName={getDocumentDisplayName}
-                                        showUploadNew={false}
-                                    />
-                                ) : null;
-                            })()}
-
-                            {/* Vicinity Map */}
-                            {(() => {
-                                const doc = getDocumentByType('vicinity_map');
-                                return doc && doc.url ? (
-                                    <RequiredDocumentCard
-                                        document={doc}
-                                        displayName="Vicinity Map"
-                                        onView={handleViewDocument}
-                                        canViewFile={canViewFile}
-                                        getDocumentStatusColor={getDocumentStatusColor}
-                                        getDocumentDisplayName={getDocumentDisplayName}
-                                        showUploadNew={false}
-                                    />
-                                ) : null;
-                            })()}
-
-                            {/* Barangay Clearance - Only for non-Government applicants */}
-                            {application.applicantType !== 'Government' && (() => {
-                                const doc = getDocumentByType('barangay_clearance');
-                                return doc ? (
-                                    doc.type === 'manual' && doc.manualId ? (
-                                        <div className={`flex justify-between items-center p-3 border-2 rounded-lg ${getDocumentStatusColor(doc.status, doc.version)}`}>
-                                            <div className="flex items-center gap-3">
-                                                <FileText size={18} className="text-gray-400" />
-                                                <div>
-                                                    <p className="font-medium text-gray-900 dark:text-white text-sm">Barangay Clearance ID</p>
-                                                    <p className="text-gray-500 dark:text-gray-400 text-xs">{doc.manualId}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : doc.type === 'upload' && doc.url ? (
-                                        <RequiredDocumentCard
-                                            document={doc}
-                                            displayName="Barangay Clearance"
-                                            onView={handleViewDocument}
-                                            canViewFile={canViewFile}
-                                            getDocumentStatusColor={getDocumentStatusColor}
-                                            getDocumentDisplayName={getDocumentDisplayName}
-                                            showUploadNew={false}
-                                        />
-                                    ) : null
-                                ) : null;
-                            })()}
-
-                            {/* Government-Specific Documents */}
-                            {application.applicantType === 'Government' && (
-                                <>
-                                    {/* Letter of Intent */}
-                                    {(() => {
-                                        const doc = getDocumentByType('letter_of_intent');
-                                        return doc && doc.url ? (
-                                            <RequiredDocumentCard
-                                                document={doc}
-                                                displayName="Letter of Intent"
-                                                onView={handleViewDocument}
-                                                canViewFile={canViewFile}
-                                                getDocumentStatusColor={getDocumentStatusColor}
-                                                getDocumentDisplayName={getDocumentDisplayName}
-                                                showUploadNew={false}
-                                            />
-                                        ) : null;
-                                    })()}
-
-                                    {/* Proof of Legal Authority */}
-                                    {(() => {
-                                        const doc = getDocumentByType('proof_of_legal_authority');
-                                        return doc && doc.url ? (
-                                            <RequiredDocumentCard
-                                                document={doc}
-                                                displayName="Proof of Legal Authority"
-                                                onView={handleViewDocument}
-                                                canViewFile={canViewFile}
-                                                getDocumentStatusColor={getDocumentStatusColor}
-                                                getDocumentDisplayName={getDocumentDisplayName}
-                                                showUploadNew={false}
-                                            />
-                                        ) : null;
-                                    })()}
-
-                                    {/* Endorsements / Approvals */}
-                                    {(() => {
-                                        const doc = getDocumentByType('endorsements_approvals');
-                                        return doc && doc.url ? (
-                                            <RequiredDocumentCard
-                                                document={doc}
-                                                displayName="Endorsements / Approvals"
-                                                onView={handleViewDocument}
-                                                canViewFile={canViewFile}
-                                                getDocumentStatusColor={getDocumentStatusColor}
-                                                getDocumentDisplayName={getDocumentDisplayName}
-                                                showUploadNew={false}
-                                            />
-                                        ) : null;
-                                    })()}
-
-                                    {/* Environmental Compliance Certificate (ECC) - Optional */}
-                                    {(() => {
-                                        const doc = getDocumentByType('environmental_compliance');
-                                        return doc && doc.url ? (
-                                            <RequiredDocumentCard
-                                                document={doc}
-                                                displayName="Environmental Compliance Certificate"
-                                                onView={handleViewDocument}
-                                                canViewFile={canViewFile}
-                                                getDocumentStatusColor={getDocumentStatusColor}
-                                                getDocumentDisplayName={getDocumentDisplayName}
-                                                showUploadNew={false}
-                                            />
-                                        ) : null;
-                                    })()}
-                                </>
-                            )}
-
-                            {/* Digital Signature */}
-                            {(() => {
-                                const doc = getDocumentByType('signature');
-                                return doc && doc.url ? (
-                                    <RequiredDocumentCard
-                                        document={doc}
-                                        displayName="Digital Signature"
-                                        onView={handleViewDocument}
-                                        canViewFile={canViewFile}
-                                        getDocumentStatusColor={getDocumentStatusColor}
-                                        getDocumentDisplayName={getDocumentDisplayName}
-                                        showUploadNew={false}
-                                    />
-                                ) : null;
-                            })()}
-
-                            {/* Site Development Plan */}
-                            {(() => {
-                                const doc = getDocumentByType('site_development_plan');
-                                return doc && doc.url ? (
-                                    <RequiredDocumentCard
-                                        document={doc}
-                                        displayName="Site Development Plan"
-                                        onView={handleViewDocument}
-                                        canViewFile={canViewFile}
-                                        getDocumentStatusColor={getDocumentStatusColor}
-                                        getDocumentDisplayName={getDocumentDisplayName}
-                                        showUploadNew={false}
-                                    />
-                                ) : null;
-                            })()}
-                        </div>
-                    </section>
-
-                    {/* Additional Documents */}
-                    {(() => {
-                        const additionalDocs = application.documents.filter(
-                            (doc) => doc.documentType === 'existing_building_photos' ||
-                                doc.documentType === 'other_documents' ||
-                                doc.documentType === 'requested_documents'
-                        );
-                        return additionalDocs.length > 0 ? (
-                            <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                                <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
-                                    <File size={20} />
-                                    Additional Documents
-                                </h2>
-                                <div className="space-y-2">
-                                    {additionalDocs.map((doc) => (
-                                        <AdditionalDocumentCard
-                                            key={doc.id}
-                                            document={doc}
-                                            onView={handleViewDocument}
-                                            canViewFile={canViewFile}
-                                            getDocumentStatusColor={getDocumentStatusColor}
-                                            formatFileSize={formatFileSize}
-                                            showUploadNew={false}
-                                        />
-                                    ))}
-                                </div>
-                            </section>
-                        ) : null;
-                    })()}
-                </div>
-
-                {/* Sidebar - Status Update */}
-                <div className="space-y-6">
                     {/* Status History */}
-                    <StatusHistory history={application.statusHistory} />
+                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-lg">
+                            <Clock size={18} />
+                            Action History
+                        </h2>
+                        <StatusHistory
+                            history={application.statusHistory?.map(h => ({
+                                id: h.id,
+                                statusFrom: h.statusFrom,
+                                statusTo: h.statusTo,
+                                changedBy: h.changedBy,
+                                notes: h.notes,
+                                createdAt: h.createdAt
+                            })) || []}
+                        />
+                    </section>
                 </div>
             </div>
 
-            {/* Document Viewer Modal */}
+            {/* Modals */}
             {viewingDocument && (
                 <AdminDocumentViewerModal
                     isOpen={!!viewingDocument}
+                    onClose={() => setViewingDocument(null)}
                     url={viewingDocument.url}
                     fileName={viewingDocument.fileName}
                     mimeType={viewingDocument.mimeType}
                     documentId={viewingDocument.documentId}
                     documentStatus={viewingDocument.documentStatus}
-                    version={viewingDocument.version}
-                    documentType={viewingDocument.documentType}
                     onApprove={handleDocumentApprove}
                     onReject={handleDocumentReject}
-                    isProcessing={processing}
-                    onClose={() => setViewingDocument(null)}
-                    onViewVersionHistory={
-                        viewingDocument.documentId &&
-                            viewingDocument.documentId > 0 &&
-                            viewingDocument.documentType
-                            ? handleViewVersionHistory
-                            : undefined
-                    }
+                    onViewVersionHistory={() => handleViewVersionHistory(viewingDocument.documentId, viewingDocument.documentType || '')}
+                    version={viewingDocument.version}
                 />
             )}
+
             {versionHistory && (
                 <VersionHistoryModal
                     isOpen={versionHistory.isOpen}
                     onClose={() => setVersionHistory(null)}
                     documentType={versionHistory.documentType}
                     versions={versionHistory.versions}
-                    onViewVersion={(url, fileName, mimeType) => {
-                        setVersionHistory(null);
-                        // Find the version data to get version number and status
-                        const versionData = versionHistory.versions.find(v => v.url === url);
-                        handleViewDocument(
-                            url,
-                            fileName,
-                            mimeType,
-                            versionHistory.documentId,
-                            versionData?.status as 'pending' | 'approved' | 'rejected' | undefined,
-                            versionData?.version,
-                            versionHistory.documentType
-                        );
-                    }}
                 />
             )}
         </AdminLayout>

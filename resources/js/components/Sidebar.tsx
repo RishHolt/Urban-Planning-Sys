@@ -49,7 +49,7 @@ const MENU_ITEMS: MenuItem[] = [
     { href: '/admin', icon: LayoutDashboard, label: 'Main Dashboard' },
     {
         icon: ClipboardList,
-        label: 'Zoning Clearance',
+        label: 'Zoning Administration',
         children: [
             { href: '/admin/zoning/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { href: '/admin/zoning/applications', icon: ListChecks, label: 'Applications' },

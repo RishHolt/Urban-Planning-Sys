@@ -23,7 +23,7 @@ class BeneficiaryApplicationPolicy
     public function view(User $user, BeneficiaryApplication $application): bool
     {
         // Users can view their own applications (via beneficiary.citizen_id)
-        if ($application->beneficiary->citizen_id === $user->id) {
+        if ($application->beneficiary->citizen_id == $user->id) {
             return true;
         }
 
@@ -46,7 +46,7 @@ class BeneficiaryApplicationPolicy
     public function update(User $user, BeneficiaryApplication $application): bool
     {
         // Users can only update their own applications if status allows
-        if ($application->beneficiary->citizen_id === $user->id && $application->application_status === 'submitted') {
+        if ($application->beneficiary->citizen_id == $user->id && $application->application_status === 'submitted') {
             return true;
         }
 
@@ -69,7 +69,7 @@ class BeneficiaryApplicationPolicy
     public function delete(User $user, BeneficiaryApplication $application): bool
     {
         // Users can only delete their own applications if status allows
-        if ($application->beneficiary->citizen_id === $user->id && $application->application_status === 'submitted') {
+        if ($application->beneficiary->citizen_id == $user->id && $application->application_status === 'submitted') {
             return true;
         }
 
@@ -83,7 +83,7 @@ class BeneficiaryApplicationPolicy
     public function uploadDocuments(User $user, BeneficiaryApplication $application): bool
     {
         // Users can upload documents to their own applications
-        if ($application->beneficiary->citizen_id === $user->id) {
+        if ($application->beneficiary->citizen_id == $user->id) {
             return true;
         }
 
@@ -97,7 +97,7 @@ class BeneficiaryApplicationPolicy
     public function replaceDocument(User $user, BeneficiaryApplication $application): bool
     {
         // Users can replace documents in their own applications
-        if ($application->beneficiary->citizen_id === $user->id) {
+        if ($application->beneficiary->citizen_id == $user->id) {
             return true;
         }
 

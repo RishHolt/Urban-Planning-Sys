@@ -58,6 +58,6 @@ class ApplicationHistory extends Model
      */
     public function clearanceApplication(): BelongsTo
     {
-        return $this->belongsTo(ClearanceApplication::class, 'application_id');
+        return $this->belongsTo(ZoningApplication::class, 'application_id');
     }
 }

@@ -184,7 +184,7 @@ export default function AdminDocumentViewerModal({
                                 disabled={isProcessing || documentStatus === 'approved' || documentStatus === 'rejected' || documentId === 0}
                                 className="flex items-center gap-2 text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
                             >
-                                <XCircle size={18} />
+                                <XCircle size={18} className="text-red-600" />
                                 Reject
                             </Button>
                             <Button
@@ -194,7 +194,7 @@ export default function AdminDocumentViewerModal({
                                 disabled={isProcessing || documentStatus === 'approved' || documentStatus === 'rejected' || documentId === 0}
                                 className="flex items-center gap-2"
                             >
-                                <CheckCircle size={18} />
+                                <CheckCircle size={18} className="text-white" />
                                 Approve
                             </Button>
                         </div>
@@ -222,8 +222,8 @@ export default function AdminDocumentViewerModal({
                                 rows={4}
                                 required={actionType === 'reject'}
                                 className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent ${actionType === 'reject' && !notes.trim()
-                                        ? 'border-red-300 dark:border-red-600'
-                                        : 'border-gray-300 dark:border-gray-600'
+                                    ? 'border-red-300 dark:border-red-600'
+                                    : 'border-gray-300 dark:border-gray-600'
                                     }`}
                                 placeholder={actionType === 'approve' ? 'Add notes (optional)...' : 'Please provide a reason for rejection (required)...'}
                             />

@@ -1,6 +1,6 @@
-import { CheckCircle, XCircle, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Search, MapPin } from 'lucide-react';
 
-type ApplicationStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
+export type ApplicationStatus = 'pending' | 'in_review' | 'approved' | 'rejected' | 'under_review' | 'for_inspection';
 
 interface StatusBadgeProps {
     status: ApplicationStatus;
@@ -24,10 +24,17 @@ export default function StatusBadge({ status, className = '', showIcon = true }:
                     bgColor: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200',
                 };
             case 'in_review':
+            case 'under_review':
                 return {
-                    label: 'In Review',
-                    icon: <Clock size={16} className="text-blue-500" />,
+                    label: status === 'under_review' ? 'Under Review' : 'In Review',
+                    icon: <Search size={16} className="text-blue-500" />,
                     bgColor: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200',
+                };
+            case 'for_inspection':
+                return {
+                    label: 'For Inspection',
+                    icon: <MapPin size={16} className="text-purple-500" />,
+                    bgColor: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-200',
                 };
             default: // pending
                 return {

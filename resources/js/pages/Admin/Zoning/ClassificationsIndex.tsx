@@ -119,20 +119,19 @@ export default function ClassificationsIndex({ classifications, filters: initial
             return;
         }
 
-        try {
-            const result = await importMunicipalityGeoJson(file);
-            if (result.success) {
-                showSuccess(result.message);
-                router.reload();
-            } else {
-                showError(result.message || 'Failed to import municipality');
+        router.post('/admin/zoning/zones/import-municipality', {
+            file: file
+        }, {
+            forceFormData: true,
+            onSuccess: (page: any) => {
+                showSuccess(page.props.flash?.success || 'Municipality boundary imported successfully.');
+                e.target.value = '';
+            },
+            onError: (errors) => {
+                showError(Object.values(errors)[0] || 'Failed to import municipality');
+                e.target.value = '';
             }
-        } catch (error: any) {
-            showError('An error occurred during import');
-            console.error(error);
-        } finally {
-            e.target.value = '';
-        }
+        });
     };
 
     const handleModalSuccess = (): void => {

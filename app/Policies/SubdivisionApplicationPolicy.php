@@ -22,7 +22,7 @@ class SubdivisionApplicationPolicy
     {
         // Developers can only view their own applications
         if ($user->role === 'developer') {
-            return $subdivisionApplication->user_id === $user->id;
+            return $subdivisionApplication->user_id == $user->id;
         }
 
         // Staff and admin can view all
