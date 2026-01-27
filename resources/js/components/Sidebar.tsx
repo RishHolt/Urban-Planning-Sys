@@ -49,9 +49,8 @@ const MENU_ITEMS: MenuItem[] = [
     { href: '/admin', icon: LayoutDashboard, label: 'Main Dashboard' },
     {
         icon: ClipboardList,
-        label: 'Zoning Administration',
+        label: 'Zoning Clearance',
         children: [
-            { href: '/admin/zoning/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { href: '/admin/zoning/applications', icon: ListChecks, label: 'Applications' },
             { href: '/inspections', icon: ClipboardCheck, label: 'Inspections' },
             { href: '/clearances', icon: FileCheck, label: 'Issued Clearances' },
@@ -63,22 +62,18 @@ const MENU_ITEMS: MenuItem[] = [
         icon: Home,
         label: 'Housing Beneficiary',
         children: [
-            { href: '/admin/housing/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { href: '/admin/housing/applications', icon: ListChecks, label: 'Applications' },
             { href: '/admin/housing/site-visits', icon: Calendar, label: 'Site Visits' },
             { href: '/admin/housing/projects', icon: Building, label: 'Projects' },
             { href: '/admin/housing/waitlist', icon: List, label: 'Waitlist' },
             { href: '/admin/housing/allocations', icon: Key, label: 'Allocations' },
             { href: '/admin/housing/blacklist', icon: Shield, label: 'Blacklist' },
-            { href: '/admin/housing/beneficiaries', icon: Users, label: 'Beneficiaries' },
-            { href: '/admin/housing/reports', icon: BarChart3, label: 'Reports' },
         ],
     },
     {
         icon: FileSearch,
         label: 'Subdivision & Building Review',
         children: [
-            { href: '/admin/subdivision/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { href: '/admin/subdivision/applications', icon: ListChecks, label: 'Subdivision Applications' },
             { href: '/admin/building/reviews', icon: FileSearch, label: 'Building Reviews' },
             { href: '/admin/subdivision/reports', icon: BarChart3, label: 'Reports' },
@@ -99,7 +94,6 @@ const MENU_ITEMS: MenuItem[] = [
         icon: Wrench,
         label: 'Infrastructure Projects',
         children: [
-            { href: '/admin/infrastructure/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { href: '/admin/infrastructure/projects', icon: Building2, label: 'Projects' },
             { href: '/admin/infrastructure/reports', icon: BarChart3, label: 'Reports' },
         ],

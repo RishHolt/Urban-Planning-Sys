@@ -51,9 +51,15 @@ return Application::configure(basePath: dirname(__DIR__))
             AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        // Fix 419 error for prerequisite verification
+        // Register API token middleware
+        $middleware->alias([
+            'api.token' => \App\Http\Middleware\VerifyApiToken::class,
+        ]);
+
+        // Fix 419 error for prerequisite verification and entry/exit events
         $middleware->validateCsrfTokens(except: [
             'api/verify-prerequisites',
+            'api/events/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) use ($isMcpMode): void {

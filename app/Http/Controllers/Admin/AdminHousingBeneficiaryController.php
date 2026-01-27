@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\BeneficiaryApplication;
-use App\Models\AllocationHistory;
+use App\Services\ApplicationValidationService;
 use App\Services\BlacklistService;
+use App\Services\EligibilityService;
+use App\Services\NotificationService;
 use App\Services\SiteVisitService;
 use App\Services\WaitlistService;
-use App\Services\NotificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -21,7 +23,9 @@ class AdminHousingBeneficiaryController extends Controller
     public function __construct(
         protected BlacklistService $blacklistService,
         protected SiteVisitService $siteVisitService,
-        protected WaitlistService $waitlistService
+        protected WaitlistService $waitlistService,
+        protected ApplicationValidationService $validationService,
+        protected EligibilityService $eligibilityService
     ) {}
 
     /**
@@ -67,23 +71,79 @@ class AdminHousingBeneficiaryController extends Controller
             $query->whereDate('submitted_at', '<=', $request->dateTo);
         }
 
-        $applications = $query->orderBy('created_at', 'desc')
-            ->paginate($request->get('perPage', 15))
-            ->through(function ($application) {
+        // Check if ranking is requested
+        $ranked = $request->boolean('ranked', false);
+
+        if ($ranked) {
+            // Get all applications and calculate priority scores
+            $allApplications = $query->with('beneficiary.householdMembers')->get();
+            $priorityService = app(\App\Services\HousingBeneficiaryPriorityService::class);
+
+            $applicationsWithScores = $allApplications->map(function ($application) use ($priorityService) {
                 return [
-                    'id' => (string) $application->id,
-                    'applicationNumber' => $application->application_no,
-                    'applicantName' => $application->beneficiary->full_name,
-                    'beneficiary_no' => $application->beneficiary->beneficiary_no,
-                    'projectType' => str_replace('_', ' ', ucfirst($application->housing_program)),
-                    'status' => $application->application_status,
-                    'eligibility_status' => $application->eligibility_status,
+                    'application' => $application,
+                    'priority_score' => $priorityService->calculatePriorityScore($application),
+                ];
+            })->sortByDesc('priority_score');
+
+            // Calculate rank
+            $rank = 1;
+            $previousScore = null;
+            $applicationsWithRanks = $applicationsWithScores->map(function ($item) use (&$rank, &$previousScore) {
+                if ($previousScore !== null && $item['priority_score'] < $previousScore) {
+                    $rank = $rank + 1;
+                }
+                $previousScore = $item['priority_score'];
+
+                return [
+                    'id' => (string) $item['application']->id,
+                    'applicationNumber' => $item['application']->application_no,
+                    'applicantName' => $item['application']->beneficiary->full_name,
+                    'beneficiary_no' => $item['application']->beneficiary->beneficiary_no,
+                    'projectType' => str_replace('_', ' ', ucfirst($item['application']->housing_program)),
+                    'status' => $item['application']->application_status,
+                    'eligibility_status' => $item['application']->eligibility_status,
+                    'priority_score' => $item['priority_score'],
+                    'rank' => $rank,
                     'municipality' => 'Cauayan City',
-                    'barangay' => $application->beneficiary?->barangay,
-                    'submittedAt' => $application->submitted_at?->format('Y-m-d H:i:s'),
-                    'createdAt' => $application->created_at?->format('Y-m-d H:i:s'),
+                    'barangay' => $item['application']->beneficiary?->barangay,
+                    'submittedAt' => $item['application']->submitted_at?->format('Y-m-d H:i:s'),
+                    'createdAt' => $item['application']->created_at?->format('Y-m-d H:i:s'),
                 ];
             });
+
+            // Paginate manually
+            $page = $request->get('page', 1);
+            $perPage = $request->get('perPage', 15);
+            $offset = ($page - 1) * $perPage;
+            $paginated = $applicationsWithRanks->slice($offset, $perPage)->values();
+
+            $applications = new \Illuminate\Pagination\LengthAwarePaginator(
+                $paginated,
+                $applicationsWithRanks->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        } else {
+            $applications = $query->orderBy('created_at', 'desc')
+                ->paginate($request->get('perPage', 15))
+                ->through(function ($application) {
+                    return [
+                        'id' => (string) $application->id,
+                        'applicationNumber' => $application->application_no,
+                        'applicantName' => $application->beneficiary->full_name,
+                        'beneficiary_no' => $application->beneficiary->beneficiary_no,
+                        'projectType' => str_replace('_', ' ', ucfirst($application->housing_program)),
+                        'status' => $application->application_status,
+                        'eligibility_status' => $application->eligibility_status,
+                        'municipality' => 'Cauayan City',
+                        'barangay' => $application->beneficiary?->barangay,
+                        'submittedAt' => $application->submitted_at?->format('Y-m-d H:i:s'),
+                        'createdAt' => $application->created_at?->format('Y-m-d H:i:s'),
+                    ];
+                });
+        }
 
         return Inertia::render('Admin/Housing/ApplicationsIndex', [
             'applications' => $applications,
@@ -132,19 +192,10 @@ class AdminHousingBeneficiaryController extends Controller
             $application->refresh();
         }
 
-        // Format documents
-        $documents = $application->documents->map(function ($doc) {
-            return [
-                'id' => (string) $doc->id,
-                'document_type' => $doc->document_type,
-                'file_name' => $doc->file_name,
-                'file_path' => $doc->file_path,
-                'url' => $doc->file_path ? asset('storage/'.$doc->file_path) : null,
-                'verification_status' => $doc->verification_status,
-                'verified_by' => $doc->verified_by,
-                'verified_at' => $doc->verified_at?->format('Y-m-d H:i:s'),
-            ];
-        });
+        // Format documents and calculate summary using service
+        $documentSummaryService = app(\App\Services\DocumentSummaryService::class);
+        $documents = $documentSummaryService->formatDocuments($application->documents);
+        $documentSummary = $documentSummaryService->calculateSummary($application);
 
         // Format site visits
         $siteVisits = $application->siteVisits->map(function ($visit) {
@@ -187,6 +238,7 @@ class AdminHousingBeneficiaryController extends Controller
                 'approved_at' => $application->approved_at?->format('Y-m-d H:i:s'),
                 'beneficiary' => $application->beneficiary,
                 'documents' => $documents,
+                'document_summary' => $documentSummary,
                 'site_visits' => $siteVisits,
                 'waitlist' => $application->waitlistEntry,
                 'allocation' => $application->allocation,
@@ -360,5 +412,55 @@ class AdminHousingBeneficiaryController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Document rejected successfully.');
+    }
+
+    /**
+     * Validate an application and return detailed validation results.
+     */
+    public function validateApplication(string $id): JsonResponse
+    {
+        $application = BeneficiaryApplication::with(['beneficiary', 'documents'])->findOrFail($id);
+        $this->authorize('validate', $application);
+
+        $validationResult = $this->validationService->validateApplication($application);
+
+        return response()->json([
+            'success' => true,
+            'data' => $validationResult->toArray(),
+        ]);
+    }
+
+    /**
+     * Check eligibility of an application.
+     */
+    public function checkEligibility(Request $request, string $id): JsonResponse
+    {
+        $request->validate([
+            'auto_update' => ['sometimes', 'boolean'],
+        ]);
+
+        $application = BeneficiaryApplication::with(['beneficiary', 'documents'])->findOrFail($id);
+        $this->authorize('checkEligibility', $application);
+
+        $eligibilityResult = $this->eligibilityService->checkEligibility($application);
+
+        // Auto-update eligibility status if requested
+        if ($request->boolean('auto_update')) {
+            $application->update([
+                'eligibility_status' => $eligibilityResult->determination === 'eligible' ? 'eligible' : 'not_eligible',
+                'eligibility_remarks' => $eligibilityResult->remarks,
+            ]);
+
+            // If eligible, automatically add to waitlist
+            if ($eligibilityResult->isEligible && $eligibilityResult->determination === 'eligible') {
+                $this->waitlistService->addToWaitlist($application);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $eligibilityResult->toArray(),
+            'auto_updated' => $request->boolean('auto_update'),
+        ]);
     }
 }

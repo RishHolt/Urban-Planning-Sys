@@ -120,4 +120,22 @@ class BeneficiaryApplicationPolicy
     {
         return in_array($user->role, ['staff', 'admin']);
     }
+
+    /**
+     * Determine whether the user can validate the application.
+     */
+    public function validate(User $user, BeneficiaryApplication $application): bool
+    {
+        // Only admins, staff, and superadmins can validate applications
+        return in_array($user->role, ['admin', 'staff', 'superadmin']);
+    }
+
+    /**
+     * Determine whether the user can check eligibility of the application.
+     */
+    public function checkEligibility(User $user, BeneficiaryApplication $application): bool
+    {
+        // Only admins, staff, and superadmins can check eligibility
+        return in_array($user->role, ['admin', 'staff', 'superadmin']);
+    }
 }

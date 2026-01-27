@@ -60,10 +60,11 @@ Route::middleware('auth')->group(function () {
     Route::prefix('zoning-applications')->name('zoning-applications.')->group(function () {
         Route::get('/', [\App\Http\Controllers\ZoningApplicationController::class, 'index'])->name('index');
         Route::get('/create', [\App\Http\Controllers\ZoningApplicationController::class, 'create'])->name('create');
+        Route::get('/new', [\App\Http\Controllers\ZoningApplicationController::class, 'create'])->name('new');
         Route::post('/', [\App\Http\Controllers\ZoningApplicationController::class, 'store'])->name('store');
         Route::post('/assess-fees', [\App\Http\Controllers\ZoningApplicationController::class, 'assessFees'])->name('assess-fees');
         Route::get('/{id}', [\App\Http\Controllers\ZoningApplicationController::class, 'show'])->name('show');
-        
+
         // Document management routes
         Route::post('/{id}/documents', [\App\Http\Controllers\ZoningApplicationDocumentController::class, 'store'])->name('documents.store');
         Route::patch('/{id}/documents/{documentId}/status', [\App\Http\Controllers\ZoningApplicationDocumentController::class, 'updateStatus'])->name('documents.update-status');
@@ -84,12 +85,18 @@ Route::middleware('auth')->group(function () {
     // Prerequisite verification (before application submission)
     Route::post('/api/verify-prerequisites', [\App\Http\Controllers\PrerequisiteVerificationController::class, 'verify'])->name('prerequisites.verify');
 
-
     // Inspections routes (inspector and admin only)
     Route::prefix('inspections')->name('inspections.')->group(function () {
         Route::get('/', [\App\Http\Controllers\InspectionController::class, 'index'])->name('index');
+        Route::get('/{id}', [\App\Http\Controllers\InspectionController::class, 'show'])->name('show');
         Route::post('/', [\App\Http\Controllers\InspectionController::class, 'store'])->name('store');
         Route::put('/{id}', [\App\Http\Controllers\InspectionController::class, 'update'])->name('update');
+        Route::post('/{id}/review', [\App\Http\Controllers\InspectionController::class, 'review'])->name('review');
+        Route::post('/{id}/checklist-items', [\App\Http\Controllers\InspectionController::class, 'addChecklistItem'])->name('checklist.add');
+        Route::put('/{id}/checklist-items/{itemId}', [\App\Http\Controllers\InspectionController::class, 'updateChecklistItem'])->name('checklist.update');
+        Route::post('/{id}/photos', [\App\Http\Controllers\InspectionController::class, 'uploadPhoto'])->name('photos.upload');
+        Route::post('/{id}/documents', [\App\Http\Controllers\InspectionController::class, 'uploadDocument'])->name('documents.upload');
+        Route::get('/{id}/report', [\App\Http\Controllers\InspectionController::class, 'generateReport'])->name('report');
     });
 
     // Issued Clearances routes (admin only)
@@ -161,6 +168,17 @@ Route::middleware('auth')->group(function () {
     });
 });
 
+// Public API routes (token authentication only, no session auth)
+// Person Count Events API (simplified approach - tracks person count every second)
+Route::middleware('api.token')->prefix('api/events')->name('api.events.')->group(function () {
+    Route::post('person-count', [\App\Http\Controllers\EntryExitEventController::class, 'storePersonCount'])->name('person-count.store');
+});
+
+// Occupancy Dashboard API routes (protected with token authentication)
+Route::middleware('api.token')->prefix('api/occupancy')->name('api.occupancy.')->group(function () {
+    Route::get('stats', [\App\Http\Controllers\OccupancyDashboardController::class, 'stats'])->name('stats');
+});
+
 Route::middleware(['auth', RedirectByRole::class])->group(function () {
     Route::prefix('user')->name('user.')->group(function () {
         Route::get('/', function () {
@@ -184,29 +202,28 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
             })->name('map');
 
             // Zoning Applications (Clearance - matching user view)
-                Route::prefix('applications')->name('applications.')->group(function () {
-                    Route::get('/', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'index'])->name('index');
-                    Route::get('/{id}', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'show'])->name('show');
-                    Route::patch('/{id}/status', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'updateStatus'])->name('updateStatus');
-                    Route::post('/{id}/request-documents', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'requestDocuments'])->name('requestDocuments');
-                    
-                    // Document Management
-                    Route::patch('/{id}/documents/{documentId}/approve', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'approveDocument'])->name('documents.approve');
-                    Route::patch('/{id}/documents/{documentId}/reject', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'rejectDocument'])->name('documents.reject');
-                    Route::get('/{id}/documents/{documentId}/versions', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'getDocumentVersions'])->name('documents.versions');
-                });
+            Route::prefix('applications')->name('applications.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'show'])->name('show');
+                Route::patch('/{id}/status', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'updateStatus'])->name('updateStatus');
+                Route::post('/{id}/request-documents', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'requestDocuments'])->name('requestDocuments');
 
+                // Document Management
+                Route::patch('/{id}/documents/{documentId}/approve', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'approveDocument'])->name('documents.approve');
+                Route::patch('/{id}/documents/{documentId}/reject', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'rejectDocument'])->name('documents.reject');
+                Route::get('/{id}/documents/{documentId}/versions', [\App\Http\Controllers\Admin\AdminZoningApplicationController::class, 'getDocumentVersions'])->name('documents.versions');
+            });
 
-                Route::prefix('zones')->name('zones.')->group(function () {
-                    Route::get('/', [\App\Http\Controllers\Admin\ZoneController::class, 'index'])->name('index');
-                    Route::post('/', [\App\Http\Controllers\Admin\ZoneController::class, 'store'])->name('store');
-                    Route::get('/export', [\App\Http\Controllers\Admin\ZoneController::class, 'exportGeoJson'])->name('export');
-                    Route::post('/import', [\App\Http\Controllers\Admin\ZoneController::class, 'importGeoJson'])->name('import');
-                    Route::post('/import-municipality', [\App\Http\Controllers\Admin\ZoneController::class, 'importMunicipality'])->name('import-municipality');
-                    Route::get('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'show'])->name('show');
-                    Route::patch('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'update'])->name('update');
-                    Route::delete('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'destroy'])->name('destroy');
-                });
+            Route::prefix('zones')->name('zones.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\ZoneController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\Admin\ZoneController::class, 'store'])->name('store');
+                Route::get('/export', [\App\Http\Controllers\Admin\ZoneController::class, 'exportGeoJson'])->name('export');
+                Route::post('/import', [\App\Http\Controllers\Admin\ZoneController::class, 'importGeoJson'])->name('import');
+                Route::post('/import-municipality', [\App\Http\Controllers\Admin\ZoneController::class, 'importMunicipality'])->name('import-municipality');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'show'])->name('show');
+                Route::patch('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'update'])->name('update');
+                Route::delete('/{id}', [\App\Http\Controllers\Admin\ZoneController::class, 'destroy'])->name('destroy');
+            });
 
             // Zoning Classification Management routes
             Route::prefix('classifications')->name('classifications.')->group(function () {
@@ -233,6 +250,8 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
                 Route::get('/', [AdminHousingBeneficiaryController::class, 'index'])->name('index');
                 Route::get('/{id}', [AdminHousingBeneficiaryController::class, 'show'])->name('show');
                 Route::patch('/{id}/status', [AdminHousingBeneficiaryController::class, 'updateStatus'])->name('updateStatus');
+                Route::post('/{id}/validate', [AdminHousingBeneficiaryController::class, 'validateApplication'])->name('validate');
+                Route::post('/{id}/check-eligibility', [AdminHousingBeneficiaryController::class, 'checkEligibility'])->name('checkEligibility');
                 Route::post('/{id}/request-documents', [AdminHousingBeneficiaryController::class, 'requestDocuments'])->name('requestDocuments');
                 Route::patch('/{id}/documents/{documentId}/approve', [AdminHousingBeneficiaryController::class, 'approveDocument'])->name('documents.approve');
                 Route::patch('/{id}/documents/{documentId}/reject', [AdminHousingBeneficiaryController::class, 'rejectDocument'])->name('documents.reject');
@@ -339,6 +358,11 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
 
         // Occupancy Monitoring Tool routes
         Route::prefix('occupancy')->name('occupancy.')->group(function () {
+            // Real-Time Dashboard
+            Route::get('/dashboard', function () {
+                return \Inertia\Inertia::render('Admin/Occupancy/OccupancyDashboard');
+            })->name('dashboard');
+
             // Buildings
             Route::prefix('buildings')->name('buildings.')->group(function () {
                 Route::get('/', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'index'])->name('index');

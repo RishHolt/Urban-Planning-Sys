@@ -123,4 +123,17 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | API Token Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure API tokens for mobile app authentication.
+    | You can use a single token or comma-separated list of tokens.
+    |
+    */
+
+    'api_token' => env('API_TOKEN'),
+    'api_tokens' => env('API_TOKENS'), // Comma-separated list of tokens
+
 ];

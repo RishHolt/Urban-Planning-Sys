@@ -4,18 +4,20 @@ import AdminLayout from '../../../components/AdminLayout';
 import AdminFilterSection from '../../../components/AdminFilterSection';
 import AdminEmptyState from '../../../components/AdminEmptyState';
 import Input from '../../../components/Input';
-import { FileText, Eye, CheckCircle, XCircle, Clock, Calendar, List, Home } from 'lucide-react';
+import { FileText, Eye, CheckCircle, XCircle, Clock, Calendar, List, Home, Trophy, ArrowUpDown } from 'lucide-react';
 
 interface Application {
     id: string;
-    application_no: string;
-    beneficiary: string;
+    applicationNumber: string;
+    applicantName: string;
     beneficiary_no: string;
-    housing_program: string;
-    application_status: string;
+    projectType: string;
+    status: string;
     eligibility_status: string;
-    submitted_at: string | null;
-    created_at: string;
+    submittedAt: string | null;
+    createdAt: string;
+    priority_score?: number;
+    rank?: number;
 }
 
 interface ApplicationsIndexProps {
@@ -36,6 +38,7 @@ interface ApplicationsIndexProps {
 
 export default function ApplicationsIndex({ applications, filters: initialFilters }: ApplicationsIndexProps) {
     const [showFilters, setShowFilters] = useState(false);
+    const [showRanked, setShowRanked] = useState(false);
     const { data, setData, get } = useForm({
         search: initialFilters.search || '',
         status: initialFilters.status || '',
@@ -43,10 +46,22 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
         eligibility_status: initialFilters.eligibility_status || '',
         dateFrom: initialFilters.dateFrom || '',
         dateTo: initialFilters.dateTo || '',
+        ranked: false,
     });
 
     const handleSearch = (): void => {
         get('/admin/housing/applications', {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
+
+    const handleToggleRanked = (): void => {
+        const newRanked = !data.ranked;
+        setData('ranked', newRanked);
+        setShowRanked(newRanked);
+        get('/admin/housing/applications', {
+            data: { ...data, ranked: newRanked },
             preserveState: true,
             preserveScroll: true,
         });
@@ -162,6 +177,28 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
             title="Housing Applications"
             description="Review and manage all housing beneficiary applications"
         >
+            <div className="mb-6 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleToggleRanked}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                            showRanked
+                                ? 'bg-primary text-white'
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        }`}
+                    >
+                        <Trophy size={18} />
+                        {showRanked ? 'Show Ranked' : 'Show Standard View'}
+                    </button>
+                    {showRanked && (
+                        <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                            <ArrowUpDown size={16} />
+                            Applications sorted by priority score
+                        </span>
+                    )}
+                </div>
+            </div>
+
             <AdminFilterSection
                 searchValue={data.search}
                 onSearchChange={(value) => setData('search', value)}
@@ -264,6 +301,11 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                             <table className="w-full">
                                 <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                                     <tr>
+                                        {showRanked && (
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                Rank
+                                            </th>
+                                        )}
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Application Number
                                         </th>
@@ -279,6 +321,11 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Eligibility Status
                                         </th>
+                                        {showRanked && (
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                Priority Score
+                                            </th>
+                                        )}
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Submitted At
                                         </th>
@@ -290,14 +337,28 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                                 <tbody className="bg-white dark:bg-dark-surface divide-y divide-gray-200 dark:divide-gray-700">
                                     {applications.data.map((application) => (
                                         <tr key={application.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                            {showRanked && application.rank && (
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-2">
+                                                        <Trophy className={`${
+                                                            application.rank <= 3
+                                                                ? 'text-yellow-500'
+                                                                : 'text-gray-400'
+                                                        }`} size={18} />
+                                                        <span className="font-bold text-gray-900 dark:text-white">
+                                                            #{application.rank}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            )}
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="font-mono text-sm text-gray-900 dark:text-white">
-                                                    {application.application_no}
+                                                    {application.applicationNumber}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="text-sm text-gray-900 dark:text-white font-medium">
-                                                    {application.beneficiary}
+                                                    {application.applicantName}
                                                 </div>
                                                 <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
                                                     {application.beneficiary_no}
@@ -305,17 +366,24 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                                                    {getHousingProgramLabel(application.housing_program)}
+                                                    {application.projectType}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                {getStatusBadge(application.application_status)}
+                                                {getStatusBadge(application.status)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {getEligibilityBadge(application.eligibility_status)}
                                             </td>
+                                            {showRanked && application.priority_score !== undefined && (
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                        {application.priority_score.toLocaleString()}
+                                                    </span>
+                                                </td>
+                                            )}
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                                {formatDate(application.submitted_at)}
+                                                {formatDate(application.submittedAt)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                 <Link

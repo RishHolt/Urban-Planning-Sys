@@ -24,10 +24,30 @@ class StoreInspectionRequest extends FormRequest
     {
         return [
             'application_id' => ['required', 'exists:zcs_db.zoning_applications,id'],
-            'inspector_id' => ['required', 'integer'],
+            'inspector_id' => ['required', 'integer', 'exists:user_db.users,id'],
             'scheduled_date' => ['required', 'date', 'after_or_equal:today'],
+            'notes' => ['nullable', 'string', 'max:1000'],
             'findings' => ['nullable', 'string'],
             'result' => ['nullable', Rule::in(['pending', 'passed', 'failed'])],
+        ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'application_id.required' => 'Please select an application.',
+            'application_id.exists' => 'The selected application does not exist.',
+            'inspector_id.required' => 'Please select an inspector.',
+            'inspector_id.exists' => 'The selected inspector does not exist.',
+            'scheduled_date.required' => 'Please select a scheduled date.',
+            'scheduled_date.date' => 'The scheduled date must be a valid date.',
+            'scheduled_date.after_or_equal' => 'The scheduled date must be today or a future date.',
+            'notes.max' => 'Notes cannot exceed 1000 characters.',
         ];
     }
 }

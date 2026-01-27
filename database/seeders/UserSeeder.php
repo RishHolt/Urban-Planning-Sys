@@ -2,12 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Models\Department;
 use App\Models\Profile;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
-class UserRoleSeeder extends Seeder
+class UserSeeder extends Seeder
 {
     /**
      * Run the database seeds.
@@ -21,6 +22,38 @@ class UserRoleSeeder extends Seeder
      */
     public function run(): void
     {
+        // Seed departments
+        $departments = [
+            [
+                'code' => 'ZCS',
+                'name' => 'Zoning Clearance System',
+            ],
+            [
+                'code' => 'SBR',
+                'name' => 'Subdivision & Building Review',
+            ],
+            [
+                'code' => 'HBR',
+                'name' => 'Housing Beneficiary Registry',
+            ],
+            [
+                'code' => 'OMT',
+                'name' => 'Occupancy Monitoring Tool',
+            ],
+            [
+                'code' => 'IPC',
+                'name' => 'Infrastructure Project Coordination',
+            ],
+        ];
+
+        foreach ($departments as $department) {
+            Department::firstOrCreate(
+                ['code' => $department['code']],
+                ['name' => $department['name']]
+            );
+        }
+
+        // Seed users with roles
         $roles = ['citizen', 'staff', 'admin'];
 
         foreach ($roles as $role) {

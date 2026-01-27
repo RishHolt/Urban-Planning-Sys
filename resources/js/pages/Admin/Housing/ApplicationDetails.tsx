@@ -22,7 +22,10 @@ import {
     AlertCircle,
     Building,
     X,
-    Send
+    Send,
+    CheckSquare,
+    Shield,
+    AlertTriangle
 } from 'lucide-react';
 
 interface Document {
@@ -103,6 +106,14 @@ interface ApplicationDetailsProps {
             priority_id_no: string | null;
         };
         documents: Document[];
+        document_summary?: {
+            total_uploaded: number;
+            total_required: number;
+            missing: string[];
+            verified: number;
+            pending: number;
+            invalid: number;
+        };
         site_visits: SiteVisit[];
         waitlist: Waitlist | null;
         allocation: Allocation | null;
@@ -114,6 +125,8 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
     const [showSiteVisitModal, setShowSiteVisitModal] = useState(false);
     const [showEligibilityModal, setShowEligibilityModal] = useState(false);
+    const [showValidationModal, setShowValidationModal] = useState(false);
+    const [showEligibilityCheckModal, setShowEligibilityCheckModal] = useState(false);
     const [showCompleteVisitModal, setShowCompleteVisitModal] = useState<string | null>(null);
     const [viewingDocument, setViewingDocument] = useState<{
         url: string;
@@ -122,6 +135,10 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         documentType: string;
         documentStatus: 'pending' | 'verified' | 'invalid';
     } | null>(null);
+    const [validationResult, setValidationResult] = useState<any>(null);
+    const [eligibilityResult, setEligibilityResult] = useState<any>(null);
+    const [loadingValidation, setLoadingValidation] = useState(false);
+    const [loadingEligibility, setLoadingEligibility] = useState(false);
 
     const { data: statusData, setData: setStatusData, patch, processing: statusProcessing } = useForm({
         application_status: application.application_status,
@@ -315,6 +332,78 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
     const canMarkEligibility = ['site_visit_completed', 'under_review'].includes(application.application_status);
     const hasCompletedSiteVisit = application.site_visits.some(v => v.status === 'completed');
 
+    const handleValidateApplication = async () => {
+        setLoadingValidation(true);
+        setValidationError(null);
+        try {
+            const response = await fetch(`/admin/housing/applications/${application.id}/validate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                },
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Server error: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                setValidationResult(result.data);
+                setShowValidationModal(true);
+            } else {
+                setValidationError(result.message || 'Validation failed. Please try again.');
+            }
+        } catch (error) {
+            console.error('Validation error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to validate application. Please check your connection and try again.';
+            setValidationError(errorMessage);
+        } finally {
+            setLoadingValidation(false);
+        }
+    };
+
+    const handleCheckEligibility = async (autoUpdate: boolean = false) => {
+        setLoadingEligibility(true);
+        setEligibilityError(null);
+        try {
+            const response = await fetch(`/admin/housing/applications/${application.id}/check-eligibility`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                },
+                body: JSON.stringify({ auto_update: autoUpdate }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Server error: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                setEligibilityResult(result.data);
+                setShowEligibilityCheckModal(true);
+                if (result.auto_updated) {
+                    router.reload({ only: ['application'] });
+                }
+            } else {
+                setEligibilityError(result.message || 'Eligibility check failed. Please try again.');
+            }
+        } catch (error) {
+            console.error('Eligibility check error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to check eligibility. Please check your connection and try again.';
+            setEligibilityError(errorMessage);
+        } finally {
+            setLoadingEligibility(false);
+        }
+    };
+
     return (
         <AdminLayout
             title="Application Details"
@@ -356,7 +445,25 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-3">
+                        <Button
+                            variant="secondary"
+                            onClick={handleValidateApplication}
+                            disabled={loadingValidation}
+                            className="flex items-center gap-2"
+                        >
+                            <CheckSquare size={18} />
+                            {loadingValidation ? 'Validating...' : 'Validate Application'}
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            onClick={() => handleCheckEligibility(false)}
+                            disabled={loadingEligibility}
+                            className="flex items-center gap-2"
+                        >
+                            <Shield size={18} />
+                            {loadingEligibility ? 'Checking...' : 'Check Eligibility'}
+                        </Button>
                         {canScheduleSiteVisit && (
                             <Button
                                 variant="primary"
@@ -461,10 +568,29 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
 
                 {/* Documents Section */}
                 <AdminContentCard padding="lg">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <FileText size={20} />
-                        Documents
-                    </h3>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <FileText size={20} />
+                            Documents
+                        </h3>
+                        {application.document_summary && (
+                            <div className="flex items-center gap-4 text-sm">
+                                <span className={`px-3 py-1 rounded-full font-medium ${
+                                    application.document_summary.missing.length === 0
+                                        ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                                        : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+                                }`}>
+                                    {application.document_summary.total_uploaded}/{application.document_summary.total_required} Documents
+                                </span>
+                                {application.document_summary.missing.length > 0 && (
+                                    <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
+                                        <AlertTriangle size={16} />
+                                        {application.document_summary.missing.length} Missing
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
                     <div className="space-y-3">
                         {application.documents.length === 0 ? (
                             <p className="text-gray-600 dark:text-gray-400">No documents uploaded.</p>
@@ -903,6 +1029,218 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     onReject={handleDocumentReject}
                     onClose={() => setViewingDocument(null)}
                 />
+            )}
+
+            {/* Validation Results Modal */}
+            {showValidationModal && validationResult && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-dark-surface rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Application Validation Results</h3>
+                            <button
+                                onClick={() => {
+                                    setShowValidationModal(false);
+                                    setValidationError(null);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+                        {validationError && (
+                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                <p className="text-sm text-red-800 dark:text-red-200">{validationError}</p>
+                            </div>
+                        )}
+                        <div className="space-y-4">
+                            <div className={`p-4 rounded-lg ${
+                                validationResult.is_valid
+                                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                                    : 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
+                            }`}>
+                                <div className="flex items-center gap-2 mb-2">
+                                    {validationResult.is_valid ? (
+                                        <CheckCircle className="text-green-600 dark:text-green-400" size={20} />
+                                    ) : (
+                                        <AlertCircle className="text-yellow-600 dark:text-yellow-400" size={20} />
+                                    )}
+                                    <span className={`font-semibold ${
+                                        validationResult.is_valid
+                                            ? 'text-green-800 dark:text-green-200'
+                                            : 'text-yellow-800 dark:text-yellow-200'
+                                    }`}>
+                                        {validationResult.is_valid ? 'Application is Valid' : 'Application Needs Attention'}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-gray-700 dark:text-gray-300">
+                                    Status: <strong className="capitalize">{validationResult.readiness_status.replace('_', ' ')}</strong>
+                                </p>
+                                {validationResult.summary && (
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{validationResult.summary}</p>
+                                )}
+                            </div>
+
+                            {validationResult.missing_fields && validationResult.missing_fields.length > 0 && (
+                                <div>
+                                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Missing Fields:</h4>
+                                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                        {validationResult.missing_fields.map((field: any, index: number) => (
+                                            <li key={index}>{field.label || field.field}: {field.message}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {validationResult.missing_documents && validationResult.missing_documents.length > 0 && (
+                                <div>
+                                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Missing Documents:</h4>
+                                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                        {validationResult.missing_documents.map((doc: any, index: number) => (
+                                            <li key={index}>{doc.label || doc.document_type}: {doc.message}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {validationResult.duplicate_warnings && validationResult.duplicate_warnings.length > 0 && (
+                                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                    <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2 flex items-center gap-2">
+                                        <AlertTriangle size={18} />
+                                        Potential Duplicates Found
+                                    </h4>
+                                    <ul className="space-y-2 text-sm text-red-700 dark:text-red-300">
+                                        {validationResult.duplicate_warnings.map((dup: any, index: number) => (
+                                            <li key={index} className="flex items-start gap-2">
+                                                <span className="font-medium">{dup.name}</span>
+                                                <span className="text-xs">({dup.beneficiary_no})</span>
+                                                <span className="text-xs opacity-75">- {dup.details}</span>
+                                                <span className="text-xs opacity-75">(Confidence: {Math.round(dup.confidence * 100)}%)</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            <Button
+                                variant="secondary"
+                                onClick={() => {
+                                    setShowValidationModal(false);
+                                    setValidationError(null);
+                                }}
+                                className="w-full"
+                            >
+                                Close
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Eligibility Check Results Modal */}
+            {showEligibilityCheckModal && eligibilityResult && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-dark-surface rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Eligibility Check Results</h3>
+                            <button
+                                onClick={() => {
+                                    setShowEligibilityCheckModal(false);
+                                    setEligibilityError(null);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+                        {eligibilityError && (
+                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                <p className="text-sm text-red-800 dark:text-red-200">{eligibilityError}</p>
+                            </div>
+                        )}
+                        <div className="space-y-4">
+                            <div className={`p-4 rounded-lg ${
+                                eligibilityResult.is_eligible
+                                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                                    : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                            }`}>
+                                <div className="flex items-center gap-2 mb-2">
+                                    {eligibilityResult.is_eligible ? (
+                                        <CheckCircle className="text-green-600 dark:text-green-400" size={20} />
+                                    ) : (
+                                        <XCircle className="text-red-600 dark:text-red-400" size={20} />
+                                    )}
+                                    <span className={`font-semibold ${
+                                        eligibilityResult.is_eligible
+                                            ? 'text-green-800 dark:text-green-200'
+                                            : 'text-red-800 dark:text-red-200'
+                                    }`}>
+                                        {eligibilityResult.determination === 'eligible' ? 'Eligible' : 
+                                         eligibilityResult.determination === 'conditional' ? 'Conditionally Eligible' : 
+                                         'Not Eligible'}
+                                    </span>
+                                </div>
+                                {eligibilityResult.remarks && (
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">{eligibilityResult.remarks}</p>
+                                )}
+                            </div>
+
+                            {eligibilityResult.passed_criteria && eligibilityResult.passed_criteria.length > 0 && (
+                                <div>
+                                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">Passed Criteria:</h4>
+                                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                        {eligibilityResult.passed_criteria.map((criteria: string, index: number) => (
+                                            <li key={index} className="capitalize">{criteria.replace('_', ' ')}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {eligibilityResult.failed_criteria && eligibilityResult.failed_criteria.length > 0 && (
+                                <div>
+                                    <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">Failed Criteria:</h4>
+                                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                        {eligibilityResult.failed_criteria.map((criteria: string, index: number) => (
+                                            <li key={index} className="capitalize">{criteria.replace('_', ' ')}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {eligibilityResult.reasons && eligibilityResult.reasons.length > 0 && (
+                                <div>
+                                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Reasons:</h4>
+                                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                        {eligibilityResult.reasons.map((reason: string, index: number) => (
+                                            <li key={index}>{reason}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="primary"
+                                    onClick={() => {
+                                        handleCheckEligibility(true);
+                                    }}
+                                    className="flex-1"
+                                >
+                                    Auto-Update Eligibility Status
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setShowEligibilityCheckModal(false);
+                                        setEligibilityError(null);
+                                    }}
+                                    className="flex-1"
+                                >
+                                    Close
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </AdminLayout>
     );

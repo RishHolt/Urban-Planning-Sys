@@ -7,7 +7,9 @@ use App\Models\Beneficiary;
 use App\Models\BeneficiaryApplication;
 use App\Models\BeneficiaryDocument;
 use App\Models\HouseholdMember;
+use App\Services\ApplicationValidationService;
 use App\Services\BlacklistService;
+use App\Services\DuplicateCheckService;
 use App\Services\NotificationService;
 use App\Services\WaitlistService;
 use Illuminate\Http\RedirectResponse;
@@ -23,7 +25,9 @@ class HousingBeneficiaryController extends Controller
 {
     public function __construct(
         protected BlacklistService $blacklistService,
-        protected WaitlistService $waitlistService
+        protected WaitlistService $waitlistService,
+        protected DuplicateCheckService $duplicateCheckService,
+        protected ApplicationValidationService $validationService
     ) {}
 
     /**
@@ -204,6 +208,21 @@ class HousingBeneficiaryController extends Controller
                 ])->withInput();
             }
 
+            // Check for duplicates
+            $duplicateResult = $this->duplicateCheckService->checkDuplicates($beneficiary);
+            if ($duplicateResult->hasDuplicates) {
+                $duplicateWarnings = collect($duplicateResult->potentialDuplicates)
+                    ->map(fn ($dup) => "Potential duplicate: {$dup['name']} ({$dup['beneficiary_no']}) - {$dup['details']}")
+                    ->implode('; ');
+
+                Log::warning('Duplicate beneficiary detected during application submission', [
+                    'beneficiary_id' => $beneficiary->id,
+                    'duplicates' => $duplicateResult->potentialDuplicates,
+                ]);
+
+                // Allow submission but log warning - admin will review
+            }
+
             // Create application
             $application = BeneficiaryApplication::create([
                 'beneficiary_id' => $beneficiary->id,
@@ -213,12 +232,23 @@ class HousingBeneficiaryController extends Controller
                 'eligibility_status' => 'pending',
             ]);
 
+            // Validate application after creation
+            $validationResult = $this->validationService->validateApplication($application);
+
             // Check blacklist again and auto-reject if needed
             if ($this->blacklistService->checkAndReject($application)) {
                 DB::connection('hbr_db')->commit();
 
                 return redirect()->route('applications.housing.show', $application->id)
                     ->with('error', 'Your application was rejected because you are blacklisted.');
+            }
+
+            // If validation fails, log but allow submission (admin will review)
+            if (! $validationResult->isValid) {
+                Log::info('Application submitted with validation issues', [
+                    'application_id' => $application->id,
+                    'validation_result' => $validationResult->toArray(),
+                ]);
             }
 
             // Store documents
@@ -238,9 +268,11 @@ class HousingBeneficiaryController extends Controller
 
             DB::connection('hbr_db')->commit();
 
+            // Return success with application ID confirmation
             return redirect()->route('applications.housing.success', [
                 'applicationNumber' => $application->application_no,
-            ]);
+                'applicationId' => $application->id,
+            ])->with('success', 'Application submitted successfully. Your application ID is: '.$application->application_no);
         } catch (\Exception $e) {
             DB::connection('hbr_db')->rollBack();
 
@@ -293,12 +325,40 @@ class HousingBeneficiaryController extends Controller
     private function storeDocuments(BeneficiaryApplication $application, Request $request, array $validated): void
     {
         $basePath = "housing-applications/{$application->beneficiary_id}/{$application->application_no}";
+        $maxSize = config('housing.validation.document_max_size_mb', 10) * 1024; // Convert to KB
+        $allowedTypes = config('housing.validation.allowed_document_types', ['jpeg', 'jpg', 'png', 'pdf']);
 
         if (isset($validated['documents']) && is_array($validated['documents'])) {
             foreach ($validated['documents'] as $documentData) {
                 if (isset($documentData['file']) && $documentData['file']->isValid()) {
                     $file = $documentData['file'];
                     $documentType = $documentData['document_type'];
+
+                    // Validate file size
+                    if ($file->getSize() > $maxSize * 1024) {
+                        Log::warning('Document upload rejected: file size exceeds limit', [
+                            'application_id' => $application->id,
+                            'document_type' => $documentType,
+                            'file_size' => $file->getSize(),
+                            'max_size' => $maxSize * 1024,
+                        ]);
+
+                        continue;
+                    }
+
+                    // Validate file type
+                    $extension = strtolower($file->getClientOriginalExtension());
+                    if (! in_array($extension, $allowedTypes)) {
+                        Log::warning('Document upload rejected: invalid file type', [
+                            'application_id' => $application->id,
+                            'document_type' => $documentType,
+                            'file_extension' => $extension,
+                            'allowed_types' => $allowedTypes,
+                        ]);
+
+                        continue;
+                    }
+
                     $fileName = $this->generateFileName($file, $documentType);
                     $path = $file->storeAs($basePath, $fileName, 'public');
 
