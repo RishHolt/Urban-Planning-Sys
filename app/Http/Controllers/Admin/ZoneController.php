@@ -29,6 +29,17 @@ class ZoneController extends Controller
             })->orWhere('label', 'like', "%{$search}%");
         }
 
+        // Filter by boundary type
+        if ($request->has('boundary_type') && $request->boundary_type && in_array($request->boundary_type, ['municipal', 'barangay', 'zoning'])) {
+            $query->byBoundaryType($request->boundary_type);
+        } else {
+            // Default: exclude municipal and barangay boundaries (show only zoning)
+            // Only filter if this is the zones index page (not API request)
+            if (! $request->wantsJson() && ! $request->ajax()) {
+                $query->zoning();
+            }
+        }
+
         // Filter by status
         if ($request->has('status') && $request->status) {
             if ($request->status === 'active') {
@@ -58,6 +69,7 @@ class ZoneController extends Controller
                 'is_active' => $zone->is_active,
                 'has_geometry' => $zone->geometry !== null,
                 'geometry' => $zone->geometry,
+                'boundary_type' => $zone->boundary_type ?? 'zoning',
                 'created_at' => $zone->created_at->format('Y-m-d H:i:s'),
                 'classification' => $classification ? [
                     'id' => (string) $classification->id,
@@ -88,8 +100,26 @@ class ZoneController extends Controller
             ->paginate(15)
             ->through($formatZone);
 
+        // Load boundary data for management
+        $municipalBoundary = Zone::with('classification')
+            ->municipal()
+            ->first();
+
+        $barangayBoundaries = Zone::with('classification')
+            ->barangay()
+            ->orderBy('label', 'asc')
+            ->get()
+            ->map($formatZone);
+
         return Inertia::render('Admin/Zoning/ZonesIndex', [
             'zones' => $zones,
+            'municipalBoundary' => $municipalBoundary ? $formatZone($municipalBoundary) : null,
+            'barangayBoundaries' => $barangayBoundaries,
+            'filters' => [
+                'search' => $request->search,
+                'status' => $request->status,
+                'boundary_type' => $request->boundary_type ?? 'zoning',
+            ],
         ]);
     }
 
@@ -119,6 +149,7 @@ class ZoneController extends Controller
                 'is_active' => $zone->is_active,
                 'has_geometry' => $zone->geometry !== null,
                 'geometry' => $zone->geometry,
+                'boundary_type' => $zone->boundary_type ?? 'zoning',
                 'classification' => $classification ? [
                     'id' => (string) $classification->id,
                     'code' => $classification->code,
@@ -153,6 +184,7 @@ class ZoneController extends Controller
                 'color' => $classification?->color,
                 'is_active' => $zone->is_active,
                 'geometry' => $zone->geometry,
+                'boundary_type' => $zone->boundary_type ?? 'zoning',
                 'classification' => $classification ? [
                     'id' => (string) $classification->id,
                     'code' => $classification->code,
@@ -194,6 +226,7 @@ class ZoneController extends Controller
                 'is_active' => $zone->is_active,
                 'has_geometry' => $zone->geometry !== null,
                 'geometry' => $zone->geometry,
+                'boundary_type' => $zone->boundary_type ?? 'zoning',
                 'classification' => $classification ? [
                     'id' => (string) $classification->id,
                     'code' => $classification->code,
@@ -242,7 +275,7 @@ class ZoneController extends Controller
                     'name' => $classification?->name ?? '',
                     'color' => $classification?->color,
                     'geometry' => $zone->geometry,
-                    'is_municipality' => $zone->is_municipality,
+                    'boundary_type' => $zone->boundary_type ?? 'zoning',
                 ];
             });
 
@@ -298,7 +331,7 @@ class ZoneController extends Controller
         $file = $request->file('file');
         $geoJson = json_decode(file_get_contents($file->path()), true);
 
-        if (!$geoJson || !isset($geoJson['type']) || $geoJson['type'] !== 'FeatureCollection') {
+        if (! $geoJson || ! isset($geoJson['type']) || $geoJson['type'] !== 'FeatureCollection') {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid GeoJSON format. Must be a FeatureCollection.',
@@ -312,9 +345,9 @@ class ZoneController extends Controller
         foreach ($geoJson['features'] as $index => $feature) {
             try {
                 // Get classification code with fallbacks for robust importing
-                $classificationCode = $feature['properties']['classification_code'] 
-                    ?? $feature['properties']['ref'] 
-                    ?? $feature['properties']['name'] 
+                $classificationCode = $feature['properties']['classification_code']
+                    ?? $feature['properties']['ref']
+                    ?? $feature['properties']['name']
                     ?? 'IMPORT';
 
                 // Ensure it's not too long and is upper case for consistency
@@ -324,11 +357,11 @@ class ZoneController extends Controller
                 $classification = \App\Models\ZoningClassification::updateOrCreate(
                     ['code' => $classificationCode],
                     [
-                        'name' => $feature['properties']['classification_name'] 
-                            ?? $feature['properties']['name'] 
+                        'name' => $feature['properties']['classification_name']
+                            ?? $feature['properties']['name']
                             ?? "Imported Zone {$classificationCode}",
-                        'description' => $feature['properties']['classification_description'] 
-                            ?? $feature['properties']['boundary'] 
+                        'description' => $feature['properties']['classification_description']
+                            ?? $feature['properties']['boundary']
                             ?? 'Imported from external source',
                         'allowed_uses' => $feature['properties']['allowed_uses'] ?? 'Various',
                         'color' => $feature['properties']['color'] ?? '#3b82f6',
@@ -364,7 +397,7 @@ class ZoneController extends Controller
                     $importedCount++;
                 }
             } catch (\Exception $e) {
-                $errors[] = "Feature {$index}: " . $e->getMessage();
+                $errors[] = "Feature {$index}: ".$e->getMessage();
             }
         }
 
@@ -387,7 +420,7 @@ class ZoneController extends Controller
         $file = $request->file('file');
         $geoJson = json_decode(file_get_contents($file->path()), true);
 
-        if (!$geoJson || !isset($geoJson['type']) || !isset($geoJson['features'][0])) {
+        if (! $geoJson || ! isset($geoJson['type']) || ! isset($geoJson['features'][0])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid GeoJSON format. Must contain at least one feature.',
@@ -397,7 +430,7 @@ class ZoneController extends Controller
         $feature = $geoJson['features'][0];
         $geometry = $feature['geometry'] ?? null;
 
-        if (!$geometry) {
+        if (! $geometry) {
             return response()->json([
                 'success' => false,
                 'message' => 'First feature must have a valid geometry.',
@@ -405,7 +438,7 @@ class ZoneController extends Controller
         }
 
         // 1. Clear existing municipality
-        Zone::where('is_municipality', true)->delete();
+        Zone::where('boundary_type', 'municipal')->delete();
 
         // 2. Find or create a "Municipality Boundary" classification
         $classification = \App\Models\ZoningClassification::updateOrCreate(
@@ -425,7 +458,7 @@ class ZoneController extends Controller
             'label' => $feature['properties']['name'] ?? 'Municipality Boundary',
             'geometry' => $geometry,
             'is_active' => true,
-            'is_municipality' => true,
+            'boundary_type' => 'municipal',
         ]);
 
         if ($request->header('X-Inertia')) {

@@ -5,7 +5,7 @@ import Sidebar from '../../../components/Sidebar';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useLeafletDraw } from '../../../hooks/useLeafletDraw';
-import { getZones, getZone, createZone, updateZone, deleteZone, getZoningClassifications, exportZonesGeoJson, importZonesGeoJson, importMunicipalityGeoJson, type Zone, type ZoningClassification } from '../../../data/services';
+import { getZones, getZone, createZone, updateZone, deleteZone, getZoningClassifications, exportZonesGeoJson, importZonesGeoJson, importMunicipalityGeoJson, getMunicipalBoundary, createMunicipalBoundary, getBarangayBoundaries, createBarangayBoundary, updateBarangayBoundary, type Zone, type ZoningClassification } from '../../../data/services';
 import { generatePolygonColor, leafletToGeoJSON, geoJSONToLeaflet, calculatePolygonArea, hslToRgba } from '../../../lib/mapUtils';
 import { checkZoneOverlap } from '../../../lib/zoneOverlapDetection';
 import { showSuccess, showError, showConfirm } from '../../../lib/swal';
@@ -13,6 +13,7 @@ import { Loader2, Plus, Search, X, Download, Upload, Shield } from 'lucide-react
 import booleanWithin from '@turf/boolean-within';
 import intersect from '@turf/intersect';
 import difference from '@turf/difference';
+import bbox from '@turf/bbox';
 import { feature, featureCollection } from '@turf/helpers';
 import Button from '../../../components/Button';
 import Input from '../../../components/Input';
@@ -35,6 +36,10 @@ function MapWithDraw({
     selectedZone,
     selectedClassification,
     zones,
+    municipalityBoundary,
+    barangayBoundaries,
+    selectedBarangay,
+    editMode,
     isDrawing,
     isEditing,
     onPolygonCreated,
@@ -49,6 +54,10 @@ function MapWithDraw({
     selectedZone: Zone | null;
     selectedClassification: ZoningClassification | null;
     zones: Zone[];
+    municipalityBoundary: Zone | null;
+    barangayBoundaries: Zone[];
+    selectedBarangay: Zone | null;
+    editMode: 'zoning' | 'municipal' | 'barangay';
     isDrawing: boolean;
     isEditing: boolean;
     onPolygonCreated: (layer: L.Layer) => void;
@@ -63,6 +72,9 @@ function MapWithDraw({
     const map = useMap();
     const polygonLayersRef = useRef<Map<string, L.Layer>>(new Map());
     const layerToZoneIdRef = useRef<Map<L.Layer, string>>(new Map());
+    const selectedBarangayLayerRef = useRef<L.Layer | null>(null);
+    const viewportBoundsRef = useRef<L.LatLngBounds | null>(null);
+    const renderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Get the color for the selected classification or zone
     const drawColor = selectedClassification?.color || selectedZone?.color || generatePolygonColor(selectedClassification?.code || selectedZone?.code || 'UNKNOWN');
@@ -89,40 +101,165 @@ function MapWithDraw({
         onDrawStop,
     });
 
-    // Render existing zones on map
+    // Helper function to check if a zone's geometry intersects with viewport bounds
+    const isZoneInViewport = (zone: Zone, bounds: L.LatLngBounds): boolean => {
+        if (!zone.geometry) {
+            return false;
+        }
+
+        try {
+            // Get bounding box of the zone geometry
+            const zoneBbox = bbox(zone.geometry);
+            const zoneBounds = L.latLngBounds(
+                [zoneBbox[1], zoneBbox[0]], // SW
+                [zoneBbox[3], zoneBbox[2]]  // NE
+            );
+
+            // Check if zone bounds intersect with viewport bounds
+            return bounds.intersects(zoneBounds);
+        } catch (error) {
+            // If bbox calculation fails, include the zone to be safe
+            return true;
+        }
+    };
+
+    // Render existing zones on map with viewport-based optimization
     useEffect(() => {
         if (!map) {
             return;
         }
 
-        // Clear existing layers
-        polygonLayersRef.current.forEach((layer) => {
-            if (map.hasLayer(layer)) {
-                map.removeLayer(layer);
+        // Clear any pending render timeout
+        if (renderTimeoutRef.current) {
+            clearTimeout(renderTimeoutRef.current);
+        }
+
+        // Debounce rendering on map move/zoom
+        const renderZones = () => {
+            const currentBounds = map.getBounds();
+            const currentZoom = map.getZoom();
+            viewportBoundsRef.current = currentBounds;
+
+            // Clear existing layers and remove all event handlers
+            polygonLayersRef.current.forEach((layer, zoneId) => {
+                if (map.hasLayer(layer)) {
+                    // Remove all event handlers before removing layer
+                    if (layer instanceof L.LayerGroup) {
+                        layer.eachLayer((sublayer) => {
+                            if (sublayer instanceof L.Polygon) {
+                                sublayer.off('mouseover');
+                                sublayer.off('mouseout');
+                            }
+                        });
+                    } else if (layer instanceof L.Polygon) {
+                        layer.off('mouseover');
+                        layer.off('mouseout');
+                    }
+                    map.removeLayer(layer);
+                }
+            });
+            polygonLayersRef.current.clear();
+            layerToZoneIdRef.current.clear();
+
+            // Always include municipality boundary if it exists
+            const zonesToCheck = [
+                ...zones,
+                ...(municipalityBoundary ? [municipalityBoundary] : []),
+            ];
+
+            // Filter zones based on viewport and edit mode
+            let zonesToRender: Zone[] = [];
+
+            if (editMode === 'municipal') {
+                // In municipal mode, only show municipality boundary
+                zonesToRender = municipalityBoundary ? [municipalityBoundary] : [];
+            } else if (editMode === 'barangay') {
+                // In barangay mode, show all barangay boundaries (but filter by viewport if zoom is low)
+                if (currentZoom >= 12) {
+                    // At higher zoom, filter by viewport
+                    zonesToRender = barangayBoundaries.filter(zone => 
+                        isZoneInViewport(zone, currentBounds)
+                    );
+                } else {
+                    // At lower zoom, show all barangays (they're likely all visible)
+                    zonesToRender = barangayBoundaries;
+                }
+            } else {
+                // In zoning mode
+                // Always include municipality boundary
+                if (municipalityBoundary) {
+                    zonesToRender.push(municipalityBoundary);
+                }
+
+                // Filter zoning zones by viewport (only at lower zoom levels to reduce load)
+                const zoningZones = zones.filter((zone) => {
+                    const isBoundary = zone.boundary_type === 'municipal' || zone.boundary_type === 'barangay' ||
+                        zone.code?.toUpperCase() === 'BOUNDARY' ||
+                        zone.name?.toUpperCase() === 'BOUNDARY';
+                    return !isBoundary;
+                });
+
+                if (currentZoom >= 13) {
+                    // At higher zoom, filter by viewport
+                    zonesToRender.push(...zoningZones.filter(zone => 
+                        zone.geometry && isZoneInViewport(zone, currentBounds)
+                    ));
+                } else {
+                    // At lower zoom, show all zones
+                    zonesToRender.push(...zoningZones.filter(zone => zone.geometry));
+                }
+
+                // Include barangay boundaries only if zoom is high enough or if selected
+                if (currentZoom >= 12) {
+                    const visibleBarangays = barangayBoundaries.filter(zone => 
+                        isZoneInViewport(zone, currentBounds)
+                    );
+                    zonesToRender.push(...visibleBarangays);
+                } else if (selectedBarangay) {
+                    // Always show selected barangay
+                    zonesToRender.push(selectedBarangay);
+                }
             }
-        });
-        polygonLayersRef.current.clear();
-        layerToZoneIdRef.current.clear();
+
+            // Combine all zones including boundaries
+            const allZonesToRender = zonesToRender;
 
         // Add all active zones with geometry
-        zones.forEach((zone) => {
+        allZonesToRender.forEach((zone) => {
             if (!zone.geometry) {
                 return;
             }
 
             try {
-                const isMunicipality = zone.is_municipality;
-                const layerColor = isMunicipality ? '#000000' : (zone.color || generatePolygonColor(zone.code));
+                const isBoundary = zone.boundary_type === 'municipal' || zone.boundary_type === 'barangay';
+                const isMunicipality = zone.boundary_type === 'municipal';
+                const isBarangay = zone.boundary_type === 'barangay';
+                
+                // Don't highlight selected barangay here - it's handled separately
+                // All barangays render in default gray, selected one will be overlaid separately
+                const layerColor = isBoundary 
+                    ? (isMunicipality ? '#000000' : '#808080')
+                    : (zone.color || generatePolygonColor(zone.code));
+                const fillOpacity = isBoundary ? 0 : 0.3;
+                const weight = isBoundary ? 3 : 2;
+                const opacity = 0.8;
+
+                // Make boundaries interactive when in boundary editing mode
+                const isInteractive = !isBoundary || (isBoundary && (
+                    (isMunicipality && editMode === 'municipal') ||
+                    (isBarangay && editMode === 'barangay')
+                ));
 
                 const layer = geoJSONToLeaflet(zone.geometry, {
                     color: layerColor,
                     fillColor: layerColor,
-                    fillOpacity: isMunicipality ? 0 : 0.3,
-                    weight: isMunicipality ? 3 : 2,
-                    opacity: 0.8,
-                    dashArray: isMunicipality ? '5, 10' : undefined,
-                    interactive: !isMunicipality,
+                    fillOpacity: fillOpacity,
+                    weight: weight,
+                    opacity: opacity,
+                    dashArray: isBoundary ? '5, 10' : undefined,
+                    interactive: isInteractive,
                 });
+
 
                 if (layer) {
                     // Add to map
@@ -145,19 +282,19 @@ function MapWithDraw({
                     // Add popup
                     const popupContent = `
                         <div class="p-3 min-w-[200px]">
-                            <div class="mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-0.5">Zone Label</span>
-                                <span class="text-sm font-bold text-gray-700 dark:text-gray-300 block truncate" title="${zone.label || 'N/A'}">
+                            <div class="mb-2 pb-2 border-gray-100 dark:border-gray-700 border-b">
+                                <span class="block mb-0.5 font-bold text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">Zone Label</span>
+                                <span class="block font-bold text-gray-700 dark:text-gray-300 text-sm truncate" title="${zone.label || 'N/A'}">
                                     ${zone.label || 'No Label Set'}
                                 </span>
                             </div>
                             <div class="mb-3">
-                                <span class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-0.5">Classification</span>
-                                <span class="text-xs font-semibold text-primary dark:text-blue-400 block mb-0.5">${zone.code}</span>
-                                <span class="text-[11px] text-gray-600 dark:text-gray-300 block line-clamp-2">${zone.name}</span>
+                                <span class="block mb-0.5 font-bold text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Classification</span>
+                                <span class="block mb-0.5 font-semibold text-primary dark:text-blue-400 text-xs">${zone.code}</span>
+                                <span class="block text-[11px] text-gray-600 dark:text-gray-300 line-clamp-2">${zone.name}</span>
                             </div>
                             <button 
-                                class="map-edit-zone-btn w-full bg-primary hover:bg-primary-hover text-white text-[11px] font-bold py-2 rounded-md transition-all shadow-sm flex items-center justify-center gap-1.5"
+                                class="flex justify-center items-center gap-1.5 bg-primary hover:bg-primary-hover shadow-sm py-2 rounded-md w-full font-bold text-[11px] text-white transition-all map-edit-zone-btn"
                                 data-zone-id="${zone.id}"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
@@ -213,9 +350,31 @@ function MapWithDraw({
                 console.error(`Error rendering zone ${zone.code}:`, error);
             }
         });
+        };
+
+        // Initial render
+        renderZones();
+
+        // Listen to map move/zoom events for viewport-based rendering
+        const handleMapMove = () => {
+            if (renderTimeoutRef.current) {
+                clearTimeout(renderTimeoutRef.current);
+            }
+            renderTimeoutRef.current = setTimeout(() => {
+                renderZones();
+            }, 150); // Debounce by 150ms
+        };
+
+        map.on('moveend', handleMapMove);
+        map.on('zoomend', handleMapMove);
 
         // Cleanup
         return () => {
+            if (renderTimeoutRef.current) {
+                clearTimeout(renderTimeoutRef.current);
+            }
+            map.off('moveend', handleMapMove);
+            map.off('zoomend', handleMapMove);
             polygonLayersRef.current.forEach((layer) => {
                 if (map.hasLayer(layer)) {
                     map.removeLayer(layer);
@@ -224,7 +383,123 @@ function MapWithDraw({
             polygonLayersRef.current.clear();
             layerToZoneIdRef.current.clear();
         };
-    }, [map, zones]);
+    }, [map, zones, municipalityBoundary, barangayBoundaries, editMode, selectedZone, selectedClassification, drawColor, onSelectZone, shouldShowPopup, selectedBarangay]);
+
+    // Separate effect for selected barangay highlight - independent of classification
+    useEffect(() => {
+        if (!map || !selectedBarangay || !selectedBarangay.geometry || editMode !== 'zoning') {
+            // Remove highlight layer if no barangay is selected or not in zoning mode
+            if (selectedBarangayLayerRef.current) {
+                map.removeLayer(selectedBarangayLayerRef.current);
+                selectedBarangayLayerRef.current = null;
+            }
+            return;
+        }
+
+        // Remove previous highlight layer if it exists
+        if (selectedBarangayLayerRef.current) {
+            map.removeLayer(selectedBarangayLayerRef.current);
+            selectedBarangayLayerRef.current = null;
+        }
+
+        // Calculate bounds directly from GeoJSON geometry first
+        try {
+            const geometry = selectedBarangay.geometry;
+            let bounds: L.LatLngBounds | null = null;
+
+            // Calculate bounds from GeoJSON coordinates
+            if (geometry.type === 'Polygon' && geometry.coordinates && geometry.coordinates.length > 0) {
+                const outerRing = geometry.coordinates[0];
+                const latlngs = outerRing.map((coord: number[]) => L.latLng(coord[1], coord[0]));
+                bounds = L.latLngBounds(latlngs);
+            } else if (geometry.type === 'MultiPolygon' && geometry.coordinates && geometry.coordinates.length > 0) {
+                const allLatLngs: L.LatLng[] = [];
+                geometry.coordinates.forEach((polygon: number[][][]) => {
+                    if (polygon && polygon.length > 0) {
+                        const outerRing = polygon[0];
+                        outerRing.forEach((coord: number[]) => {
+                            allLatLngs.push(L.latLng(coord[1], coord[0]));
+                        });
+                    }
+                });
+                if (allLatLngs.length > 0) {
+                    bounds = L.latLngBounds(allLatLngs);
+                }
+            }
+
+            // Fit map to bounds immediately
+            if (bounds && bounds.isValid && bounds.isValid()) {
+                map.fitBounds(bounds, {
+                    padding: [50, 50],
+                    maxZoom: 16,
+                });
+            }
+        } catch (error) {
+            console.warn('Could not calculate bounds from GeoJSON:', error);
+        }
+
+        // Create green highlight layer for selected barangay
+        try {
+            const highlightLayer = geoJSONToLeaflet(selectedBarangay.geometry, {
+                color: '#22c55e',
+                fillColor: '#22c55e',
+                fillOpacity: 0.1,
+                weight: 4,
+                opacity: 1,
+                dashArray: '5, 10',
+                interactive: true,
+            });
+
+            if (highlightLayer) {
+                // Add to map
+                if (highlightLayer instanceof L.LayerGroup) {
+                    highlightLayer.addTo(map);
+                } else {
+                    highlightLayer.addTo(map);
+                }
+
+                // Add hover effect
+                const addHoverEffect = (l: L.Layer) => {
+                    if (l instanceof L.Polygon) {
+                        l.on('mouseover', () => {
+                            l.setStyle({ 
+                                weight: 5, 
+                                color: '#16a34a',
+                                fillOpacity: 0.2,
+                                opacity: 1
+                            });
+                        });
+                        l.on('mouseout', () => {
+                            l.setStyle({ 
+                                weight: 4, 
+                                color: '#22c55e',
+                                fillOpacity: 0.1,
+                                opacity: 1
+                            });
+                        });
+                    }
+                };
+
+                if (highlightLayer instanceof L.LayerGroup) {
+                    highlightLayer.eachLayer(addHoverEffect);
+                } else if (highlightLayer instanceof L.Polygon) {
+                    addHoverEffect(highlightLayer);
+                }
+
+                selectedBarangayLayerRef.current = highlightLayer;
+            }
+        } catch (error) {
+            console.error('Error rendering selected barangay highlight:', error);
+        }
+
+        // Cleanup
+        return () => {
+            if (selectedBarangayLayerRef.current) {
+                map.removeLayer(selectedBarangayLayerRef.current);
+                selectedBarangayLayerRef.current = null;
+            }
+        };
+    }, [map, selectedBarangay, editMode]);
 
     // Pan to selected zone
     useEffect(() => {
@@ -368,6 +643,9 @@ export default function ZoningMap() {
     const [mapFocusKey, setMapFocusKey] = useState(0);
     const [shouldShowPopup, setShouldShowPopup] = useState(false);
     const [municipalityBoundary, setMunicipalityBoundary] = useState<Zone | null>(null);
+    const [barangayBoundaries, setBarangayBoundaries] = useState<Zone[]>([]);
+    const [selectedBarangay, setSelectedBarangay] = useState<Zone | null>(null);
+    const [editMode, setEditMode] = useState<'zoning' | 'municipal' | 'barangay'>('zoning');
     const mapCenter: [number, number] = [14.5995, 120.9842]; // Default to Manila
     const mapZoom = 13;
 
@@ -376,7 +654,29 @@ export default function ZoningMap() {
         loadZones();
         loadAllZonesForMap();
         loadClassifications();
+        loadMunicipalBoundary();
+        loadBarangayBoundaries();
     }, []);
+
+    // Load municipal boundary
+    const loadMunicipalBoundary = async () => {
+        try {
+            const boundary = await getMunicipalBoundary();
+            setMunicipalityBoundary(boundary || null);
+        } catch (error) {
+            console.error('Failed to load municipal boundary:', error);
+        }
+    };
+
+    // Load barangay boundaries
+    const loadBarangayBoundaries = async () => {
+        try {
+            const boundaries = await getBarangayBoundaries();
+            setBarangayBoundaries(boundaries || []);
+        } catch (error) {
+            console.error('Failed to load barangay boundaries:', error);
+        }
+    };
 
     // Auto-activate drawing tools when classification is selected
     useEffect(() => {
@@ -415,9 +715,17 @@ export default function ZoningMap() {
 
             const result = await response.json();
             if (result.success && result.zones) {
-                setAllZones(result.zones);
-                const boundary = result.zones.find((z: Zone) => z.is_municipality);
-                setMunicipalityBoundary(boundary || null);
+                // Combine all zones including boundaries
+                const allZonesList = [...result.zones];
+                if (municipalityBoundary && !allZonesList.find(z => z.id === municipalityBoundary.id)) {
+                    allZonesList.push(municipalityBoundary);
+                }
+                barangayBoundaries.forEach(barangay => {
+                    if (!allZonesList.find(z => z.id === barangay.id)) {
+                        allZonesList.push(barangay);
+                    }
+                });
+                setAllZones(allZonesList);
             }
         } catch (error) {
             console.error('Failed to load zones for map:', error);
@@ -439,10 +747,6 @@ export default function ZoningMap() {
 
     const handlePolygonCreated = useCallback(
         async (layer: L.Layer) => {
-            if (!selectedClassification) {
-                return;
-            }
-
             setSaving(true);
             try {
                 const geometry = leafletToGeoJSON(layer);
@@ -450,17 +754,57 @@ export default function ZoningMap() {
                     throw new Error('Failed to convert layer to GeoJSON');
                 }
 
-                // Spatial constraint: Adjust to be within municipality boundary
                 let finalGeometry = geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
 
-                if (municipalityBoundary && municipalityBoundary.geometry) {
+                // Handle different edit modes
+                if (editMode === 'municipal') {
+                    // Save municipal boundary
+                    const boundary = await createMunicipalBoundary({
+                        geometry: finalGeometry,
+                        label: 'Municipality Boundary',
+                    });
+                    setMunicipalityBoundary(boundary as Zone);
+                    await loadAllZonesForMap();
+                    await loadMunicipalBoundary();
+                    showSuccess('Municipal boundary saved successfully');
+                    setIsDrawing(false);
+                    return;
+                } else if (editMode === 'barangay') {
+                    // For barangay, we need a label - prompt user or use default
+                    const label = prompt('Enter barangay name:') || `Barangay ${Date.now()}`;
+                    const boundary = await createBarangayBoundary({
+                        geometry: finalGeometry,
+                        label,
+                    });
+                    setBarangayBoundaries((prev) => [...prev, boundary as Zone]);
+                    await loadAllZonesForMap();
+                    await loadBarangayBoundaries();
+                    showSuccess(`Barangay boundary "${label}" saved successfully`);
+                    setIsDrawing(false);
+                    return;
+                }
+
+                // Zoning zone creation (existing logic)
+                if (!selectedClassification) {
+                    return;
+                }
+
+                // Barangay selection is required for zoning zones
+                if (!selectedBarangay || !selectedBarangay.geometry) {
+                    showError('Please select a barangay before drawing a zone.');
+                    setSaving(false);
+                    return;
+                }
+
+                // Spatial constraint: Adjust to be within selected barangay boundary
+                if (selectedBarangay.geometry) {
                     const zoneFeature = feature(geometry);
-                    const boundaryFeature = feature(municipalityBoundary.geometry);
+                    const boundaryFeature = feature(selectedBarangay.geometry);
 
                     const intersection = intersect(featureCollection([zoneFeature as any, boundaryFeature as any]));
 
                     if (!intersection) {
-                        showError('The drawn zone is completely outside the municipality boundary.');
+                        showError(`The drawn zone is completely outside the selected barangay boundary (${selectedBarangay.label || 'barangay'}).`);
                         setSaving(false);
                         return;
                     }
@@ -469,7 +813,7 @@ export default function ZoningMap() {
                 }
 
                 // Auto-trim overlaps with existing zones
-                const zonesWithGeometry = allZones.filter((z) => z.geometry && !z.is_municipality);
+                const zonesWithGeometry = allZones.filter((z) => z.geometry && z.boundary_type !== 'municipal' && z.boundary_type !== 'barangay');
 
                 if (zonesWithGeometry.length > 0) {
                     for (const existingZone of zonesWithGeometry) {
@@ -514,7 +858,7 @@ export default function ZoningMap() {
                 setSaving(false);
             }
         },
-        [selectedClassification, allZones]
+        [selectedClassification, allZones, editMode, municipalityBoundary, selectedBarangay]
     );
 
     const handleDrawStart = useCallback(() => {
@@ -567,15 +911,44 @@ export default function ZoningMap() {
                     };
                 }
 
-                // Spatial constraint: Adjust to be within municipality boundary
-                if (municipalityBoundary && municipalityBoundary.geometry) {
+                // Handle boundary editing
+                if (selectedZone.boundary_type === 'municipal') {
+                    const boundary = await createMunicipalBoundary({
+                        geometry: finalGeometry,
+                        label: selectedZone.label || 'Municipality Boundary',
+                    });
+                    setMunicipalityBoundary(boundary as Zone);
+                    await loadAllZonesForMap();
+                    await loadMunicipalBoundary();
+                    showSuccess('Municipal boundary updated successfully');
+                    setIsEditing(false);
+                    setSelectedZone(null);
+                    return;
+                } else if (selectedZone.boundary_type === 'barangay') {
+                    const boundary = await updateBarangayBoundary(selectedZone.id, {
+                        geometry: finalGeometry,
+                    });
+                    setBarangayBoundaries((prev) =>
+                        prev.map((b) => (b.id === boundary.id ? boundary as Zone : b))
+                    );
+                    await loadAllZonesForMap();
+                    await loadBarangayBoundaries();
+                    showSuccess('Barangay boundary updated successfully');
+                    setIsEditing(false);
+                    setSelectedZone(null);
+                    return;
+                }
+
+                // Zoning zone editing (existing logic)
+                // Spatial constraint: Adjust to be within selected barangay boundary
+                if (selectedBarangay && selectedBarangay.geometry) {
                     const zoneFeature = feature(finalGeometry);
-                    const boundaryFeature = feature(municipalityBoundary.geometry);
+                    const boundaryFeature = feature(selectedBarangay.geometry);
 
                     const intersection = intersect(featureCollection([zoneFeature as any, boundaryFeature as any]));
 
                     if (!intersection) {
-                        showError('The edited zone is completely outside the municipality boundary.');
+                        showError(`The edited zone is completely outside the selected barangay boundary (${selectedBarangay.label || 'barangay'}).`);
                         setSaving(false);
                         return;
                     }
@@ -585,7 +958,7 @@ export default function ZoningMap() {
 
                 // Auto-trim overlaps with other existing zones
                 const otherZonesWithGeometry = allZones.filter(
-                    (z) => z.geometry && z.id !== selectedZone.id && !z.is_municipality
+                    (z) => z.geometry && z.id !== selectedZone.id && z.boundary_type !== 'municipal' && z.boundary_type !== 'barangay'
                 );
 
                 if (otherZonesWithGeometry.length > 0) {
@@ -776,25 +1149,42 @@ export default function ZoningMap() {
         });
     };
 
-    const filteredZones = zones.filter((zone) => {
-        // Exclude municipality boundary or any boundary-type zones from list
-        const isBoundary = zone.is_municipality ||
-            zone.code?.toUpperCase() === 'BOUNDARY' ||
-            zone.name?.toUpperCase() === 'BOUNDARY';
-
-        if (isBoundary) {
-            return false;
+    // Get zones/boundaries to display based on edit mode
+    const getDisplayItems = () => {
+        if (editMode === 'municipal') {
+            // Only show municipal boundary
+            return municipalityBoundary ? [municipalityBoundary] : [];
+        } else if (editMode === 'barangay') {
+            // Only show barangay boundaries
+            return barangayBoundaries;
+        } else {
+            // Zoning mode - only show zoning zones (exclude all boundaries)
+            return zones.filter((zone) => {
+                const isBoundary = zone.boundary_type === 'municipal' || zone.boundary_type === 'barangay' ||
+                    zone.code?.toUpperCase() === 'BOUNDARY' ||
+                    zone.name?.toUpperCase() === 'BOUNDARY';
+                return !isBoundary;
+            });
         }
+    };
 
-        if (!searchQuery) {
-            return true;
+    // Search function that works for both zones and barangay boundaries
+    const searchItems = (items: Zone[], query: string): Zone[] => {
+        if (!query) {
+            return items;
         }
-        const query = searchQuery.toLowerCase();
-        return (
-            zone.code.toLowerCase().includes(query) ||
-            zone.name.toLowerCase().includes(query)
-        );
-    });
+        const lowerQuery = query.toLowerCase();
+        return items.filter((item) => {
+            return (
+                item.code?.toLowerCase().includes(lowerQuery) ||
+                item.name?.toLowerCase().includes(lowerQuery) ||
+                item.label?.toLowerCase().includes(lowerQuery) ||
+                item.description?.toLowerCase().includes(lowerQuery)
+            );
+        });
+    };
+
+    const filteredZones = searchItems(getDisplayItems(), searchQuery);
 
     return (
         <div className="flex flex-col bg-background dark:bg-dark-bg w-full min-h-dvh transition-colors">
@@ -823,31 +1213,133 @@ export default function ZoningMap() {
                             </div>
 
                             <div className="space-y-3">
+                                {/* Edit Mode Selector */}
                                 <div>
                                     <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                                        Select Classification
+                                        Edit Mode
                                     </label>
                                     <select
-                                        value={selectedClassification?.id || ''}
+                                        value={editMode}
                                         onChange={(e) => {
-                                            const classification = classifications.find((c) => c.id === e.target.value);
-                                            setSelectedClassification(classification || null);
+                                            const mode = e.target.value as 'zoning' | 'municipal' | 'barangay';
+                                            setEditMode(mode);
+                                            setSelectedClassification(null);
+                                            setSelectedZone(null);
+                                            setSelectedBarangay(null);
+                                            setIsDrawing(false);
+                                            setIsEditing(false);
                                         }}
                                         className="bg-white dark:bg-dark-surface px-3 py-2 border border-gray-300 focus:border-transparent dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary w-full text-gray-900 dark:text-white text-sm"
                                     >
-                                        <option value="">Select a classification...</option>
-                                        {classifications.map((classification) => (
-                                            <option key={classification.id} value={classification.id}>
-                                                {classification.code} - {classification.name}
-                                            </option>
-                                        ))}
+                                        <option value="zoning">Zoning Zones</option>
+                                        <option value="municipal">Municipal Boundary</option>
+                                        <option value="barangay">Barangay Boundaries</option>
                                     </select>
                                 </div>
-                                {selectedClassification && (
+
+                                {/* Barangay Selector (only for zoning mode) */}
+                                {editMode === 'zoning' && (
+                                    <div>
+                                        <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
+                                            Select Barangay
+                                        </label>
+                                        <select
+                                            value={selectedBarangay?.id || ''}
+                                            onChange={(e) => {
+                                                const barangay = barangayBoundaries.find((b) => b.id === e.target.value);
+                                                setSelectedBarangay(barangay || null);
+                                                setSelectedClassification(null); // Clear classification when barangay changes
+                                            }}
+                                            className="bg-white dark:bg-dark-surface px-3 py-2 border border-gray-300 focus:border-transparent dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary w-full text-gray-900 dark:text-white text-sm"
+                                            required
+                                        >
+                                            <option value="">Select a barangay...</option>
+                                            {barangayBoundaries.map((barangay) => (
+                                                <option key={barangay.id} value={barangay.id}>
+                                                    {barangay.label || 'Unnamed Barangay'}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Classification Selector (only for zoning mode) */}
+                                {editMode === 'zoning' && (
+                                    <div>
+                                        <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
+                                            Select Classification
+                                        </label>
+                                        <select
+                                            value={selectedClassification?.id || ''}
+                                            onChange={(e) => {
+                                                const classification = classifications.find((c) => c.id === e.target.value);
+                                                setSelectedClassification(classification || null);
+                                            }}
+                                            className="bg-white dark:bg-dark-surface disabled:opacity-50 px-3 py-2 border border-gray-300 focus:border-transparent dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary w-full text-gray-900 dark:text-white text-sm disabled:cursor-not-allowed"
+                                            disabled={!selectedBarangay}
+                                        >
+                                            <option value="">Select a classification...</option>
+                                            {classifications.map((classification) => (
+                                                <option key={classification.id} value={classification.id}>
+                                                    {classification.code} - {classification.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {!selectedBarangay && (
+                                            <p className="mt-1 text-amber-600 dark:text-amber-400 text-xs">
+                                                Please select a barangay first
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Mode Info */}
+                                {editMode === 'municipal' && (
+                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                        <p className="text-blue-800 dark:text-blue-200 text-sm">
+                                            <strong>Municipal Boundary Mode</strong><br />
+                                            {municipalityBoundary
+                                                ? 'Click the boundary on the map to edit it, or use the draw tool to create a new one.'
+                                                : 'Use the draw tool on the map to create the municipal boundary.'}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {editMode === 'barangay' && (
+                                    <div className="bg-purple-50 dark:bg-purple-900/20 p-3 border border-purple-200 dark:border-purple-800 rounded-lg">
+                                        <p className="text-purple-800 dark:text-purple-200 text-sm">
+                                            <strong>Barangay Boundaries Mode</strong><br />
+                                            Click a barangay boundary on the map to edit it, or use the draw tool to create a new one.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {editMode === 'zoning' && selectedBarangay && (
+                                    <div className="bg-green-50 dark:bg-green-900/20 p-3 border border-green-200 dark:border-green-800 rounded-lg">
+                                        <p className="text-green-800 dark:text-green-200 text-sm">
+                                            <strong>Barangay Selected</strong><br />
+                                            {selectedBarangay.label || 'Selected Barangay'}
+                                            <br />
+                                            <span className="text-xs">
+                                                Drawing will be constrained to this barangay boundary. Hover over the map to see the highlighted boundary.
+                                            </span>
+                                        </p>
+                                    </div>
+                                )}
+
+                                {editMode === 'zoning' && selectedClassification && (
                                     <div className="bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800 rounded-lg">
                                         <p className="text-blue-800 dark:text-blue-200 text-sm">
                                             <strong>{isDrawing ? 'Drawing Mode Active' : 'Classification Selected'}</strong><br />
                                             Selected: {selectedClassification.code} - {selectedClassification.name}
+                                            {selectedBarangay && (
+                                                <>
+                                                    <br />
+                                                    <span className="text-green-700 dark:text-green-300 text-xs">
+                                                        Constrained to: {selectedBarangay.label || 'Selected Barangay'}
+                                                    </span>
+                                                </>
+                                            )}
                                             <br />
                                             <span className="text-xs">
                                                 {isDrawing
@@ -870,17 +1362,17 @@ export default function ZoningMap() {
                                     />
                                     <Input
                                         type="text"
-                                        placeholder="Search zones..."
+                                        placeholder={editMode === 'zoning' ? 'Search zones...' : editMode === 'barangay' ? 'Search barangays...' : 'Search...'}
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="pl-10"
                                     />
                                 </div>
-                                <div className="grid grid-cols-2 gap-2 mt-3">
+                                <div className="gap-2 grid grid-cols-2 mt-3">
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        className="flex items-center justify-center gap-2"
+                                        className="flex justify-center items-center gap-2"
                                         onClick={handleExport}
                                     >
                                         <Download size={16} />
@@ -897,7 +1389,7 @@ export default function ZoningMap() {
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="w-full flex items-center justify-center gap-2"
+                                            className="flex justify-center items-center gap-2 w-full"
                                             onClick={() => document.getElementById('municipality-import')?.click()}
                                             title="Import Municipality Boundary"
                                         >
@@ -916,7 +1408,10 @@ export default function ZoningMap() {
                                     </div>
                                 ) : filteredZones.length === 0 ? (
                                     <div className="py-8 text-gray-500 dark:text-gray-400 text-center">
-                                        {searchQuery ? 'No zones found' : 'No zones yet. Create one to get started.'}
+                                        {searchQuery 
+                                            ? (editMode === 'zoning' ? 'No zones found' : editMode === 'barangay' ? 'No barangays found' : 'No items found')
+                                            : (editMode === 'zoning' ? 'No zones yet. Create one to get started.' : editMode === 'barangay' ? 'No barangays yet. Add one to get started.' : 'No items yet.')
+                                        }
                                     </div>
                                 ) : (
                                     filteredZones.map((zone) => (
@@ -1027,6 +1522,10 @@ export default function ZoningMap() {
                                 selectedZone={selectedZone}
                                 selectedClassification={selectedClassification}
                                 zones={allZones}
+                                municipalityBoundary={municipalityBoundary}
+                                barangayBoundaries={barangayBoundaries}
+                                selectedBarangay={selectedBarangay}
+                                editMode={editMode}
                                 isDrawing={isDrawing}
                                 isEditing={isEditing}
                                 onPolygonCreated={handlePolygonCreated}

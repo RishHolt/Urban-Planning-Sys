@@ -546,10 +546,20 @@ export interface Zone {
     geometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon | null;
     color?: string | null; // From classification
     is_active: boolean;
-    is_municipality?: boolean;
+    boundary_type?: 'municipal' | 'barangay' | 'zoning';
     has_geometry?: boolean;
     created_at?: string;
     classification?: ZoningClassification | null;
+}
+
+export interface MunicipalBoundary extends Zone {
+    boundary_type: 'municipal';
+}
+
+export interface BarangayBoundary extends Zone {
+    boundary_type: 'barangay';
+    barangay_name?: string;
+    barangay_code?: string;
 }
 
 /**
@@ -905,4 +915,223 @@ export async function deleteZone(id: string): Promise<void> {
         const error = await response.json();
         throw new Error(error.message || 'Failed to delete zone');
     }
+}
+
+/**
+ * Boundary Management functions
+ */
+
+/**
+ * Get the current municipal boundary
+ */
+export async function getMunicipalBoundary(): Promise<MunicipalBoundary | null> {
+    const response = await fetch('/admin/zoning/classifications/boundaries/municipal', {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch municipal boundary');
+    }
+
+    const result = await response.json();
+    return result.boundary;
+}
+
+/**
+ * Get all barangay boundaries
+ */
+export async function getBarangayBoundaries(): Promise<BarangayBoundary[]> {
+    const response = await fetch('/admin/zoning/classifications/boundaries/barangay', {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch barangay boundaries');
+    }
+
+    const result = await response.json();
+    return result.boundaries;
+}
+
+/**
+ * Create or update municipal boundary
+ */
+export async function createMunicipalBoundary(data: {
+    geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
+    label?: string | null;
+    name?: string | null;
+}): Promise<MunicipalBoundary> {
+    const response = await fetch('/admin/zoning/classifications/boundaries/municipal', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': getCsrfToken(),
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to save municipal boundary' }));
+        const errorMessage = errorData.message || errorData.error || 'Failed to save municipal boundary';
+
+        if (errorData.errors) {
+            const firstError = Object.values(errorData.errors)[0];
+            throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
+        }
+
+        throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    return result.boundary;
+}
+
+/**
+ * Create or update barangay boundary
+ */
+export async function createBarangayBoundary(data: {
+    geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
+    label: string;
+    barangay_code?: string | null;
+    name?: string | null;
+}): Promise<BarangayBoundary> {
+    const response = await fetch('/admin/zoning/classifications/boundaries/barangay', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': getCsrfToken(),
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to save barangay boundary' }));
+        const errorMessage = errorData.message || errorData.error || 'Failed to save barangay boundary';
+
+        if (errorData.errors) {
+            const firstError = Object.values(errorData.errors)[0];
+            throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
+        }
+
+        throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    return result.boundary;
+}
+
+/**
+ * Update a barangay boundary
+ */
+export async function updateBarangayBoundary(id: string, data: {
+    geometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon;
+    label?: string;
+    barangay_code?: string | null;
+    name?: string | null;
+}): Promise<BarangayBoundary> {
+    const response = await fetch(`/admin/zoning/classifications/boundaries/barangay/${id}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': getCsrfToken(),
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to update barangay boundary' }));
+        const errorMessage = errorData.message || errorData.error || 'Failed to update barangay boundary';
+
+        if (errorData.errors) {
+            const firstError = Object.values(errorData.errors)[0];
+            throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
+        }
+
+        throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    return result.boundary;
+}
+
+/**
+ * Delete a barangay boundary
+ */
+export async function deleteBarangayBoundary(id: string): Promise<void> {
+    const response = await fetch(`/admin/zoning/classifications/boundaries/barangay/${id}`, {
+        method: 'DELETE',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': getCsrfToken(),
+        },
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete barangay boundary');
+    }
+}
+
+/**
+ * Delete all barangay boundaries
+ */
+export async function deleteAllBarangayBoundaries(): Promise<{ success: boolean; message: string }> {
+    const response = await fetch('/admin/zoning/classifications/boundaries/barangay/all', {
+        method: 'DELETE',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': getCsrfToken(),
+        },
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete all barangay boundaries');
+    }
+
+    return await response.json();
+}
+
+/**
+ * Import barangay boundaries from GeoJSON file
+ */
+export async function importBarangayBoundaries(file: File): Promise<{
+    success: boolean;
+    message: string;
+    errors?: string[];
+}> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/admin/zoning/classifications/boundaries/barangay/import', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': getCsrfToken(),
+        },
+        body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok && response.status !== 422) {
+        throw new Error(result.message || 'Failed to import barangay boundaries');
+    }
+
+    return result;
 }

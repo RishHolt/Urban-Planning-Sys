@@ -232,6 +232,17 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
                 Route::get('/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'show'])->name('show');
                 Route::patch('/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'update'])->name('update');
                 Route::delete('/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'destroy'])->name('destroy');
+
+                // Boundary management routes
+                Route::prefix('boundaries')->name('boundaries.')->group(function () {
+                    Route::get('/municipal', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'getMunicipalBoundary'])->name('municipal.get');
+                    Route::post('/municipal', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'storeMunicipalBoundary'])->name('municipal.store');
+                    Route::get('/barangay', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'getBarangayBoundaries'])->name('barangay.get');
+                    Route::post('/barangay', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'storeBarangayBoundary'])->name('barangay.store');
+                    Route::post('/barangay/import', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'importBarangayBoundaries'])->name('barangay.import');
+                    Route::delete('/barangay/all', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'deleteAllBarangayBoundaries'])->name('barangay.deleteAll');
+                    Route::delete('/barangay/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'deleteBarangayBoundary'])->name('barangay.delete');
+                });
             });
 
             // Zoning Classification API routes (for JSON responses)

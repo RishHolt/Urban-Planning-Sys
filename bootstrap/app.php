@@ -14,20 +14,45 @@ $isMcpMode = php_sapi_name() === 'cli'
 
 // Suppress error output early to prevent breaking JSON protocol in MCP mode
 if ($isMcpMode) {
+    // Suppress all error display
     ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
     ini_set('log_errors', '1');
     error_reporting(E_ALL);
 
-    // Set custom error handler to suppress output
+    // Note: We can't redirect stderr in PHP, but we'll catch all output with handlers and buffers
+
+    // Set custom error handler to suppress all error output
     set_error_handler(function ($severity, $message, $file, $line) {
         // Suppress all error output - errors will be logged but not displayed
         return true;
-    }, E_ALL);
+    }, E_ALL | E_STRICT);
 
-    // Start output buffering to catch any stray output
+    // Handle fatal errors and shutdown
+    register_shutdown_function(function () {
+        $error = error_get_last();
+        if ($error !== null && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_PARSE, E_RECOVERABLE_ERROR], true)) {
+            // Suppress fatal error output by cleaning all buffer levels
+            $level = ob_get_level();
+            for ($i = 0; $i < $level; $i++) {
+                ob_clean();
+            }
+        }
+    });
+
+    // Start output buffering with aggressive suppression
     ob_start(function ($buffer) {
         // Discard any output that might break JSON protocol
         return '';
+    }, 4096);
+
+    // Also suppress warnings and notices more aggressively
+    set_exception_handler(function (Throwable $e) {
+        // Suppress all exception output by cleaning all buffer levels
+        $level = ob_get_level();
+        for ($i = 0; $i < $level; $i++) {
+            ob_clean();
+        }
     });
 }
 
@@ -66,10 +91,17 @@ return Application::configure(basePath: dirname(__DIR__))
         if ($isMcpMode) {
             // Suppress all error output to prevent breaking JSON protocol
             ini_set('display_errors', '0');
+            ini_set('display_startup_errors', '0');
             ini_set('log_errors', '1');
 
             // Suppress error output for all exceptions
             $exceptions->report(function (Throwable $e): void {
+                // Clean any output buffer first to prevent leakage
+                $level = ob_get_level();
+                for ($i = 0; $i < $level; $i++) {
+                    ob_clean();
+                }
+
                 // Log the error but don't output to stdout/stderr
                 try {
                     if (function_exists('app') && app()->bound('log')) {
@@ -85,6 +117,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
             // Suppress HTTP exception rendering (though MCP doesn't use HTTP)
             $exceptions->render(function (Throwable $e) {
+                // Clean output buffer to prevent any leakage
+                $level = ob_get_level();
+                for ($i = 0; $i < $level; $i++) {
+                    ob_clean();
+                }
                 return null;
             });
         }

@@ -128,10 +128,12 @@ function ZoneLayers({ zones }: { zones?: Zone[] }) {
 
             try {
                 const color = zone.color || generatePolygonColor(zone.code || 'UNKNOWN');
-                const isBoundary = zone.code === 'BOUNDARY';
+                const isBoundary = zone.boundary_type === 'municipal' || zone.boundary_type === 'barangay';
+                const isMunicipality = zone.boundary_type === 'municipal';
+                const boundaryColor = isMunicipality ? '#000000' : '#808080';
 
                 const layer = geoJSONToLeaflet(zone.geometry, {
-                    color: isBoundary ? '#000000' : color,
+                    color: isBoundary ? boundaryColor : color,
                     fillColor: color,
                     fillOpacity: isBoundary ? 0 : 0.3,
                     weight: isBoundary ? 3 : 2,

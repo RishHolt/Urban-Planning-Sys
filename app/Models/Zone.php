@@ -25,7 +25,7 @@ class Zone extends Model
         'label',
         'geometry',
         'is_active',
-        'is_municipality',
+        'boundary_type',
     ];
 
     /**
@@ -53,7 +53,7 @@ class Zone extends Model
         return [
             'geometry' => 'array',
             'is_active' => 'boolean',
-            'is_municipality' => 'boolean',
+            'boundary_type' => 'string',
         ];
     }
 
@@ -90,10 +90,34 @@ class Zone extends Model
     }
 
     /**
-     * Scope a query to only include the municipality boundary.
+     * Scope a query to filter by boundary type.
      */
-    public function scopeMunicipality($query)
+    public function scopeByBoundaryType($query, string $type)
     {
-        return $query->where('is_municipality', true);
+        return $query->where('boundary_type', $type);
+    }
+
+    /**
+     * Scope a query to only include municipal boundaries.
+     */
+    public function scopeMunicipal($query)
+    {
+        return $query->where('boundary_type', 'municipal');
+    }
+
+    /**
+     * Scope a query to only include barangay boundaries.
+     */
+    public function scopeBarangay($query)
+    {
+        return $query->where('boundary_type', 'barangay');
+    }
+
+    /**
+     * Scope a query to only include zoning boundaries.
+     */
+    public function scopeZoning($query)
+    {
+        return $query->where('boundary_type', 'zoning');
     }
 }
