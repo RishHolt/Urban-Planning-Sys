@@ -279,7 +279,6 @@ erDiagram
 - `ZCS` - Zoning Clearance System
 - `SBR` - Subdivision & Building Review
 - `HBR` - Housing Beneficiary Registry
-- `OMT` - Occupancy Monitoring Tool
 - `IPC` - Infrastructure Project Coordination
 
 ### zoning_applications.status

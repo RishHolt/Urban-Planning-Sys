@@ -80,17 +80,6 @@ const MENU_ITEMS: MenuItem[] = [
         ],
     },
     {
-        icon: Building2,
-        label: 'Occupancy Monitoring',
-        children: [
-            { href: '/admin/occupancy/buildings', icon: Building2, label: 'Buildings' },
-            { href: '/admin/occupancy/inspections', icon: ClipboardCheck, label: 'Inspections' },
-            { href: '/admin/occupancy/complaints', icon: AlertTriangle, label: 'Complaints' },
-            { href: '/admin/occupancy/violations', icon: FileWarning, label: 'Violations' },
-            { href: '/admin/occupancy/reports', icon: CheckSquare, label: 'Compliance Reports' },
-        ],
-    },
-    {
         icon: Wrench,
         label: 'Infrastructure Projects',
         children: [

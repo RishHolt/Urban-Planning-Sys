@@ -17,7 +17,6 @@ class UserSeeder extends Seeder
      * - ZCS - Zoning Clearance System
      * - SBR - Subdivision & Building Review
      * - HBR - Housing Beneficiary Registry
-     * - OMT - Occupancy Monitoring Tool
      * - IPC - Infrastructure Project Coordination
      */
     public function run(): void
@@ -35,10 +34,6 @@ class UserSeeder extends Seeder
             [
                 'code' => 'HBR',
                 'name' => 'Housing Beneficiary Registry',
-            ],
-            [
-                'code' => 'OMT',
-                'name' => 'Occupancy Monitoring Tool',
             ],
             [
                 'code' => 'IPC',

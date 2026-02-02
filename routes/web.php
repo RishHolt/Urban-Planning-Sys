@@ -168,17 +168,6 @@ Route::middleware('auth')->group(function () {
     });
 });
 
-// Public API routes (token authentication only, no session auth)
-// Person Count Events API (simplified approach - tracks person count every second)
-Route::middleware('api.token')->prefix('api/events')->name('api.events.')->group(function () {
-    Route::post('person-count', [\App\Http\Controllers\EntryExitEventController::class, 'storePersonCount'])->name('person-count.store');
-});
-
-// Occupancy Dashboard API routes (protected with token authentication)
-Route::middleware('api.token')->prefix('api/occupancy')->name('api.occupancy.')->group(function () {
-    Route::get('stats', [\App\Http\Controllers\OccupancyDashboardController::class, 'stats'])->name('stats');
-});
-
 Route::middleware(['auth', RedirectByRole::class])->group(function () {
     Route::prefix('user')->name('user.')->group(function () {
         Route::get('/', function () {
@@ -364,58 +353,6 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
                 Route::get('/{id}', [\App\Http\Controllers\Admin\AdminBuildingReviewController::class, 'show'])->name('show');
                 Route::post('/plan-checks', [\App\Http\Controllers\Admin\AdminBuildingReviewController::class, 'storePlanCheck'])->name('storePlanCheck');
                 Route::post('/{id}/post-to-pl', [\App\Http\Controllers\Admin\AdminBuildingReviewController::class, 'postToPermitLicensing'])->name('postToPermitLicensing');
-            });
-        });
-
-        // Occupancy Monitoring Tool routes
-        Route::prefix('occupancy')->name('occupancy.')->group(function () {
-            // Real-Time Dashboard
-            Route::get('/dashboard', function () {
-                return \Inertia\Inertia::render('Admin/Occupancy/OccupancyDashboard');
-            })->name('dashboard');
-
-            // Buildings
-            Route::prefix('buildings')->name('buildings.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'index'])->name('index');
-                Route::get('/create', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'create'])->name('create');
-                Route::post('/', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'store'])->name('store');
-                Route::get('/{id}', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'show'])->name('show');
-                Route::get('/{id}/edit', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'edit'])->name('edit');
-                Route::put('/{id}', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'update'])->name('update');
-                Route::delete('/{id}', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'destroy'])->name('destroy');
-            });
-
-            // API routes for frontend
-            Route::prefix('api')->name('api.')->group(function () {
-                Route::get('/buildings/{id}/units', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'getUnits'])->name('buildings.units');
-            });
-
-            // Inspections
-            Route::prefix('inspections')->name('inspections.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'index'])->name('index');
-                Route::get('/create', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'create'])->name('create');
-                Route::post('/', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'store'])->name('store');
-                Route::get('/{id}', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'show'])->name('show');
-                Route::put('/{id}', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'update'])->name('update');
-                Route::post('/{id}/complete', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'complete'])->name('complete');
-            });
-
-            // Complaints
-            Route::prefix('complaints')->name('complaints.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Admin\Occupancy\OccupancyComplaintController::class, 'index'])->name('index');
-                Route::get('/{id}', [\App\Http\Controllers\Admin\Occupancy\OccupancyComplaintController::class, 'show'])->name('show');
-            });
-
-            // Violations
-            Route::prefix('violations')->name('violations.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Admin\Occupancy\ViolationController::class, 'index'])->name('index');
-                Route::get('/{id}', [\App\Http\Controllers\Admin\Occupancy\ViolationController::class, 'show'])->name('show');
-            });
-
-            // Compliance Reports
-            Route::prefix('reports')->name('reports.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Admin\Occupancy\ComplianceReportController::class, 'index'])->name('index');
-                Route::get('/{id}', [\App\Http\Controllers\Admin\Occupancy\ComplianceReportController::class, 'show'])->name('show');
             });
         });
 
