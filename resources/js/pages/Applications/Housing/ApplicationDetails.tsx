@@ -3,6 +3,7 @@ import Header from '../../../components/Header';
 import Footer from '../../../components/Footer';
 import Button from '../../../components/Button';
 import StatusBadge from '../../../components/StatusBadge';
+import ApplicationDetailsTabs, { TabPanel } from '../../../components/ApplicationDetailsTabs';
 import { ArrowLeft, CheckCircle, XCircle, Clock, User, Mail, Phone, MapPin, FileText, Eye, Download, Home, Calendar, List } from 'lucide-react';
 
 interface Document {
@@ -143,6 +144,30 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         }
     };
 
+    // Calculate document status for Required Documents tab
+    const getDocumentStatus = (): 'red' | 'yellow' | 'green' => {
+        if (application.documents.length === 0) {
+            return 'red'; // No documents uploaded
+        }
+
+        // Check for invalid/rejected documents
+        const hasInvalid = application.documents.some(doc => doc.verification_status === 'invalid');
+        if (hasInvalid) {
+            return 'yellow'; // Has invalid/rejected documents
+        }
+
+        // Check if all documents are verified
+        const allVerified = application.documents.every(doc => doc.verification_status === 'verified');
+        if (allVerified) {
+            return 'green'; // All documents verified
+        }
+
+        // Has pending documents
+        return 'yellow';
+    };
+
+    const documentStatus = getDocumentStatus();
+
     return (
         <div className="flex flex-col bg-background dark:bg-dark-bg w-full min-h-dvh transition-colors">
             <Header />
@@ -202,8 +227,11 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     <div className="gap-6 grid grid-cols-1 lg:grid-cols-3">
                         {/* Main Content */}
                         <div className="space-y-6 lg:col-span-2">
-                            {/* Application Status */}
-                            <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                            <ApplicationDetailsTabs defaultTab="overview">
+                                {/* Overview Tab */}
+                                <TabPanel tabId="overview">
+                                    {/* Application Status */}
+                                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
                                 <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
                                     <Clock size={20} />
                                     Application Status
@@ -410,14 +438,16 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                         </div>
                                     </div>
                                 </section>
-                            )}
+                                )}
+                                </TabPanel>
 
-                            {/* Documents Section */}
-                            <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                                <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
-                                    <FileText size={20} />
-                                    Documents
-                                </h2>
+                                {/* Required Documents Tab */}
+                                <TabPanel tabId="required_documents" status={documentStatus}>
+                                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
+                                            <FileText size={20} />
+                                            Required Documents
+                                        </h2>
                                 {application.documents.length === 0 ? (
                                     <p className="text-gray-600 dark:text-gray-400">No documents uploaded yet.</p>
                                 ) : (
@@ -474,7 +504,9 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                         ))}
                                     </div>
                                 )}
-                            </section>
+                                    </section>
+                                </TabPanel>
+                            </ApplicationDetailsTabs>
                         </div>
 
                         {/* Sidebar */}

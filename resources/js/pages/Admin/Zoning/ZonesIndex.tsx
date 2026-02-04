@@ -8,6 +8,7 @@ import MunicipalBoundaryPanel from '../../../components/Zones/MunicipalBoundaryP
 import BarangayBoundariesPanel from '../../../components/Zones/BarangayBoundariesPanel';
 import { type Zone, type MunicipalBoundary, type BarangayBoundary } from '../../../data/services';
 import { showSuccess, showError, showConfirm } from '../../../lib/swal';
+import { getCsrfToken } from '../../../data/services';
 import { Map, Plus, Edit2, Trash2, Download, Upload } from 'lucide-react';
 
 interface PaginatedData<T> {
@@ -83,7 +84,7 @@ export default function ZonesIndex({
                 headers: {
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+                    'X-CSRF-TOKEN': getCsrfToken(),
                 },
             });
 
@@ -93,9 +94,10 @@ export default function ZonesIndex({
 
             showSuccess('Zone deleted successfully');
             router.reload({ only: ['zones'] });
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error deleting zone:', error);
-            showError(error.message || 'Failed to delete zone');
+            const errorMessage = error instanceof Error ? error.message : 'Failed to delete zone';
+            showError(errorMessage);
         }
     };
 

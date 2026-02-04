@@ -60,7 +60,6 @@ Route::middleware('auth')->group(function () {
     Route::prefix('zoning-applications')->name('zoning-applications.')->group(function () {
         Route::get('/', [\App\Http\Controllers\ZoningApplicationController::class, 'index'])->name('index');
         Route::get('/create', [\App\Http\Controllers\ZoningApplicationController::class, 'create'])->name('create');
-        Route::get('/new', [\App\Http\Controllers\ZoningApplicationController::class, 'create'])->name('new');
         Route::post('/', [\App\Http\Controllers\ZoningApplicationController::class, 'store'])->name('store');
         Route::post('/assess-fees', [\App\Http\Controllers\ZoningApplicationController::class, 'assessFees'])->name('assess-fees');
         Route::get('/{id}', [\App\Http\Controllers\ZoningApplicationController::class, 'show'])->name('show');

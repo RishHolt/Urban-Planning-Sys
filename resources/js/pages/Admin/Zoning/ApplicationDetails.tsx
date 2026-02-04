@@ -8,7 +8,9 @@ import StatusHistory from '../../../components/StatusHistory';
 import RequirementManager from '../../../components/Applications/Zoning/RequirementManager';
 import PropertyLocation from '../../../components/Applications/PropertyLocation';
 import StatusBadge from '../../../components/StatusBadge';
+import ApplicationDetailsTabs, { TabPanel } from '../../../components/ApplicationDetailsTabs';
 import { showDocumentApproved, showDocumentRejected, showError, showNotesRequired } from '../../../lib/swal';
+import { getCsrfToken } from '../../../data/services';
 import {
     ArrowLeft,
     FileText,
@@ -181,7 +183,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                 headers: {
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'X-CSRF-TOKEN': getCsrfToken(),
                 },
                 credentials: 'include',
             });
@@ -274,6 +276,58 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         return value != null && value !== '';
     };
 
+    // Calculate document status for Required Documents tab
+    const getDocumentStatus = (): 'red' | 'yellow' | 'green' => {
+        // Get current documents only
+        const currentDocuments = application.documents.filter((doc: any) => doc.isCurrent);
+        
+        if (currentDocuments.length === 0) {
+            return 'red'; // No documents uploaded
+        }
+
+        // Define required document types based on applicant type
+        const requiredTypes = [
+            'tax_declaration',
+            'barangay_permit',
+            'land_title',
+            'site_development_plan',
+            'building_plans',
+            'bill_of_materials'
+        ];
+        
+        if (application.applicantType === 'business' || application.applicantType === 'developer') {
+            requiredTypes.push('business_permit');
+        }
+        if (application.isRepresentative) {
+            requiredTypes.push('spa_authorization');
+        }
+
+        // Check for rejected documents
+        const hasRejected = currentDocuments.some((doc: any) => doc.status === 'rejected');
+        if (hasRejected) {
+            return 'yellow'; // Has rejected documents
+        }
+
+        // Check if all required documents are uploaded
+        const uploadedTypes = currentDocuments.map((doc: any) => doc.documentType);
+        const missingTypes = requiredTypes.filter(type => !uploadedTypes.includes(type));
+        
+        if (missingTypes.length > 0) {
+            return 'yellow'; // Has missing documents
+        }
+
+        // Check if all documents are approved
+        const allApproved = currentDocuments.every((doc: any) => doc.status === 'approved');
+        if (allApproved) {
+            return 'green'; // All documents approved
+        }
+
+        // Has pending documents
+        return 'yellow';
+    };
+
+    const documentStatus = getDocumentStatus();
+
     return (
         <AdminLayout
             title="Application Details"
@@ -313,9 +367,11 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
             <div className="gap-6 grid grid-cols-1 lg:grid-cols-3">
                 {/* Main Content */}
                 <div className="space-y-6 lg:col-span-2">
-
-                    {/* Project Classification (Matched to User View) */}
-                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                    <ApplicationDetailsTabs defaultTab="overview">
+                        {/* Overview Tab */}
+                        <TabPanel tabId="overview">
+                            {/* Project Classification (Matched to User View) */}
+                            <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white text-xl">
                                 <Building size={20} />
@@ -608,15 +664,25 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                 ))}
                             </div>
                         </section>
-                    )}
+                        )}
+                        </TabPanel>
 
-                    {/* Requirements Management (New System) */}
-                    <RequirementManager
-                        applicationId={application.id}
-                        documents={application.documents as any[]}
-                        applicantType={application.applicantType}
-                        isRepresentative={application.isRepresentative}
-                    />
+                        {/* Required Documents Tab */}
+                        <TabPanel tabId="required_documents" status={documentStatus}>
+                            <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                                <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
+                                    <FileText size={20} />
+                                    Required Documents
+                                </h2>
+                                <RequirementManager
+                                    applicationId={application.id}
+                                    documents={application.documents as any[]}
+                                    applicantType={application.applicantType}
+                                    isRepresentative={application.isRepresentative}
+                                />
+                            </section>
+                        </TabPanel>
+                    </ApplicationDetailsTabs>
                 </div>
 
                 {/* Sidebar */}

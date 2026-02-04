@@ -3,7 +3,7 @@ import { getCookie } from '../lib/utils';
 /**
  * Get the CSRF token from the meta tag or XSRF-TOKEN cookie
  */
-function getCsrfToken(): string {
+export function getCsrfToken(): string {
     // Try meta tag first
     const metaToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
     if (metaToken) return metaToken;

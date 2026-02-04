@@ -104,15 +104,16 @@ export default function ClassificationModal({ isOpen, onClose, onSuccess, classi
 
             onSuccess();
             onClose();
-        } catch (error: any) {
+        } catch (error) {
             console.error(`Error ${isEditMode ? 'updating' : 'creating'} classification:`, error);
-            if (error.message) {
-                if (error.message.includes('code') || error.message.includes('already exists')) {
+            const errorMessage = error instanceof Error ? error.message : '';
+            if (errorMessage) {
+                if (errorMessage.includes('code') || errorMessage.includes('already exists')) {
                     setErrors({ code: 'This classification code already exists' });
-                } else if (error.message.includes('name')) {
-                    setErrors({ name: error.message });
+                } else if (errorMessage.includes('name')) {
+                    setErrors({ name: errorMessage });
                 } else {
-                    showError(error.message || `Failed to ${isEditMode ? 'update' : 'create'} classification`);
+                    showError(errorMessage || `Failed to ${isEditMode ? 'update' : 'create'} classification`);
                 }
             } else {
                 showError(`Failed to ${isEditMode ? 'update' : 'create'} classification`);

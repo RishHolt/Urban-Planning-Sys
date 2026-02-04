@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\ZoneFormatter;
 use App\Models\Zone;
 use Illuminate\Http\JsonResponse;
 
@@ -13,18 +14,14 @@ class ZoneController extends Controller
     public function index(): JsonResponse
     {
         $zones = Zone::active()
-            ->select('id', 'code', 'name', 'geometry', 'color')
+            ->zoning() // Only return zoning zones, not boundaries
+            ->with('classification')
             ->get()
-            ->map(function ($zone) {
-                return [
-                    'id' => $zone->id,
-                    'code' => $zone->code,
-                    'name' => $zone->name,
-                    'geometry' => $zone->geometry,
-                    'color' => $zone->color,
-                ];
-            });
+            ->map(fn ($zone) => ZoneFormatter::format($zone, false));
 
-        return response()->json($zones);
+        return response()->json([
+            'success' => true,
+            'zones' => $zones,
+        ]);
     }
 }

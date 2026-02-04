@@ -56,8 +56,9 @@ export default function BarangayBoundariesPanel({ initialBoundaries = [] }: Bara
             const result = await importBarangayBoundaries(file);
             showSuccess(result.message || 'Barangay boundaries imported successfully.');
             await loadBoundaries();
-        } catch (error: any) {
-            showError(error.message || 'Failed to import barangay boundaries');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to import barangay boundaries';
+            showError(errorMessage);
         } finally {
             setLoading(false);
             e.target.value = '';
@@ -81,8 +82,9 @@ export default function BarangayBoundariesPanel({ initialBoundaries = [] }: Bara
             await deleteBarangayBoundary(id);
             showSuccess('Barangay boundary deleted successfully.');
             await loadBoundaries();
-        } catch (error: any) {
-            showError(error.message || 'Failed to delete barangay boundary');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to delete barangay boundary';
+            showError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -110,8 +112,9 @@ export default function BarangayBoundariesPanel({ initialBoundaries = [] }: Bara
             const result = await deleteAllBarangayBoundaries();
             showSuccess(result.message || 'All barangay boundaries deleted successfully.');
             await loadBoundaries();
-        } catch (error: any) {
-            showError(error.message || 'Failed to delete all barangay boundaries');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to delete all barangay boundaries';
+            showError(errorMessage);
         } finally {
             setLoading(false);
         }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\ZoneFormatter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ImportZoneRequest;
 use App\Http\Requests\StoreBarangayBoundaryRequest;
@@ -66,22 +67,7 @@ class ZoningClassificationController extends Controller
             ->barangay()
             ->orderBy('label', 'asc')
             ->get()
-            ->map(function ($zone) {
-                $classification = $zone->classification;
-
-                return [
-                    'id' => (string) $zone->id,
-                    'label' => $zone->label,
-                    'geometry' => $zone->geometry,
-                    'is_active' => $zone->is_active,
-                    'classification' => $classification ? [
-                        'id' => (string) $classification->id,
-                        'code' => $classification->code,
-                        'name' => $classification->name,
-                        'color' => $classification->color,
-                    ] : null,
-                ];
-            });
+            ->map(fn ($zone) => ZoneFormatter::format($zone, false));
 
         // Get zoning boundaries count per classification
         $zoningCounts = Zone::zoning()
@@ -92,18 +78,7 @@ class ZoningClassificationController extends Controller
 
         return Inertia::render('Admin/Zoning/ClassificationsIndex', [
             'classifications' => $classifications,
-            'municipalBoundary' => $municipalBoundary ? [
-                'id' => (string) $municipalBoundary->id,
-                'label' => $municipalBoundary->label,
-                'geometry' => $municipalBoundary->geometry,
-                'is_active' => $municipalBoundary->is_active,
-                'classification' => $municipalBoundary->classification ? [
-                    'id' => (string) $municipalBoundary->classification->id,
-                    'code' => $municipalBoundary->classification->code,
-                    'name' => $municipalBoundary->classification->name,
-                    'color' => $municipalBoundary->classification->color,
-                ] : null,
-            ] : null,
+            'municipalBoundary' => $municipalBoundary ? ZoneFormatter::format($municipalBoundary, false) : null,
             'barangayBoundaries' => $barangayBoundaries,
             'zoningCounts' => $zoningCounts,
             'filters' => [
@@ -289,31 +264,7 @@ class ZoningClassificationController extends Controller
             ->barangay()
             ->orderBy('label', 'asc')
             ->get()
-            ->map(function ($zone) {
-                $classification = $zone->classification;
-
-                return [
-                    'id' => (string) $zone->id,
-                    'zoning_classification_id' => (string) $zone->zoning_classification_id,
-                    'label' => $zone->label,
-                    'code' => $classification?->code ?? '',
-                    'name' => $classification?->name ?? '',
-                    'description' => $classification?->description,
-                    'allowed_uses' => $classification?->allowed_uses,
-                    'color' => $classification?->color,
-                    'is_active' => $zone->is_active,
-                    'has_geometry' => $zone->geometry !== null,
-                    'geometry' => $zone->geometry,
-                    'boundary_type' => $zone->boundary_type ?? 'barangay',
-                    'created_at' => $zone->created_at?->format('Y-m-d H:i:s'),
-                    'classification' => $classification ? [
-                        'id' => (string) $classification->id,
-                        'code' => $classification->code,
-                        'name' => $classification->name,
-                        'color' => $classification->color,
-                    ] : null,
-                ];
-            });
+            ->map(fn ($zone) => ZoneFormatter::format($zone));
 
         return response()->json([
             'success' => true,
@@ -353,32 +304,11 @@ class ZoningClassificationController extends Controller
         ]);
 
         $zone->load('classification');
-        $classification = $zone->classification;
 
         return response()->json([
             'success' => true,
             'message' => 'Municipal boundary saved successfully.',
-            'boundary' => [
-                'id' => (string) $zone->id,
-                'zoning_classification_id' => (string) $zone->zoning_classification_id,
-                'label' => $zone->label,
-                'code' => $classification?->code ?? '',
-                'name' => $classification?->name ?? '',
-                'description' => $classification?->description,
-                'allowed_uses' => $classification?->allowed_uses,
-                'color' => $classification?->color,
-                'is_active' => $zone->is_active,
-                'has_geometry' => $zone->geometry !== null,
-                'geometry' => $zone->geometry,
-                'boundary_type' => $zone->boundary_type ?? 'municipal',
-                'created_at' => $zone->created_at?->format('Y-m-d H:i:s'),
-                'classification' => $classification ? [
-                    'id' => (string) $classification->id,
-                    'code' => $classification->code,
-                    'name' => $classification->name,
-                    'color' => $classification->color,
-                ] : null,
-            ],
+            'boundary' => ZoneFormatter::format($zone),
         ], 201);
     }
 
@@ -415,32 +345,11 @@ class ZoningClassificationController extends Controller
         );
 
         $zone->load('classification');
-        $classification = $zone->classification;
 
         return response()->json([
             'success' => true,
             'message' => 'Barangay boundary saved successfully.',
-            'boundary' => [
-                'id' => (string) $zone->id,
-                'zoning_classification_id' => (string) $zone->zoning_classification_id,
-                'label' => $zone->label,
-                'code' => $classification?->code ?? '',
-                'name' => $classification?->name ?? '',
-                'description' => $classification?->description,
-                'allowed_uses' => $classification?->allowed_uses,
-                'color' => $classification?->color,
-                'is_active' => $zone->is_active,
-                'has_geometry' => $zone->geometry !== null,
-                'geometry' => $zone->geometry,
-                'boundary_type' => $zone->boundary_type ?? 'barangay',
-                'created_at' => $zone->created_at?->format('Y-m-d H:i:s'),
-                'classification' => $classification ? [
-                    'id' => (string) $classification->id,
-                    'code' => $classification->code,
-                    'name' => $classification->name,
-                    'color' => $classification->color,
-                ] : null,
-            ],
+            'boundary' => ZoneFormatter::format($zone),
         ], 201);
     }
 

@@ -6,6 +6,7 @@ import StatusBadge from '../../components/StatusBadge';
 import StatusHistory from '../../components/StatusHistory';
 import PropertyLocation from '../../components/Applications/PropertyLocation';
 import RequirementManager from '../../components/Applications/Zoning/RequirementManager';
+import ApplicationDetailsTabs, { TabPanel } from '../../components/ApplicationDetailsTabs';
 import { ArrowLeft, CheckCircle, XCircle, Clock, FileText, Eye, Download, MapPin, Building, User, Mail, Phone } from 'lucide-react';
 
 interface Document {
@@ -111,6 +112,60 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         });
     };
 
+    // Calculate document status for Required Documents tab
+    const getDocumentStatus = (): 'red' | 'yellow' | 'green' => {
+        // Get current documents only (DocumentResource includes isCurrent)
+        const currentDocuments = application.documents.filter((doc: any) => 
+            doc.isCurrent !== false
+        );
+        
+        if (currentDocuments.length === 0) {
+            return 'red'; // No documents uploaded
+        }
+
+        // Define required document types based on applicant type
+        const requiredTypes = [
+            'tax_declaration',
+            'barangay_permit',
+            'land_title',
+            'site_development_plan',
+            'building_plans',
+            'bill_of_materials'
+        ];
+        
+        if (application.applicantType === 'business' || application.applicantType === 'developer') {
+            requiredTypes.push('business_permit');
+        }
+        if (application.isRepresentative) {
+            requiredTypes.push('spa_authorization');
+        }
+
+        // Check for rejected documents
+        const hasRejected = currentDocuments.some((doc: any) => doc.status === 'rejected');
+        if (hasRejected) {
+            return 'yellow'; // Has rejected documents
+        }
+
+        // Check if all required documents are uploaded
+        const uploadedTypes = currentDocuments.map((doc: any) => doc.documentType).filter(Boolean);
+        const missingTypes = requiredTypes.filter(type => !uploadedTypes.includes(type));
+        
+        if (missingTypes.length > 0) {
+            return 'yellow'; // Has missing documents
+        }
+
+        // Check if all documents are approved
+        const allApproved = currentDocuments.every((doc: any) => doc.status === 'approved');
+        if (allApproved) {
+            return 'green'; // All documents approved
+        }
+
+        // Has pending documents
+        return 'yellow';
+    };
+
+    const documentStatus = getDocumentStatus();
+
     return (
         <div className="flex flex-col bg-background dark:bg-dark-bg w-full min-h-dvh transition-colors">
             <Header />
@@ -153,8 +208,11 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     <div className="grid gap-6 lg:grid-cols-3">
                         {/* Main Content */}
                         <div className="lg:col-span-2 space-y-6">
-                            {/* Application Information */}
-                            <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                            <ApplicationDetailsTabs defaultTab="overview">
+                                {/* Overview Tab */}
+                                <TabPanel tabId="overview">
+                                    {/* Application Information */}
+                                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
                                 <div className="flex items-center justify-between mb-4">
                                     <h2 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white text-xl">
                                         <Building size={20} />
@@ -510,17 +568,28 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                         ))}
                                     </div>
                                 </section>
-                            )}
+                                )}
+                                </TabPanel>
 
-                            {/* Documents Management */}
-                            <RequirementManager
-                                applicationId={application.id.toString()}
-                                documents={application.documents as any[]}
-                                applicantType={application.applicantType}
-                                isRepresentative={application.isRepresentative}
-                            />
+                                {/* Required Documents Tab */}
+                                <TabPanel tabId="required_documents" status={documentStatus}>
+                                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
+                                            <FileText size={20} />
+                                            Required Documents
+                                        </h2>
+                                        <RequirementManager
+                                            applicationId={application.id.toString()}
+                                            documents={application.documents as any[]}
+                                            applicantType={application.applicantType}
+                                            isRepresentative={application.isRepresentative}
+                                        />
+                                    </section>
+                                </TabPanel>
 
-                            {/* Status History */}
+                                {/* Status History Tab */}
+                                <TabPanel tabId="status_history">
+                                    {/* Status History */}
                             {application.history && application.history.length > 0 && (
                                 <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
                                     <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
@@ -538,7 +607,9 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                         }))}
                                     />
                                 </section>
-                            )}
+                                )}
+                                </TabPanel>
+                            </ApplicationDetailsTabs>
                         </div>
 
                         {/* Sidebar */}

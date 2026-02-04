@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\ZoneFormatter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreZoneRequest;
 use App\Http\Requests\UpdateZoneRequest;
@@ -53,35 +54,8 @@ class ZoneController extends Controller
             }
         }
 
-        // Helper to format zone data
-        $formatZone = function ($zone) {
-            $classification = $zone->classification;
-
-            return [
-                'id' => (string) $zone->id,
-                'zoning_classification_id' => (string) $zone->zoning_classification_id,
-                'label' => $zone->label,
-                'code' => $classification?->code ?? '',
-                'name' => $classification?->name ?? '',
-                'description' => $classification?->description,
-                'allowed_uses' => $classification?->allowed_uses,
-                'color' => $classification?->color,
-                'is_active' => $zone->is_active,
-                'has_geometry' => $zone->geometry !== null,
-                'geometry' => $zone->geometry,
-                'boundary_type' => $zone->boundary_type ?? 'zoning',
-                'created_at' => $zone->created_at->format('Y-m-d H:i:s'),
-                'classification' => $classification ? [
-                    'id' => (string) $classification->id,
-                    'code' => $classification->code,
-                    'name' => $classification->name,
-                    'description' => $classification->description,
-                    'allowed_uses' => $classification->allowed_uses,
-                    'color' => $classification->color,
-                    'is_active' => $classification->is_active,
-                ] : null,
-            ];
-        };
+        // Use shared zone formatter
+        $formatZone = fn ($zone) => ZoneFormatter::format($zone);
 
         // If this is an API request (AJAX), return JSON
         if ($request->wantsJson() || $request->ajax()) {
@@ -264,20 +238,7 @@ class ZoneController extends Controller
             ->withGeometry()
             ->orderBy('id', 'desc')
             ->get()
-            ->map(function ($zone) {
-                $classification = $zone->classification;
-
-                return [
-                    'id' => (string) $zone->id,
-                    'zoning_classification_id' => (string) $zone->zoning_classification_id,
-                    'label' => $zone->label,
-                    'code' => $classification?->code ?? '',
-                    'name' => $classification?->name ?? '',
-                    'color' => $classification?->color,
-                    'geometry' => $zone->geometry,
-                    'boundary_type' => $zone->boundary_type ?? 'zoning',
-                ];
-            });
+            ->map(fn ($zone) => ZoneFormatter::format($zone, false));
 
         return response()->json([
             'success' => true,
@@ -292,24 +253,7 @@ class ZoneController extends Controller
     {
         $zones = Zone::with('classification')->active()->get();
 
-        $features = $zones->map(function ($zone) {
-            $classification = $zone->classification;
-
-            return [
-                'type' => 'Feature',
-                'geometry' => $zone->geometry,
-                'properties' => [
-                    'id' => (string) $zone->id,
-                    'label' => $zone->label,
-                    'classification_code' => $classification?->code,
-                    'classification_name' => $classification?->name,
-                    'classification_description' => $classification?->description,
-                    'allowed_uses' => $classification?->allowed_uses,
-                    'color' => $classification?->color,
-                    'is_active' => $zone->is_active,
-                ],
-            ];
-        });
+        $features = $zones->map(fn ($zone) => ZoneFormatter::formatForGeoJson($zone));
 
         $geoJson = [
             'type' => 'FeatureCollection',

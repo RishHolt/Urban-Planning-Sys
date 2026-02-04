@@ -1,9 +1,11 @@
 import { router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
+import { getCsrfToken } from '../../../data/services';
 import AdminContentCard from '../../../components/AdminContentCard';
 import Button from '../../../components/Button';
 import AdminDocumentViewerModal from '../../../components/AdminDocumentViewerModal';
+import ApplicationDetailsTabs, { TabPanel } from '../../../components/ApplicationDetailsTabs';
 import { 
     ArrowLeft, 
     CheckCircle, 
@@ -341,7 +343,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                    'X-CSRF-TOKEN': getCsrfToken(),
                 },
             });
 
@@ -366,6 +368,28 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         }
     };
 
+    // Calculate document status for Required Documents tab
+    const getDocumentStatus = (): 'red' | 'yellow' | 'green' => {
+        if (!application.document_summary) {
+            return 'red'; // No document summary available
+        }
+
+        const { total_uploaded, total_required, missing, invalid } = application.document_summary;
+
+        if (total_uploaded === 0) {
+            return 'red'; // No documents uploaded
+        }
+
+        if (missing.length > 0 || invalid > 0) {
+            return 'yellow'; // Has missing or invalid/rejected documents
+        }
+
+        // All documents uploaded and verified
+        return 'green';
+    };
+
+    const documentStatus = getDocumentStatus();
+
     const handleCheckEligibility = async (autoUpdate: boolean = false) => {
         setLoadingEligibility(true);
         setEligibilityError(null);
@@ -375,7 +399,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                    'X-CSRF-TOKEN': getCsrfToken(),
                 },
                 body: JSON.stringify({ auto_update: autoUpdate }),
             });
@@ -487,12 +511,16 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     </div>
                 </AdminContentCard>
 
-                {/* Beneficiary Information */}
-                <AdminContentCard padding="lg">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <User size={20} />
-                        Beneficiary Information
-                    </h3>
+                {/* Tabs for Application Details */}
+                <ApplicationDetailsTabs defaultTab="overview">
+                    {/* Overview Tab */}
+                    <TabPanel tabId="overview">
+                        {/* Beneficiary Information */}
+                        <AdminContentCard padding="lg">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                <User size={20} />
+                                Beneficiary Information
+                            </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Beneficiary Number</label>
@@ -542,12 +570,12 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     </div>
                 </AdminContentCard>
 
-                {/* Application Details */}
-                <AdminContentCard padding="lg">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <FileText size={20} />
-                        Application Details
-                    </h3>
+                        {/* Application Details */}
+                        <AdminContentCard padding="lg">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                <FileText size={20} />
+                                Application Details
+                            </h3>
                     <div>
                         <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Application Reason</label>
                         <p className="text-gray-900 dark:text-white mt-1">{application.application_reason}</p>
@@ -565,14 +593,16 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                         </div>
                     )}
                 </AdminContentCard>
+                    </TabPanel>
 
-                {/* Documents Section */}
-                <AdminContentCard padding="lg">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                            <FileText size={20} />
-                            Documents
-                        </h3>
+                    {/* Required Documents Tab */}
+                    <TabPanel tabId="required_documents" status={documentStatus}>
+                        <AdminContentCard padding="lg">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <FileText size={20} />
+                                    Required Documents
+                                </h3>
                         {application.document_summary && (
                             <div className="flex items-center gap-4 text-sm">
                                 <span className={`px-3 py-1 rounded-full font-medium ${
@@ -638,8 +668,10 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                 </div>
                             ))
                         )}
-                    </div>
-                </AdminContentCard>
+                            </div>
+                        </AdminContentCard>
+                    </TabPanel>
+                </ApplicationDetailsTabs>
 
                 {/* Site Visits Section */}
                 <AdminContentCard padding="lg">

@@ -214,9 +214,10 @@ export default function ClassificationsIndex({
             await deleteZoningClassification(classification.id);
             showSuccess('Classification deleted successfully');
             router.reload({ only: ['classifications'] });
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error deleting classification:', error);
-            showError(error.message || 'Failed to delete classification');
+            const errorMessage = error instanceof Error ? error.message : 'Failed to delete classification';
+            showError(errorMessage);
         }
     };
 
@@ -383,7 +384,6 @@ export default function ClassificationsIndex({
                                     </thead>
                                     <tbody className="bg-white dark:bg-dark-surface divide-y divide-gray-200 dark:divide-gray-700">
                                         {classifications.data
-                                            .filter(c => c.code?.toUpperCase() !== 'BOUNDARY' && c.name?.toUpperCase() !== 'BOUNDARY')
                                             .map((classification) => (
                                                 <tr key={classification.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                                                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white text-sm whitespace-nowrap">

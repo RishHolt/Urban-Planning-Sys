@@ -18,10 +18,6 @@ export default function ZoningBoundariesPanel({
     classifications, 
     zoningCounts 
 }: ZoningBoundariesPanelProps) {
-    const filteredClassifications = classifications.filter(
-        c => c.code?.toUpperCase() !== 'BOUNDARY' && c.name?.toUpperCase() !== 'BOUNDARY'
-    );
-
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -44,7 +40,7 @@ export default function ZoningBoundariesPanel({
                 </Button>
             </div>
 
-            {filteredClassifications.length === 0 ? (
+            {classifications.length === 0 ? (
                 <div className="bg-white dark:bg-dark-surface rounded-lg shadow p-12 text-center">
                     <Layers className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
@@ -78,7 +74,7 @@ export default function ZoningBoundariesPanel({
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-dark-surface divide-y divide-gray-200 dark:divide-gray-700">
-                                {filteredClassifications.map((classification) => {
+                                {classifications.map((classification) => {
                                     const zoneCount = zoningCounts[classification.id] || 0;
                                     return (
                                         <tr key={classification.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">

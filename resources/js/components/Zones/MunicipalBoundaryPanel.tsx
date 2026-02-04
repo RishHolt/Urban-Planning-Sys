@@ -11,17 +11,7 @@ import { Shield, Upload, Edit2, Trash2 } from 'lucide-react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { geoJSONToLeaflet } from '../../lib/mapUtils';
-import { getCookie } from '../../lib/utils';
-
-function getCsrfToken(): string {
-    const metaToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
-    if (metaToken) return metaToken;
-    const cookieToken = getCookie('XSRF-TOKEN');
-    if (cookieToken) {
-        return decodeURIComponent(cookieToken);
-    }
-    return '';
-}
+import { getCsrfToken } from '../../data/services';
 
 interface MunicipalBoundaryPanelProps {
     initialBoundary?: MunicipalBoundary | null;
@@ -67,8 +57,9 @@ export default function MunicipalBoundaryPanel({ initialBoundary }: MunicipalBou
             const result = await importMunicipalityGeoJson(file);
             showSuccess(result.message || 'Municipality boundary imported successfully.');
             await loadBoundary();
-        } catch (error: any) {
-            showError(error.message || 'Failed to import municipality boundary');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to import municipality boundary';
+            showError(errorMessage);
         } finally {
             setLoading(false);
             e.target.value = '';
@@ -109,8 +100,9 @@ export default function MunicipalBoundaryPanel({ initialBoundary }: MunicipalBou
 
             showSuccess('Municipal boundary deleted successfully.');
             setBoundary(null);
-        } catch (error: any) {
-            showError(error.message || 'Failed to delete municipal boundary');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to delete municipal boundary';
+            showError(errorMessage);
         } finally {
             setLoading(false);
         }

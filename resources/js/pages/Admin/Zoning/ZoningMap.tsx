@@ -102,6 +102,7 @@ function MapWithDraw({
     });
 
     // Helper function to check if a zone's geometry intersects with viewport bounds
+    // Uses expanded bounds to be more lenient and prevent zones from disappearing
     const isZoneInViewport = (zone: Zone, bounds: L.LatLngBounds): boolean => {
         if (!zone.geometry) {
             return false;
@@ -115,8 +116,20 @@ function MapWithDraw({
                 [zoneBbox[3], zoneBbox[2]]  // NE
             );
 
-            // Check if zone bounds intersect with viewport bounds
-            return bounds.intersects(zoneBounds);
+            // Expand viewport bounds by 20% to be more lenient
+            // This prevents zones from disappearing when they're just outside the viewport
+            const sw = bounds.getSouthWest();
+            const ne = bounds.getNorthEast();
+            const latDiff = (ne.lat - sw.lat) * 0.2;
+            const lngDiff = (ne.lng - sw.lng) * 0.2;
+            
+            const expandedBounds = L.latLngBounds(
+                [sw.lat - latDiff, sw.lng - lngDiff],
+                [ne.lat + latDiff, ne.lng + lngDiff]
+            );
+
+            // Check if zone bounds intersect with expanded viewport bounds
+            return expandedBounds.intersects(zoneBounds);
         } catch (error) {
             // If bbox calculation fails, include the zone to be safe
             return true;
@@ -174,16 +187,8 @@ function MapWithDraw({
                 // In municipal mode, only show municipality boundary
                 zonesToRender = municipalityBoundary ? [municipalityBoundary] : [];
             } else if (editMode === 'barangay') {
-                // In barangay mode, show all barangay boundaries (but filter by viewport if zoom is low)
-                if (currentZoom >= 12) {
-                    // At higher zoom, filter by viewport
-                    zonesToRender = barangayBoundaries.filter(zone => 
-                        isZoneInViewport(zone, currentBounds)
-                    );
-                } else {
-                    // At lower zoom, show all barangays (they're likely all visible)
-                    zonesToRender = barangayBoundaries;
-                }
+                // In barangay mode, always show all barangay boundaries
+                zonesToRender = barangayBoundaries;
             } else {
                 // In zoning mode
                 // Always include municipality boundary
@@ -191,33 +196,24 @@ function MapWithDraw({
                     zonesToRender.push(municipalityBoundary);
                 }
 
-                // Filter zoning zones by viewport (only at lower zoom levels to reduce load)
+                // Filter zoning zones - show all zones at all zoom levels for better UX
                 const zoningZones = zones.filter((zone) => {
-                    const isBoundary = zone.boundary_type === 'municipal' || zone.boundary_type === 'barangay' ||
-                        zone.code?.toUpperCase() === 'BOUNDARY' ||
-                        zone.name?.toUpperCase() === 'BOUNDARY';
+                    const isBoundary = zone.boundary_type === 'municipal' || zone.boundary_type === 'barangay';
                     return !isBoundary;
                 });
 
-                if (currentZoom >= 13) {
-                    // At higher zoom, filter by viewport
-                    zonesToRender.push(...zoningZones.filter(zone => 
-                        zone.geometry && isZoneInViewport(zone, currentBounds)
-                    ));
-                } else {
-                    // At lower zoom, show all zones
-                    zonesToRender.push(...zoningZones.filter(zone => zone.geometry));
-                }
+                // Always show all zoning zones with geometry
+                // Viewport filtering was causing zones to disappear when zooming in
+                zonesToRender.push(...zoningZones.filter(zone => zone.geometry));
 
-                // Include barangay boundaries only if zoom is high enough or if selected
-                if (currentZoom >= 12) {
-                    const visibleBarangays = barangayBoundaries.filter(zone => 
-                        isZoneInViewport(zone, currentBounds)
-                    );
-                    zonesToRender.push(...visibleBarangays);
-                } else if (selectedBarangay) {
-                    // Always show selected barangay
+                // Include barangay boundaries - always show all for better UX
+                // Only show selected barangay if zoom is very low (<10)
+                if (currentZoom < 10 && selectedBarangay) {
+                    // At very low zoom, only show selected barangay
                     zonesToRender.push(selectedBarangay);
+                } else {
+                    // At normal zoom levels, show all barangays
+                    zonesToRender.push(...barangayBoundaries);
                 }
             }
 
@@ -431,11 +427,11 @@ function MapWithDraw({
             if (bounds && bounds.isValid && bounds.isValid()) {
                 map.fitBounds(bounds, {
                     padding: [50, 50],
-                    maxZoom: 16,
+                    maxZoom: 18,
                 });
             }
         } catch (error) {
-            console.warn('Could not calculate bounds from GeoJSON:', error);
+            // Silently fail - bounds calculation is optional for map navigation
         }
 
         // Create green highlight layer for selected barangay
@@ -647,7 +643,7 @@ export default function ZoningMap() {
     const [selectedBarangay, setSelectedBarangay] = useState<Zone | null>(null);
     const [editMode, setEditMode] = useState<'zoning' | 'municipal' | 'barangay'>('zoning');
     const mapCenter: [number, number] = [14.5995, 120.9842]; // Default to Manila
-    const mapZoom = 13;
+    const mapZoom = 16;
 
     // Load zones and classifications on mount
     useEffect(() => {
@@ -691,9 +687,8 @@ export default function ZoningMap() {
     const loadClassifications = async () => {
         try {
             const data = await getZoningClassifications(true); // Only active
-            // Filter out BOUNDARY classification if it exists
-            const filteredData = data.filter(c => c.code !== 'BOUNDARY' && c.name !== 'BOUNDARY');
-            setClassifications(filteredData);
+            // Classifications are already filtered at the backend
+            setClassifications(data);
         } catch (error) {
             console.error('Failed to load classifications:', error);
         }
@@ -851,9 +846,10 @@ export default function ZoningMap() {
                 await loadAllZonesForMap();
                 showSuccess(`Zone ${newZone.label} created successfully`);
                 setIsDrawing(false);
-            } catch (error: any) {
+            } catch (error) {
                 console.error('Error creating zone:', error);
-                showError(error.message || 'Failed to create zone');
+                const errorMessage = error instanceof Error ? error.message : 'Failed to create zone';
+                showError(errorMessage);
             } finally {
                 setSaving(false);
             }
@@ -1134,8 +1130,9 @@ export default function ZoningMap() {
             file: file
         }, {
             forceFormData: true,
-            onSuccess: (page: any) => {
-                showSuccess(page.props.flash?.success || 'Municipality boundary imported successfully.');
+            onSuccess: (page) => {
+                const flashMessage = (page as { props?: { flash?: { success?: string } } })?.props?.flash?.success;
+                showSuccess(flashMessage || 'Municipality boundary imported successfully.');
                 loadAllZonesForMap();
                 e.target.value = '';
             },
@@ -1160,9 +1157,7 @@ export default function ZoningMap() {
         } else {
             // Zoning mode - only show zoning zones (exclude all boundaries)
             return zones.filter((zone) => {
-                const isBoundary = zone.boundary_type === 'municipal' || zone.boundary_type === 'barangay' ||
-                    zone.code?.toUpperCase() === 'BOUNDARY' ||
-                    zone.name?.toUpperCase() === 'BOUNDARY';
+                const isBoundary = zone.boundary_type === 'municipal' || zone.boundary_type === 'barangay';
                 return !isBoundary;
             });
         }
@@ -1512,11 +1507,20 @@ export default function ZoningMap() {
                         <MapContainer
                             center={mapCenter}
                             zoom={mapZoom}
+                            maxZoom={19}
+                            minZoom={3}
                             style={{ height: '100%', width: '100%', zIndex: 0 }}
                         >
                             <TileLayer
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                maxZoom={19}
+                                minZoom={3}
+                                tileSize={256}
+                                zoomOffset={0}
+                                updateWhenZooming={true}
+                                updateWhenIdle={true}
+                                keepBuffer={3}
                             />
                             <MapWithDraw
                                 selectedZone={selectedZone}

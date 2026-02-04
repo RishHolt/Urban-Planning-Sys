@@ -14,6 +14,12 @@ $isMcpMode = php_sapi_name() === 'cli'
 
 // Suppress error output early to prevent breaking JSON protocol in MCP mode
 if ($isMcpMode) {
+    // Override cache driver to use 'array' to avoid database table requirements
+    if (! isset($_ENV['CACHE_STORE'])) {
+        $_ENV['CACHE_STORE'] = 'array';
+        putenv('CACHE_STORE=array');
+    }
+
     // Suppress all error display
     ini_set('display_errors', '0');
     ini_set('display_startup_errors', '0');
@@ -122,6 +128,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 for ($i = 0; $i < $level; $i++) {
                     ob_clean();
                 }
+
                 return null;
             });
         }

@@ -1,6 +1,7 @@
 import { Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import AdminLayout from '../../components/AdminLayout';
+import { getCsrfToken } from '../../data/services';
 import Button from '../../components/Button';
 import { Calendar, MapPin, FileText, CheckCircle, XCircle, Clock, Plus, Camera, Upload, FileCheck, Eye, Download, CheckSquare, AlertCircle, X } from 'lucide-react';
 
@@ -223,7 +224,7 @@ export default function InspectionsIndex({ inspections, inspectors = [], applica
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                        'X-CSRF-TOKEN': getCsrfToken(),
                     },
                     body: JSON.stringify({
                         compliance_status: status,

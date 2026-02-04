@@ -6,6 +6,7 @@ export interface Zone {
     name: string;
     geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
     color?: string;
+    boundary_type?: 'municipal' | 'barangay' | 'zoning';
 }
 
 /**
@@ -27,8 +28,8 @@ export function detectZoneFromPin(
             continue;
         }
 
-        // Skip municipality boundary from detection
-        if (zone.code === 'BOUNDARY') {
+        // Skip boundary zones (municipal and barangay) from detection
+        if (zone.boundary_type === 'municipal' || zone.boundary_type === 'barangay') {
             continue;
         }
 
