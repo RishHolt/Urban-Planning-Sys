@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreBeneficiaryApplicationRequest;
+use App\Http\Requests\UpdateBeneficiaryApplicationRequest;
+use App\Http\Requests\UpdateBeneficiaryProfileRequest;
 use App\Models\Beneficiary;
 use App\Models\BeneficiaryApplication;
 use App\Models\BeneficiaryDocument;
@@ -88,7 +90,7 @@ class HousingBeneficiaryController extends Controller
     {
         $beneficiary = Beneficiary::where('citizen_id', Auth::id())->firstOrFail();
 
-        $application = BeneficiaryApplication::with(['documents', 'siteVisits', 'waitlistEntry', 'allocation'])
+        $application = BeneficiaryApplication::with(['documents', 'siteVisits', 'waitlistEntry', 'allocation', 'awards', 'awards.unit', 'awards.unit.project', 'caseOfficer'])
             ->where('id', $id)
             ->where('beneficiary_id', $beneficiary->id)
             ->firstOrFail();
@@ -121,6 +123,30 @@ class HousingBeneficiaryController extends Controller
             ];
         });
 
+        // Format award if exists (get the latest award)
+        $latestAward = $application->awards()->latest()->first();
+        $award = $latestAward ? [
+            'id' => (string) $latestAward->id,
+            'award_no' => $latestAward->award_no,
+            'award_date' => $latestAward->award_date?->format('Y-m-d'),
+            'acceptance_deadline' => $latestAward->acceptance_deadline?->format('Y-m-d'),
+            'accepted_at' => $latestAward->accepted_at?->format('Y-m-d H:i:s'),
+            'status' => $latestAward->award_status,
+            'unit' => $latestAward->unit ? [
+                'unit_no' => $latestAward->unit->unit_no,
+                'project' => $latestAward->unit->project ? [
+                    'project_name' => $latestAward->unit->project->project_name,
+                ] : null,
+            ] : null,
+        ] : null;
+
+        // Format case officer if exists
+        $caseOfficer = $application->caseOfficer ? [
+            'id' => $application->caseOfficer->id,
+            'name' => $application->caseOfficer->first_name.' '.$application->caseOfficer->last_name,
+            'email' => $application->caseOfficer->email,
+        ] : null;
+
         return Inertia::render('Applications/Housing/ApplicationDetails', [
             'application' => [
                 'id' => (string) $application->id,
@@ -131,11 +157,13 @@ class HousingBeneficiaryController extends Controller
                 'eligibility_status' => $application->eligibility_status,
                 'eligibility_remarks' => $application->eligibility_remarks,
                 'submitted_at' => $application->submitted_at?->format('Y-m-d H:i:s'),
+                'case_officer' => $caseOfficer,
                 'beneficiary' => $application->beneficiary,
                 'documents' => $documents,
                 'site_visits' => $siteVisits,
                 'waitlist' => $application->waitlistEntry,
                 'allocation' => $application->allocation,
+                'award' => $award,
             ],
         ]);
     }
@@ -171,7 +199,6 @@ class HousingBeneficiaryController extends Controller
                     'barangay' => $validated['beneficiary']['barangay'],
                     'years_of_residency' => $validated['beneficiary']['years_of_residency'],
                     'employment_status' => $validated['beneficiary']['employment_status'],
-                    'employer_name' => $validated['beneficiary']['employer_name'] ?? null,
                     'monthly_income' => $validated['beneficiary']['monthly_income'],
                     'has_existing_property' => $validated['beneficiary']['has_existing_property'] ?? false,
                     'priority_status' => $validated['beneficiary']['priority_status'],
@@ -193,7 +220,6 @@ class HousingBeneficiaryController extends Controller
                     'barangay' => $validated['beneficiary']['barangay'],
                     'years_of_residency' => $validated['beneficiary']['years_of_residency'],
                     'employment_status' => $validated['beneficiary']['employment_status'],
-                    'employer_name' => $validated['beneficiary']['employer_name'] ?? $beneficiary->employer_name,
                     'monthly_income' => $validated['beneficiary']['monthly_income'],
                     'has_existing_property' => $validated['beneficiary']['has_existing_property'] ?? $beneficiary->has_existing_property,
                     'priority_status' => $validated['beneficiary']['priority_status'],
@@ -201,10 +227,23 @@ class HousingBeneficiaryController extends Controller
                 ]);
             }
 
-            // Check blacklist
-            if ($this->blacklistService->isBlacklisted($beneficiary)) {
+            // Check blacklist - only check if beneficiary has an ID (not a new record)
+            // This prevents false positives from duplicate checks
+            if ($beneficiary->id && $this->blacklistService->isBlacklisted($beneficiary)) {
+                $blacklist = $this->blacklistService->getActiveBlacklist($beneficiary);
+                $errorMessage = 'You are currently blacklisted and cannot submit applications.';
+                if ($blacklist) {
+                    $errorMessage .= ' Reason: '.$blacklist->reason;
+                }
+
+                Log::warning('Blacklisted beneficiary attempted to submit application', [
+                    'beneficiary_id' => $beneficiary->id,
+                    'citizen_id' => $userId,
+                    'blacklist_id' => $blacklist?->id,
+                ]);
+
                 return back()->withErrors([
-                    'error' => 'You are currently blacklisted and cannot submit applications.',
+                    'error' => $errorMessage,
                 ])->withInput();
             }
 
@@ -406,5 +445,296 @@ class HousingBeneficiaryController extends Controller
         $random = str()->random(8);
 
         return "{$prefix}_{$timestamp}_{$random}.{$extension}";
+    }
+
+    /**
+     * Update the specified housing application.
+     */
+    public function update(UpdateBeneficiaryApplicationRequest $request, string $id): RedirectResponse
+    {
+        $beneficiary = Beneficiary::where('citizen_id', Auth::id())->firstOrFail();
+
+        $application = BeneficiaryApplication::where('id', $id)
+            ->where('beneficiary_id', $beneficiary->id)
+            ->firstOrFail();
+
+        $this->authorize('update', $application);
+
+        // Only allow updates if application status is 'submitted'
+        if ($application->application_status !== 'submitted') {
+            return back()->withErrors([
+                'error' => 'You can only update applications that are in "submitted" status.',
+            ]);
+        }
+
+        $validated = $request->validated();
+
+        $application->update($validated);
+
+        return redirect()->route('applications.housing.show', $application->id)
+            ->with('success', 'Application updated successfully.');
+    }
+
+    /**
+     * Upload additional documents to an application.
+     */
+    public function uploadDocuments(Request $request, string $id): RedirectResponse
+    {
+        $request->validate([
+            'documents' => ['required', 'array', 'min:1'],
+            'documents.*.document_type' => ['required', 'in:valid_id,birth_certificate,marriage_certificate,income_proof,barangay_certificate,tax_declaration,dswd_certification,pwd_id,senior_citizen_id,solo_parent_id,disaster_certificate'],
+            'documents.*.file' => ['required', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:10240'],
+        ]);
+
+        $beneficiary = Beneficiary::where('citizen_id', Auth::id())->firstOrFail();
+
+        $application = BeneficiaryApplication::where('id', $id)
+            ->where('beneficiary_id', $beneficiary->id)
+            ->firstOrFail();
+
+        $this->authorize('uploadDocuments', $application);
+
+        try {
+            $this->storeDocuments($application, $request, $request->all());
+
+            return redirect()->route('applications.housing.show', $application->id)
+                ->with('success', 'Documents uploaded successfully.');
+        } catch (\Exception $e) {
+            Log::error('Document upload error', [
+                'application_id' => $application->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors([
+                'error' => 'An error occurred while uploading documents. Please try again.',
+            ]);
+        }
+    }
+
+    /**
+     * Replace an existing document in an application.
+     */
+    public function replaceDocument(Request $request, string $id, string $documentId): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:10240'],
+        ]);
+
+        $beneficiary = Beneficiary::where('citizen_id', Auth::id())->firstOrFail();
+
+        $application = BeneficiaryApplication::where('id', $id)
+            ->where('beneficiary_id', $beneficiary->id)
+            ->firstOrFail();
+
+        $document = BeneficiaryDocument::where('id', $documentId)
+            ->where('application_id', $application->id)
+            ->firstOrFail();
+
+        $this->authorize('replaceDocument', $application);
+
+        try {
+            // Delete old file
+            if ($document->file_path && Storage::disk('public')->exists($document->file_path)) {
+                Storage::disk('public')->delete($document->file_path);
+            }
+
+            // Store new file
+            $basePath = "housing-applications/{$application->beneficiary_id}/{$application->application_no}";
+            $file = $request->file('file');
+            $fileName = $this->generateFileName($file, $document->document_type);
+            $path = $file->storeAs($basePath, $fileName, 'public');
+
+            // Update document record
+            $document->update([
+                'file_name' => $file->getClientOriginalName(),
+                'file_path' => $path,
+                'verification_status' => 'pending', // Reset verification status
+            ]);
+
+            return redirect()->route('applications.housing.show', $application->id)
+                ->with('success', 'Document replaced successfully.');
+        } catch (\Exception $e) {
+            Log::error('Document replace error', [
+                'application_id' => $application->id,
+                'document_id' => $documentId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors([
+                'error' => 'An error occurred while replacing the document. Please try again.',
+            ]);
+        }
+    }
+
+    /**
+     * Accept an award for an application.
+     */
+    public function acceptAward(Request $request, string $id): RedirectResponse
+    {
+        $request->validate([
+            'remarks' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $beneficiary = Beneficiary::where('citizen_id', Auth::id())->firstOrFail();
+
+        $application = BeneficiaryApplication::where('id', $id)
+            ->where('beneficiary_id', $beneficiary->id)
+            ->firstOrFail();
+
+        $award = $application->award;
+
+        if (! $award) {
+            return back()->withErrors([
+                'error' => 'No award found for this application.',
+            ]);
+        }
+
+        if ($award->status !== 'approved') {
+            return back()->withErrors([
+                'error' => 'Award must be approved before it can be accepted.',
+            ]);
+        }
+
+        try {
+            $awardService = app(\App\Services\AwardService::class);
+            $awardService->acceptAward($award, $request->input('remarks'));
+
+            return redirect()->route('applications.housing.show', $application->id)
+                ->with('success', 'Award accepted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Award acceptance error', [
+                'application_id' => $application->id,
+                'award_id' => $award->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors([
+                'error' => 'An error occurred while accepting the award. Please try again.',
+            ]);
+        }
+    }
+
+    /**
+     * Decline an award for an application.
+     */
+    public function declineAward(Request $request, string $id): RedirectResponse
+    {
+        $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $beneficiary = Beneficiary::where('citizen_id', Auth::id())->firstOrFail();
+
+        $application = BeneficiaryApplication::where('id', $id)
+            ->where('beneficiary_id', $beneficiary->id)
+            ->firstOrFail();
+
+        $award = $application->award;
+
+        if (! $award) {
+            return back()->withErrors([
+                'error' => 'No award found for this application.',
+            ]);
+        }
+
+        if ($award->status !== 'approved') {
+            return back()->withErrors([
+                'error' => 'Award must be approved before it can be declined.',
+            ]);
+        }
+
+        try {
+            $awardService = app(\App\Services\AwardService::class);
+            $awardService->declineAward($award, $request->input('reason'));
+
+            return redirect()->route('applications.housing.show', $application->id)
+                ->with('success', 'Award declined successfully.');
+        } catch (\Exception $e) {
+            Log::error('Award decline error', [
+                'application_id' => $application->id,
+                'award_id' => $award->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors([
+                'error' => 'An error occurred while declining the award. Please try again.',
+            ]);
+        }
+    }
+
+    /**
+     * Show the beneficiary profile.
+     */
+    public function showProfile(): Response
+    {
+        $beneficiary = Beneficiary::where('citizen_id', Auth::id())->first();
+
+        if (! $beneficiary) {
+            return Inertia::render('Applications/Housing/BeneficiaryProfile', [
+                'beneficiary' => null,
+            ]);
+        }
+
+        return Inertia::render('Applications/Housing/BeneficiaryProfile', [
+            'beneficiary' => [
+                'id' => (string) $beneficiary->id,
+                'beneficiary_no' => $beneficiary->beneficiary_no,
+                'first_name' => $beneficiary->first_name,
+                'last_name' => $beneficiary->last_name,
+                'middle_name' => $beneficiary->middle_name,
+                'suffix' => $beneficiary->suffix,
+                'birth_date' => $beneficiary->birth_date?->format('Y-m-d'),
+                'gender' => $beneficiary->gender,
+                'civil_status' => $beneficiary->civil_status,
+                'email' => $beneficiary->email,
+                'contact_number' => $beneficiary->contact_number,
+                'telephone_number' => $beneficiary->telephone_number,
+                'current_address' => $beneficiary->current_address,
+                'address' => $beneficiary->address,
+                'street' => $beneficiary->street,
+                'barangay' => $beneficiary->barangay,
+                'city' => $beneficiary->city,
+                'province' => $beneficiary->province,
+                'zip_code' => $beneficiary->zip_code,
+                'years_of_residency' => $beneficiary->years_of_residency,
+                'employment_status' => $beneficiary->employment_status,
+                'occupation' => $beneficiary->occupation,
+                'employer_name' => $beneficiary->employer_name,
+                'monthly_income' => $beneficiary->monthly_income,
+                'household_income' => $beneficiary->household_income,
+                'has_existing_property' => $beneficiary->has_existing_property,
+                'priority_status' => $beneficiary->priority_status,
+                'priority_id_no' => $beneficiary->priority_id_no,
+                'sector_tags' => $beneficiary->sector_tags,
+                'beneficiary_status' => $beneficiary->beneficiary_status?->value,
+            ],
+        ]);
+    }
+
+    /**
+     * Update the beneficiary profile.
+     */
+    public function updateProfile(UpdateBeneficiaryProfileRequest $request): RedirectResponse
+    {
+        $beneficiary = Beneficiary::where('citizen_id', Auth::id())->firstOrFail();
+
+        $this->authorize('update', $beneficiary);
+
+        try {
+            $validated = $request->validated();
+            $beneficiary->update($validated);
+
+            return redirect()->route('beneficiary.profile.show')
+                ->with('success', 'Profile updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Beneficiary profile update error', [
+                'beneficiary_id' => $beneficiary->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors([
+                'error' => 'An error occurred while updating your profile. Please try again.',
+            ])->withInput();
+        }
     }
 }

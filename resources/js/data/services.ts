@@ -1,19 +1,50 @@
 import { getCookie } from '../lib/utils';
 
+// Global CSRF token cache (updated by Inertia on each page load)
+let cachedCsrfToken: string | null = null;
+
 /**
- * Get the CSRF token from the meta tag or XSRF-TOKEN cookie
+ * Set the CSRF token (called from components that have access to Inertia props)
+ */
+export function setCsrfToken(token: string): void {
+    cachedCsrfToken = token;
+}
+
+/**
+ * Get the CSRF token from multiple sources in order of reliability
+ * In Inertia SPAs, the shared prop is most reliable as it's fresh on each request
  */
 export function getCsrfToken(): string {
-    // Try meta tag first
-    const metaToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
-    if (metaToken) return metaToken;
-
-    // Fallback to XSRF-TOKEN cookie (will be decoded by Laravel)
-    const cookieToken = getCookie('XSRF-TOKEN');
-    if (cookieToken) {
-        return decodeURIComponent(cookieToken);
+    // 1. Try cached token from Inertia shared props (most reliable in SPAs)
+    if (cachedCsrfToken) {
+        return cachedCsrfToken;
     }
 
+    // 2. Try XSRF-TOKEN cookie (Laravel updates this automatically on each request)
+    const cookieToken = getCookie('XSRF-TOKEN');
+    if (cookieToken) {
+        // Decode the cookie value (Laravel URL-encodes it)
+        try {
+            const decoded = decodeURIComponent(cookieToken);
+            // Cache it for future use
+            cachedCsrfToken = decoded;
+            return decoded;
+        } catch (e) {
+            // If decoding fails, return as-is
+            cachedCsrfToken = cookieToken;
+            return cookieToken;
+        }
+    }
+
+    // 3. Fallback to meta tag (may be stale in SPAs after navigation)
+    const metaToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    if (metaToken && metaToken.trim()) {
+        cachedCsrfToken = metaToken.trim();
+        return metaToken.trim();
+    }
+
+    // If no token found, log a warning (but don't throw - let the server handle it)
+    console.warn('CSRF token not found. Make sure you are on a page with a valid Laravel session.');
     return '';
 }
 
@@ -625,14 +656,32 @@ export async function createZone(data: {
     geometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon | null;
     is_active?: boolean;
 }): Promise<Zone> {
+    const csrfToken = getCsrfToken();
+    if (!csrfToken) {
+        throw new Error('CSRF token not available. Please refresh the page and try again.');
+    }
+
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': csrfToken,
+    };
+
+    // Also send X-XSRF-TOKEN header with decoded cookie value (Laravel checks both)
+    const xsrfCookie = getCookie('XSRF-TOKEN');
+    if (xsrfCookie) {
+        try {
+            headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfCookie);
+        } catch (e) {
+            headers['X-XSRF-TOKEN'] = xsrfCookie;
+        }
+    }
+
     const response = await fetch('/admin/zoning/zones', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
-        },
+        headers,
+        credentials: 'include', // Always include cookies (more reliable than 'same-origin')
         body: JSON.stringify(data),
     });
 
@@ -665,14 +714,32 @@ export async function updateZone(
         is_active?: boolean;
     }
 ): Promise<Zone> {
+    const csrfToken = getCsrfToken();
+    if (!csrfToken) {
+        throw new Error('CSRF token not available. Please refresh the page and try again.');
+    }
+
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': csrfToken,
+    };
+
+    // Also send X-XSRF-TOKEN header with decoded cookie value (Laravel checks both)
+    const xsrfCookie = getCookie('XSRF-TOKEN');
+    if (xsrfCookie) {
+        try {
+            headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfCookie);
+        } catch (e) {
+            headers['X-XSRF-TOKEN'] = xsrfCookie;
+        }
+    }
+
     const response = await fetch(`/admin/zoning/zones/${id}`, {
         method: 'PATCH',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
-        },
+        headers,
+        credentials: 'include', // Always include cookies (more reliable than 'same-origin')
         body: JSON.stringify(data),
     });
 

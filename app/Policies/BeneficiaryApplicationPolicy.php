@@ -138,4 +138,31 @@ class BeneficiaryApplicationPolicy
         // Only admins, staff, and superadmins can check eligibility
         return in_array($user->role, ['admin', 'staff', 'superadmin']);
     }
+
+    /**
+     * Determine whether the user can assign a case officer to the application.
+     */
+    public function assignCaseOfficer(User $user, BeneficiaryApplication $application): bool
+    {
+        // Housing officers, social workers, admins, and staff can assign case officers
+        return in_array($user->role, ['admin', 'staff', 'superadmin', 'housing_officer', 'social_worker']);
+    }
+
+    /**
+     * Determine whether the user can approve awards for the application.
+     */
+    public function approveAward(User $user, BeneficiaryApplication $application): bool
+    {
+        // Only admins, committee members, and superadmins can approve awards
+        return in_array($user->role, ['admin', 'superadmin', 'committee_member']);
+    }
+
+    /**
+     * Determine whether the user can generate awards for the application.
+     */
+    public function generateAward(User $user, BeneficiaryApplication $application): bool
+    {
+        // Housing officers, admins, and staff can generate awards
+        return in_array($user->role, ['admin', 'staff', 'superadmin', 'housing_officer']);
+    }
 }

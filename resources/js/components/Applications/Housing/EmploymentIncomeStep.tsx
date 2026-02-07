@@ -51,17 +51,7 @@ export default function EmploymentIncomeStep({ data, errors, onFieldChange, onBl
                     </select>
                     {getError('beneficiary.employmentStatus') && <p className="mt-1 text-red-500 text-sm">{getError('beneficiary.employmentStatus')}</p>}
                 </div>
-                {data.beneficiary.employmentStatus === 'employed' && (
-                                        <Input
-                                            label="Employer Name"
-                                            value={data.beneficiary.employerName}
-                                            onChange={(e) => onFieldChange('employerName', e.target.value)}
-                                            onBlur={() => onBlur('beneficiary.employerName')}
-                                            error={getError('beneficiary.employerName')}
-                                            required
-                                        />
-                                    )}
-                                    <Input
+                <Input
                                         label="Monthly Income"
                                         type="number"
                                         value={data.beneficiary.monthlyIncome}

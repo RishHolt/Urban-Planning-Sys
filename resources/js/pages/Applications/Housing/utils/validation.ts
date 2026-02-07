@@ -34,9 +34,6 @@ export function validateStep(step: number, data: HousingApplicationFormData): Va
             break;
         case 3: // Employment
             if (!data.beneficiary.employmentStatus) errors['beneficiary.employmentStatus'] = 'Employment status is required';
-            if (data.beneficiary.employmentStatus === 'employed' && !data.beneficiary.employerName) {
-                errors['beneficiary.employerName'] = 'Employer name is required when employed';
-            }
             if (!data.beneficiary.monthlyIncome) errors['beneficiary.monthlyIncome'] = 'Monthly income is required';
             break;
         case 4: // Priority Status
@@ -60,8 +57,10 @@ export function validateStep(step: number, data: HousingApplicationFormData): Va
                 'solo_parent': 'solo_parent_id',
                 'disaster_victim': 'disaster_certificate',
                 'indigenous': null,
+                '': null, // Empty string case
             };
 
+            // Always required documents
             requiredDocs.forEach(doc => {
                 if (!data.documents[doc as DocumentType]) {
                     errors[`documents.${doc}`] = `${documentLabels[doc as DocumentType]} is required`;
@@ -73,8 +72,10 @@ export function validateStep(step: number, data: HousingApplicationFormData): Va
                 errors['documents.marriage_certificate'] = 'Marriage certificate is required for married applicants';
             }
 
-            if (data.beneficiary.priorityStatus !== 'none') {
-                const requiredPriorityDoc = priorityDocs[data.beneficiary.priorityStatus];
+            // Priority-specific documents - only validate if priority status is set and not 'none'
+            const currentPriorityStatus = data.beneficiary.priorityStatus || 'none';
+            if (currentPriorityStatus !== 'none' && currentPriorityStatus !== '') {
+                const requiredPriorityDoc = priorityDocs[currentPriorityStatus];
                 if (requiredPriorityDoc && !data.documents[requiredPriorityDoc]) {
                     errors[`documents.${requiredPriorityDoc}`] = `${documentLabels[requiredPriorityDoc]} is required for your priority status`;
                 }
@@ -107,8 +108,7 @@ function getStepForField(fieldKey: string): number {
         fieldKey.startsWith('beneficiary.yearsOfResidency')) {
         return 2;
     }
-    if (fieldKey.startsWith('beneficiary.employmentStatus') || fieldKey.startsWith('beneficiary.employerName') ||
-        fieldKey.startsWith('beneficiary.monthlyIncome')) {
+    if (fieldKey.startsWith('beneficiary.employmentStatus') || fieldKey.startsWith('beneficiary.monthlyIncome')) {
         return 3;
     }
     if (fieldKey.startsWith('beneficiary.priorityStatus') || fieldKey.startsWith('beneficiary.priorityIdNo')) {

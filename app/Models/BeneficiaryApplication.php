@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\ApplicationStatus;
+use App\EligibilityStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,17 +36,25 @@ class BeneficiaryApplication extends Model
     protected $fillable = [
         'application_no',
         'beneficiary_id',
+        'project_id',
         'housing_program',
         'application_reason',
+        'application_type',
         'eligibility_status',
         'eligibility_remarks',
         'application_status',
         'denial_reason',
+        'rejection_reason',
+        'case_officer_id',
         'reviewed_by',
         'reviewed_at',
         'approved_by',
         'approved_at',
         'submitted_at',
+        'application_notes',
+        'admin_notes',
+        'eligibility_criteria_met',
+        'special_considerations',
     ];
 
     /**
@@ -55,6 +65,9 @@ class BeneficiaryApplication extends Model
     protected function casts(): array
     {
         return [
+            'application_status' => ApplicationStatus::class,
+            'eligibility_status' => EligibilityStatus::class,
+            'eligibility_criteria_met' => 'boolean',
             'reviewed_at' => 'datetime',
             'approved_at' => 'datetime',
             'submitted_at' => 'datetime',
@@ -144,5 +157,101 @@ class BeneficiaryApplication extends Model
     public function allocationHistory(): HasMany
     {
         return $this->hasManyThrough(AllocationHistory::class, Allocation::class);
+    }
+
+    /**
+     * Get the project for this application.
+     */
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(HousingProject::class, 'project_id');
+    }
+
+    /**
+     * Get the case officer assigned to this application.
+     */
+    public function caseOfficer(): BelongsTo
+    {
+        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'case_officer_id');
+    }
+
+    /**
+     * Get the reviewer for this application.
+     */
+    public function reviewer(): BelongsTo
+    {
+        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'reviewed_by');
+    }
+
+    /**
+     * Get the approver for this application.
+     */
+    public function approver(): BelongsTo
+    {
+        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'approved_by');
+    }
+
+    /**
+     * Get the application history for this application (from audit logs).
+     */
+    public function getApplicationHistoryAttribute(): array
+    {
+        return \App\Models\AuditLog::where('resource_type', 'beneficiary_application')
+            ->where('resource_id', (string) $this->id)
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(function ($log) {
+                return [
+                    'action' => $log->action,
+                    'changes' => $log->changes,
+                    'changed_by' => $log->user_id,
+                    'changed_at' => $log->created_at,
+                ];
+            })
+            ->toArray();
+    }
+
+    /**
+     * Get the evaluations for this application.
+     */
+    public function evaluations(): HasMany
+    {
+        return $this->hasMany(ApplicationEvaluation::class);
+    }
+
+    /**
+     * Get the awards for this application.
+     */
+    public function awards(): HasMany
+    {
+        return $this->hasMany(Award::class, 'application_id');
+    }
+
+    /**
+     * Check if application can be submitted (multiple applications rules).
+     */
+    public function canSubmit(): bool
+    {
+        // Check if beneficiary already has an active application for the same project
+        $existing = static::where('beneficiary_id', $this->beneficiary_id)
+            ->where('project_id', $this->project_id)
+            ->whereIn('application_status', [
+                ApplicationStatus::Submitted->value,
+                ApplicationStatus::UnderReview->value,
+                ApplicationStatus::Verified->value,
+                ApplicationStatus::Approved->value,
+            ])
+            ->where('id', '!=', $this->id)
+            ->exists();
+
+        return ! $existing;
+    }
+
+    /**
+     * Assign a case officer to this application.
+     */
+    public function assignCaseOfficer(int $caseOfficerId): void
+    {
+        $this->update(['case_officer_id' => $caseOfficerId]);
     }
 }

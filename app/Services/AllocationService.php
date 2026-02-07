@@ -47,7 +47,7 @@ class AllocationService
     /**
      * Approve allocation (admin/committee action).
      */
-    public function approveAllocation(Allocation $allocation, int $approvedBy): bool
+    public function approveAllocation(Allocation $allocation, int $approvedBy, ?\DateTime $turnoverDate = null): bool
     {
         $allocation->update([
             'allocation_status' => 'approved',
@@ -56,6 +56,17 @@ class AllocationService
 
         // Create history entry
         $this->createHistoryEntry($allocation, 'approved', 'Allocation approved by committee', $approvedBy);
+
+        // Generate award if allocation is approved (resolve service to avoid circular dependency)
+        if ($allocation->unit && $allocation->application) {
+            app(AwardService::class)->generateAward(
+                $allocation->application,
+                $allocation->unit,
+                $allocation,
+                $approvedBy,
+                $turnoverDate
+            );
+        }
 
         return true;
     }

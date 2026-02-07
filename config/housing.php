@@ -163,4 +163,95 @@ return [
         'allowed_document_types' => ['jpeg', 'jpg', 'png', 'pdf'],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Priority Scoring Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for calculating priority scores for applications.
+    | Weights determine how much each factor contributes to the final score.
+    |
+    */
+
+    'priority_scoring' => [
+        'socialized_housing' => [
+            'weights' => [
+                'priority_multiplier' => 100,
+                'income_factor' => 50,
+                'residency_factor' => 30,
+                'household_factor' => 20,
+                'sector_boost' => 25,
+            ],
+        ],
+        'relocation' => [
+            'weights' => [
+                'priority_multiplier' => 120,
+                'income_factor' => 50,
+                'residency_factor' => 30,
+                'household_factor' => 20,
+                'sector_boost' => 30,
+            ],
+        ],
+        'rental_subsidy' => [
+            'weights' => [
+                'priority_multiplier' => 100,
+                'income_factor' => 60,
+                'residency_factor' => 25,
+                'household_factor' => 15,
+                'sector_boost' => 20,
+            ],
+        ],
+        'housing_loan' => [
+            'weights' => [
+                'priority_multiplier' => 80,
+                'income_factor' => 40,
+                'residency_factor' => 30,
+                'household_factor' => 20,
+                'sector_boost' => 15,
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sector Definitions
+    |--------------------------------------------------------------------------
+    |
+    | Define sector eligibility requirements and validation rules.
+    |
+    */
+
+    'sectors' => [
+        'isf' => [
+            'label' => 'Informal Settler',
+            'requires_document' => 'barangay_certificate',
+            'auto_detect' => true,
+        ],
+        'pwd' => [
+            'label' => 'Person with Disability',
+            'requires_document' => 'pwd_id',
+            'auto_detect' => false,
+        ],
+        'senior_citizen' => [
+            'label' => 'Senior Citizen',
+            'requires_document' => 'senior_citizen_id',
+            'auto_detect' => true, // Based on age
+        ],
+        'solo_parent' => [
+            'label' => 'Solo Parent',
+            'requires_document' => 'solo_parent_id',
+            'auto_detect' => false,
+        ],
+        'low_income' => [
+            'label' => 'Low-income Family',
+            'requires_document' => 'income_proof',
+            'auto_detect' => true, // Based on income
+        ],
+        'disaster_affected' => [
+            'label' => 'Disaster-affected',
+            'requires_document' => 'disaster_certificate',
+            'auto_detect' => false,
+        ],
+    ],
+
 ];

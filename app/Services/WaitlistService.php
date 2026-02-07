@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\BeneficiaryStatus;
 use App\Models\BeneficiaryApplication;
 use App\Models\Waitlist;
 
@@ -22,7 +23,7 @@ class WaitlistService
         // Get current queue position
         $queuePosition = $this->calculateQueuePosition($application->housing_program, $priorityScore);
 
-        return Waitlist::create([
+        $waitlist = Waitlist::create([
             'beneficiary_id' => $application->beneficiary_id,
             'application_id' => $application->id,
             'housing_program' => $application->housing_program,
@@ -31,6 +32,16 @@ class WaitlistService
             'waitlist_date' => now(),
             'status' => 'active',
         ]);
+
+        // Update beneficiary status to waitlisted (they were qualified when eligible, now waitlisted)
+        $beneficiary = $application->beneficiary;
+        if ($beneficiary && $beneficiary->beneficiary_status !== BeneficiaryStatus::Awarded) {
+            $beneficiary->update([
+                'beneficiary_status' => BeneficiaryStatus::Waitlisted,
+            ]);
+        }
+
+        return $waitlist;
     }
 
     /**

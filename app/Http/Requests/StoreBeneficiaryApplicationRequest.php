@@ -55,12 +55,6 @@ class StoreBeneficiaryApplicationRequest extends FormRequest
             'beneficiary.barangay' => ['required', 'string', 'max:100'],
             'beneficiary.years_of_residency' => ['required', 'integer', 'min:0'],
             'beneficiary.employment_status' => ['required', 'in:employed,self_employed,unemployed,retired,student'],
-            'beneficiary.employer_name' => [
-                'nullable',
-                Rule::requiredIf($employmentStatus === 'employed'),
-                'string',
-                'max:255',
-            ],
             'beneficiary.monthly_income' => ['required', 'numeric', 'min:0'],
             'beneficiary.has_existing_property' => ['boolean'],
             'beneficiary.priority_status' => ['required', 'in:none,pwd,senior_citizen,solo_parent,disaster_victim,indigenous'],
@@ -84,7 +78,7 @@ class StoreBeneficiaryApplicationRequest extends FormRequest
             'household_members' => ['nullable', 'array'],
             'household_members.*.full_name' => ['required', 'string', 'max:255'],
             'household_members.*.relationship' => ['required', 'in:spouse,child,parent,sibling,other'],
-            'household_members.*.birth_date' => ['required', 'date', 'before:today'],
+            'household_members.*.birth_date' => ['required', 'date', 'before:tomorrow'],
             'household_members.*.gender' => ['required', 'in:male,female'],
             'household_members.*.occupation' => ['nullable', 'string', 'max:255'],
             'household_members.*.monthly_income' => ['nullable', 'numeric', 'min:0'],
@@ -160,6 +154,12 @@ class StoreBeneficiaryApplicationRequest extends FormRequest
             'documents.*.file.required' => 'Document file is required.',
             'documents.*.file.mimes' => 'Document must be a JPEG, PNG, or PDF file.',
             'documents.*.file.max' => 'Document must not exceed 10MB.',
+            'household_members.*.full_name.required' => 'Full name is required for all household members.',
+            'household_members.*.relationship.required' => 'Relationship is required for all household members.',
+            'household_members.*.birth_date.required' => 'Birth date is required for all household members.',
+            'household_members.*.birth_date.date' => 'Birth date must be a valid date.',
+            'household_members.*.birth_date.before' => 'Birth date must be in the past (before today).',
+            'household_members.*.gender.required' => 'Gender is required for all household members.',
         ];
     }
 }

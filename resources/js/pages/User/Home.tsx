@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { router } from '@inertiajs/react';
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import HeroSection from "../../components/HeroSection";
@@ -12,6 +13,12 @@ export default function Home() {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const handleCardClick = (service: Service) => {
+        // Navigate directly to zoning map without modal
+        if (service.id === 'zoning-map') {
+            router.visit('/zoning-map');
+            return;
+        }
+        
         setSelectedService(service);
         setIsModalOpen(true);
     };

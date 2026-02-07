@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import AdminHeader from '../../../components/AdminHeader';
 import Sidebar from '../../../components/Sidebar';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useLeafletDraw } from '../../../hooks/useLeafletDraw';
-import { getZones, getZone, createZone, updateZone, deleteZone, getZoningClassifications, exportZonesGeoJson, importZonesGeoJson, importMunicipalityGeoJson, getMunicipalBoundary, createMunicipalBoundary, getBarangayBoundaries, createBarangayBoundary, updateBarangayBoundary, type Zone, type ZoningClassification } from '../../../data/services';
+import { getZones, getZone, createZone, updateZone, deleteZone, getZoningClassifications, exportZonesGeoJson, importZonesGeoJson, importMunicipalityGeoJson, getMunicipalBoundary, createMunicipalBoundary, getBarangayBoundaries, createBarangayBoundary, updateBarangayBoundary, setCsrfToken, type Zone, type ZoningClassification } from '../../../data/services';
+import type { SharedData } from '../../../types';
 import { generatePolygonColor, leafletToGeoJSON, geoJSONToLeaflet, calculatePolygonArea, hslToRgba } from '../../../lib/mapUtils';
 import { checkZoneOverlap } from '../../../lib/zoneOverlapDetection';
 import { showSuccess, showError, showConfirm } from '../../../lib/swal';
@@ -14,7 +15,9 @@ import booleanWithin from '@turf/boolean-within';
 import intersect from '@turf/intersect';
 import difference from '@turf/difference';
 import bbox from '@turf/bbox';
-import { feature, featureCollection } from '@turf/helpers';
+import centroid from '@turf/centroid';
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import { feature, featureCollection, point } from '@turf/helpers';
 import Button from '../../../components/Button';
 import Input from '../../../components/Input';
 import ZoneCard from '../../../components/Zones/ZoneCard';
@@ -29,6 +32,19 @@ if (typeof window !== 'undefined' && !(L.Icon.Default.prototype as any)._iconUrl
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
     });
     (L.Icon.Default.prototype as any)._iconUrlFixed = true;
+}
+
+// Suppress leaflet-draw deprecation warnings about _flat
+if (typeof window !== 'undefined') {
+    const originalWarn = console.warn;
+    console.warn = function (...args: unknown[]) {
+        const message = args[0];
+        if (typeof message === 'string' && message.includes('Deprecated use of _flat')) {
+            // Suppress this specific warning from leaflet-draw
+            return;
+        }
+        originalWarn.apply(console, args);
+    };
 }
 
 // Map component that uses the draw hook
@@ -48,6 +64,8 @@ function MapWithDraw({
     onDrawStart,
     onDrawStop,
     onSelectZone,
+    onSelectBarangay,
+    onEditCancel,
     mapFocusKey,
     shouldShowPopup,
 }: {
@@ -66,6 +84,8 @@ function MapWithDraw({
     onDrawStart?: () => void;
     onDrawStop?: () => void;
     onSelectZone: (zone: Zone, startEdit?: boolean) => void;
+    onSelectBarangay?: (barangay: Zone) => void;
+    onEditCancel?: () => void;
     mapFocusKey: number;
     shouldShowPopup: boolean;
 }) {
@@ -75,6 +95,56 @@ function MapWithDraw({
     const selectedBarangayLayerRef = useRef<L.Layer | null>(null);
     const viewportBoundsRef = useRef<L.LatLngBounds | null>(null);
     const renderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const originalGeometryRef = useRef<GeoJSON.Polygon | GeoJSON.MultiPolygon | null>(null);
+    const editWasSavedRef = useRef(false);
+
+    // Helper function to ensure polygon rings are closed
+    const ensureClosedPolygon = (geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): GeoJSON.Polygon | GeoJSON.MultiPolygon => {
+        if (geometry.type === 'Polygon') {
+            if (!Array.isArray(geometry.coordinates)) {
+                return geometry;
+            }
+            const closedCoordinates = geometry.coordinates.map((ring) => {
+                if (!Array.isArray(ring) || ring.length === 0) {
+                    return ring;
+                }
+                const first = ring[0];
+                const last = ring[ring.length - 1];
+                if (!Array.isArray(first) || !Array.isArray(last)) {
+                    return ring;
+                }
+                if (first[0] === last[0] && first[1] === last[1]) {
+                    return ring;
+                }
+                return [...ring, [first[0], first[1]]];
+            });
+            return { type: 'Polygon', coordinates: closedCoordinates };
+        } else {
+            if (!Array.isArray(geometry.coordinates)) {
+                return geometry;
+            }
+            const closedCoordinates = geometry.coordinates.map((polygon) => {
+                if (!Array.isArray(polygon)) {
+                    return polygon;
+                }
+                return polygon.map((ring) => {
+                    if (!Array.isArray(ring) || ring.length === 0) {
+                        return ring;
+                    }
+                    const first = ring[0];
+                    const last = ring[ring.length - 1];
+                    if (!Array.isArray(first) || !Array.isArray(last)) {
+                        return ring;
+                    }
+                    if (first[0] === last[0] && first[1] === last[1]) {
+                        return ring;
+                    }
+                    return [...ring, [first[0], first[1]]];
+                });
+            });
+            return { type: 'MultiPolygon', coordinates: closedCoordinates };
+        }
+    };
 
     // Get the color for the selected classification or zone
     const drawColor = selectedClassification?.color || selectedZone?.color || generatePolygonColor(selectedClassification?.code || selectedZone?.code || 'UNKNOWN');
@@ -154,7 +224,14 @@ function MapWithDraw({
             viewportBoundsRef.current = currentBounds;
 
             // Clear existing layers and remove all event handlers
+            // But preserve the layer being edited to maintain edit handles
             polygonLayersRef.current.forEach((layer, zoneId) => {
+                // Don't remove the layer if it's currently being edited
+                if (isEditing && selectedZone && zoneId === selectedZone.id) {
+                    // Keep this layer - just update event handlers if needed
+                    return;
+                }
+                
                 if (map.hasLayer(layer)) {
                     // Remove all event handlers before removing layer
                     if (layer instanceof L.LayerGroup) {
@@ -171,8 +248,31 @@ function MapWithDraw({
                     map.removeLayer(layer);
                 }
             });
-            polygonLayersRef.current.clear();
-            layerToZoneIdRef.current.clear();
+            
+            // Only clear non-edited layers from the refs
+            if (!isEditing || !selectedZone) {
+                polygonLayersRef.current.clear();
+                layerToZoneIdRef.current.clear();
+            } else {
+                // Keep the edited zone's layer reference
+                const editedLayer = polygonLayersRef.current.get(selectedZone.id);
+                const newRefs = new Map<string, L.Layer>();
+                const newLayerToZoneId = new Map<L.Layer, string>();
+                
+                if (editedLayer) {
+                    newRefs.set(selectedZone.id, editedLayer);
+                    if (editedLayer instanceof L.LayerGroup) {
+                        editedLayer.eachLayer((sublayer) => {
+                            newLayerToZoneId.set(sublayer, selectedZone.id);
+                        });
+                    } else {
+                        newLayerToZoneId.set(editedLayer, selectedZone.id);
+                    }
+                }
+                
+                polygonLayersRef.current = newRefs;
+                layerToZoneIdRef.current = newLayerToZoneId;
+            }
 
             // Always include municipality boundary if it exists
             const zonesToCheck = [
@@ -226,6 +326,17 @@ function MapWithDraw({
                 return;
             }
 
+            // Skip re-rendering the zone that's currently being edited
+            // to preserve edit handles, but only if the layer already exists
+            if (isEditing && selectedZone && zone.id === selectedZone.id) {
+                const existingLayer = polygonLayersRef.current.get(zone.id);
+                if (existingLayer && map.hasLayer(existingLayer)) {
+                    // Layer exists and is on map, skip re-rendering to preserve edit handles
+                    return;
+                }
+                // Layer doesn't exist yet, continue to render it
+            }
+
             try {
                 const isBoundary = zone.boundary_type === 'municipal' || zone.boundary_type === 'barangay';
                 const isMunicipality = zone.boundary_type === 'municipal';
@@ -241,6 +352,8 @@ function MapWithDraw({
                 const opacity = 0.8;
 
                 // Make boundaries interactive when in boundary editing mode
+                // In zoning mode, make barangays non-interactive so they don't block zone clicks
+                // Barangay selection will be handled via map click handler
                 const isInteractive = !isBoundary || (isBoundary && (
                     (isMunicipality && editMode === 'municipal') ||
                     (isBarangay && editMode === 'barangay')
@@ -304,42 +417,48 @@ function MapWithDraw({
                         className: 'zone-popup-custom'
                     }).setContent(popupContent);
 
-                    if (layer instanceof L.LayerGroup) {
-                        layer.eachLayer((sublayer) => {
-                            if (sublayer instanceof L.Polygon) {
-                                sublayer.bindPopup(popup);
-                                sublayer.on('popupopen', (e) => {
-                                    const popup = e.popup;
-                                    const container = popup.getElement();
-                                    if (container) {
-                                        const btn = container.querySelector('.map-edit-zone-btn');
-                                        if (btn) {
-                                            btn.addEventListener('click', (e) => {
-                                                e.preventDefault();
-                                                onSelectZone(zone, true); // Pass true to trigger edit mode
-                                                sublayer.closePopup();
-                                            });
+                    // Store barangay boundaries for map-level click detection in zoning mode
+                    // We don't add click handlers directly to avoid blocking zone clicks
+
+                    // Add popup and edit button for zoning zones (not boundaries)
+                    if (!isBoundary) {
+                        if (layer instanceof L.LayerGroup) {
+                            layer.eachLayer((sublayer) => {
+                                if (sublayer instanceof L.Polygon) {
+                                    sublayer.bindPopup(popup);
+                                    sublayer.on('popupopen', (e) => {
+                                        const popup = e.popup;
+                                        const container = popup.getElement();
+                                        if (container) {
+                                            const btn = container.querySelector('.map-edit-zone-btn');
+                                            if (btn) {
+                                                btn.addEventListener('click', (e) => {
+                                                    e.preventDefault();
+                                                    onSelectZone(zone, true); // Pass true to trigger edit mode
+                                                    sublayer.closePopup();
+                                                });
+                                            }
                                         }
-                                    }
-                                });
-                            }
-                        });
-                    } else if (layer instanceof L.Polygon) {
-                        layer.bindPopup(popup);
-                        layer.on('popupopen', (e) => {
-                            const popup = e.popup;
-                            const container = popup.getElement();
-                            if (container) {
-                                const btn = container.querySelector('.map-edit-zone-btn');
-                                if (btn) {
-                                    btn.addEventListener('click', (e) => {
-                                        e.preventDefault();
-                                        onSelectZone(zone, true); // Pass true to trigger edit mode
-                                        layer.closePopup();
                                     });
                                 }
-                            }
-                        });
+                            });
+                        } else if (layer instanceof L.Polygon) {
+                            layer.bindPopup(popup);
+                            layer.on('popupopen', (e) => {
+                                const popup = e.popup;
+                                const container = popup.getElement();
+                                if (container) {
+                                    const btn = container.querySelector('.map-edit-zone-btn');
+                                    if (btn) {
+                                        btn.addEventListener('click', (e) => {
+                                            e.preventDefault();
+                                            onSelectZone(zone, true); // Pass true to trigger edit mode
+                                            layer.closePopup();
+                                        });
+                                    }
+                                }
+                            });
+                        }
                     }
                 }
             } catch (error) {
@@ -348,8 +467,58 @@ function MapWithDraw({
         });
         };
 
+        // Helper to re-enable edit mode after rendering
+        const reEnableEditMode = () => {
+            if (isEditing && selectedZone && featureGroup) {
+                const layer = polygonLayersRef.current.get(selectedZone.id);
+                if (layer) {
+                    // Remove layer from featureGroup first if it exists
+                    if (layer instanceof L.LayerGroup) {
+                        layer.eachLayer((sublayer) => {
+                            if (featureGroup.hasLayer(sublayer)) {
+                                featureGroup.removeLayer(sublayer);
+                            }
+                        });
+                    } else {
+                        if (featureGroup.hasLayer(layer)) {
+                            featureGroup.removeLayer(layer);
+                        }
+                    }
+
+                    // Re-add layer to featureGroup for editing
+                    if (layer instanceof L.LayerGroup) {
+                        layer.eachLayer((sublayer) => {
+                            featureGroup.addLayer(sublayer);
+                        });
+                    } else {
+                        featureGroup.addLayer(layer);
+                    }
+
+                    // Re-enable edit mode
+                    setTimeout(() => {
+                        if (drawControl) {
+                            const container = drawControl.getContainer();
+                            if (container) {
+                                const editButton = container.querySelector('.leaflet-draw-edit-edit, a[title*="Edit"], button[title*="Edit"]') as HTMLElement;
+                                if (editButton) {
+                                    editButton.click();
+                                } else {
+                                    const drawControlAny = drawControl as any;
+                                    const editToolbar = drawControlAny._toolbars?.edit;
+                                    if (editToolbar && typeof editToolbar.reinit === 'function') {
+                                        editToolbar.reinit();
+                                    }
+                                }
+                            }
+                        }
+                    }, 200); // Delay to ensure layers are fully rendered
+                }
+            }
+        };
+
         // Initial render
         renderZones();
+        reEnableEditMode();
 
         // Listen to map move/zoom events for viewport-based rendering
         const handleMapMove = () => {
@@ -358,11 +527,73 @@ function MapWithDraw({
             }
             renderTimeoutRef.current = setTimeout(() => {
                 renderZones();
+                reEnableEditMode(); // Re-enable edit mode after re-rendering
             }, 150); // Debounce by 150ms
         };
 
         map.on('moveend', handleMapMove);
         map.on('zoomend', handleMapMove);
+
+        // Map click handler for barangay selection in zoning mode
+        // Only triggers if click didn't hit a zone (zones handle their own clicks)
+        const handleMapClick = (e: L.LeafletMouseEvent) => {
+            if (editMode !== 'zoning' || !onSelectBarangay || isDrawing || isEditing) {
+                return;
+            }
+
+            // Small delay to let zone click handlers fire first
+            setTimeout(() => {
+                // Check if click point is within any barangay boundary
+                const clickPoint = point([e.latlng.lng, e.latlng.lat]);
+                
+                for (const barangay of barangayBoundaries) {
+                    if (!barangay.geometry) continue;
+
+                    try {
+                        const closedGeometry = ensureClosedPolygon(barangay.geometry);
+                        const featureObj = closedGeometry.type === 'Polygon'
+                            ? feature(closedGeometry)
+                            : feature(closedGeometry);
+                        
+                        if (booleanPointInPolygon(clickPoint, featureObj)) {
+                            // Check if click was on a zone (not a barangay boundary)
+                            let clickedOnZone = false;
+                            for (const zone of zones) {
+                                if (zone.boundary_type === 'barangay' || zone.boundary_type === 'municipal') {
+                                    continue;
+                                }
+                                if (!zone.geometry) continue;
+                                
+                                try {
+                                    const closedZoneGeometry = ensureClosedPolygon(zone.geometry);
+                                    const zoneFeature = closedZoneGeometry.type === 'Polygon'
+                                        ? feature(closedZoneGeometry)
+                                        : feature(closedZoneGeometry);
+                                    
+                                    if (booleanPointInPolygon(clickPoint, zoneFeature)) {
+                                        clickedOnZone = true;
+                                        break;
+                                    }
+                                } catch (error) {
+                                    continue;
+                                }
+                            }
+                            
+                            // Only select barangay if click wasn't on a zone
+                            if (!clickedOnZone) {
+                                onSelectBarangay(barangay);
+                            }
+                            break;
+                        }
+                    } catch (error) {
+                        // Ignore errors for this barangay
+                        continue;
+                    }
+                }
+            }, 50); // Small delay to let zone clicks process first
+        };
+
+        map.on('click', handleMapClick);
 
         // Cleanup
         return () => {
@@ -371,6 +602,7 @@ function MapWithDraw({
             }
             map.off('moveend', handleMapMove);
             map.off('zoomend', handleMapMove);
+            map.off('click', handleMapClick);
             polygonLayersRef.current.forEach((layer) => {
                 if (map.hasLayer(layer)) {
                     map.removeLayer(layer);
@@ -379,7 +611,7 @@ function MapWithDraw({
             polygonLayersRef.current.clear();
             layerToZoneIdRef.current.clear();
         };
-    }, [map, zones, municipalityBoundary, barangayBoundaries, editMode, selectedZone, selectedClassification, drawColor, onSelectZone, shouldShowPopup, selectedBarangay]);
+        }, [map, zones, municipalityBoundary, barangayBoundaries, editMode, selectedZone, selectedClassification, drawColor, onSelectZone, onSelectBarangay, shouldShowPopup, selectedBarangay, isEditing, featureGroup, drawControl]);
 
     // Separate effect for selected barangay highlight - independent of classification
     useEffect(() => {
@@ -425,26 +657,27 @@ function MapWithDraw({
 
             // Fit map to bounds immediately
             if (bounds && bounds.isValid && bounds.isValid()) {
-                map.fitBounds(bounds, {
-                    padding: [50, 50],
-                    maxZoom: 18,
-                });
+                        map.fitBounds(bounds, {
+                            padding: [50, 50],
+                            maxZoom: 20,
+                        });
             }
         } catch (error) {
             // Silently fail - bounds calculation is optional for map navigation
         }
 
-        // Create green highlight layer for selected barangay
-        try {
-            const highlightLayer = geoJSONToLeaflet(selectedBarangay.geometry, {
-                color: '#22c55e',
-                fillColor: '#22c55e',
-                fillOpacity: 0.1,
-                weight: 4,
-                opacity: 1,
-                dashArray: '5, 10',
-                interactive: true,
-            });
+            // Create green highlight layer for selected barangay
+            // Set interactive to false so clicks pass through to zones underneath
+            try {
+                const highlightLayer = geoJSONToLeaflet(selectedBarangay.geometry, {
+                    color: '#22c55e',
+                    fillColor: '#22c55e',
+                    fillOpacity: 0.1,
+                    weight: 4,
+                    opacity: 1,
+                    dashArray: '5, 10',
+                    interactive: false, // Non-interactive so clicks pass through to zones
+                });
 
             if (highlightLayer) {
                 // Add to map
@@ -524,13 +757,13 @@ function MapWithDraw({
                 if (layers.length > 0) {
                     const bounds = L.featureGroup(layers).getBounds();
                     if (bounds.isValid()) {
-                        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
+                        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 22 });
                     }
                 }
             } else if (layer instanceof L.Polyline || layer instanceof L.Polygon) {
                 const bounds = (layer as L.Polyline).getBounds();
                 if (bounds.isValid()) {
-                    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
+                    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 20 });
                 }
             } else if (layer instanceof L.Marker || layer instanceof L.CircleMarker) {
                 map.setView(layer.getLatLng(), 18);
@@ -597,27 +830,203 @@ function MapWithDraw({
             }
         }
 
+        // Store original geometry when entering edit mode
+        if (selectedZone.geometry) {
+            originalGeometryRef.current = selectedZone.geometry;
+        }
+
         const handleDrawEdited = (e: L.DrawEvents.Edited) => {
-            onPolygonEdited(e.layers);
+            // Save was clicked - process the edited geometry
+            try {
+                editWasSavedRef.current = true;
+                
+                // Get layers from the event
+                let layersToProcess = e.layers;
+                
+                // Check if layers are empty
+                let layerCount = 0;
+                e.layers.eachLayer(() => {
+                    layerCount++;
+                });
+                
+                // If event layers are empty, try to get from featureGroup or stored layer reference
+                if (layerCount === 0 && selectedZone) {
+                    console.warn('handleDrawEdited: Event layers empty, trying fallback');
+                    
+                    // Try featureGroup first
+                    if (featureGroup) {
+                        const tempGroup = new L.LayerGroup();
+                        featureGroup.eachLayer((layer) => {
+                            tempGroup.addLayer(layer);
+                        });
+                        const fgCount = tempGroup.getLayers().length;
+                        if (fgCount > 0) {
+                            layersToProcess = tempGroup;
+                            console.log('handleDrawEdited: Using layers from featureGroup, count:', fgCount);
+                        } else {
+                            // Try stored layer reference as last resort
+                            const storedLayer = polygonLayersRef.current.get(selectedZone.id);
+                            if (storedLayer) {
+                                const fallbackGroup = new L.LayerGroup();
+                                if (storedLayer instanceof L.LayerGroup) {
+                                    storedLayer.eachLayer((sublayer) => {
+                                        fallbackGroup.addLayer(sublayer);
+                                    });
+                                } else {
+                                    fallbackGroup.addLayer(storedLayer);
+                                }
+                                layersToProcess = fallbackGroup;
+                                console.log('handleDrawEdited: Using stored layer reference, count:', fallbackGroup.getLayers().length);
+                            } else {
+                                console.error('handleDrawEdited: No layers found in event, featureGroup, or stored reference');
+                            }
+                        }
+                    }
+                } else {
+                    console.log('handleDrawEdited: Using layers from event, count:', layerCount);
+                }
+                
+                // Call the async handler - errors will be caught in handlePolygonEdited
+                onPolygonEdited(layersToProcess).catch((error) => {
+                    console.error('handleDrawEdited: Error in onPolygonEdited:', error);
+                    editWasSavedRef.current = false;
+                });
+                originalGeometryRef.current = null; // Clear stored geometry after save
+            } catch (error) {
+                console.error('handleDrawEdited: Error processing edited layers:', error);
+                editWasSavedRef.current = false;
+            }
         };
 
         const handleDrawDeleted = (e: L.DrawEvents.Deleted) => {
             onPolygonDeleted(e.layers);
         };
 
-        map.on(L.Draw.Event.EDITED, handleDrawEdited as any);
-        map.on(L.Draw.Event.DELETED, handleDrawDeleted as any);
+        // Listen for when edit toolbar is disabled (either save or cancel clicked)
+        const handleEditDisable = () => {
+            // Small delay to check if EDITED event fired
+            setTimeout(() => {
+                if (!editWasSavedRef.current && originalGeometryRef.current) {
+                    // Cancel was clicked - Leaflet Draw already reverted the geometry
+                    // We just need to exit edit mode
+                    if (onEditCancel) {
+                        onEditCancel();
+                    }
+                }
+                // Reset flag and clear stored geometry
+                editWasSavedRef.current = false;
+                originalGeometryRef.current = null;
+            }, 100);
+        };
+
+        map.on(L.Draw.Event.EDITED as any, handleDrawEdited as any);
+        map.on(L.Draw.Event.DELETED as any, handleDrawDeleted as any);
+
+        // Listen for edit toolbar disable event (when save or cancel is clicked)
+        if (drawControl) {
+            const drawControlAny = drawControl as any;
+            const editToolbar = drawControlAny._toolbars?.edit;
+            if (editToolbar) {
+                editToolbar.on('disable', handleEditDisable);
+            }
+        }
 
         return () => {
-            map.off(L.Draw.Event.EDITED, handleDrawEdited as any);
-            map.off(L.Draw.Event.DELETED, handleDrawDeleted as any);
+            map.off(L.Draw.Event.EDITED as any, handleDrawEdited as any);
+            map.off(L.Draw.Event.DELETED as any, handleDrawDeleted as any);
+            if (drawControl) {
+                const drawControlAny = drawControl as any;
+                const editToolbar = drawControlAny._toolbars?.edit;
+                if (editToolbar) {
+                    editToolbar.off('disable', handleEditDisable);
+                }
+            }
         };
     }, [map, featureGroup, isEditing, selectedZone, onPolygonEdited, drawControl]);
+
+    // Fit map to municipality boundary when it loads
+    useEffect(() => {
+        if (!map || !municipalityBoundary || !municipalityBoundary.geometry) {
+            return;
+        }
+
+        try {
+            // Helper to ensure polygon is closed
+            const ensureClosed = (geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): GeoJSON.Polygon | GeoJSON.MultiPolygon => {
+                if (geometry.type === 'Polygon') {
+                    if (!Array.isArray(geometry.coordinates)) {
+                        return geometry;
+                    }
+                    const closedCoordinates = geometry.coordinates.map((ring) => {
+                        if (!Array.isArray(ring) || ring.length === 0) {
+                            return ring;
+                        }
+                        const first = ring[0];
+                        const last = ring[ring.length - 1];
+                        if (!Array.isArray(first) || !Array.isArray(last)) {
+                            return ring;
+                        }
+                        if (first[0] === last[0] && first[1] === last[1]) {
+                            return ring;
+                        }
+                        return [...ring, [first[0], first[1]]];
+                    });
+                    return { type: 'Polygon', coordinates: closedCoordinates };
+                } else {
+                    if (!Array.isArray(geometry.coordinates)) {
+                        return geometry;
+                    }
+                    const closedCoordinates = geometry.coordinates.map((polygon) => {
+                        if (!Array.isArray(polygon)) {
+                            return polygon;
+                        }
+                        return polygon.map((ring) => {
+                            if (!Array.isArray(ring) || ring.length === 0) {
+                                return ring;
+                            }
+                            const first = ring[0];
+                            const last = ring[ring.length - 1];
+                            if (!Array.isArray(first) || !Array.isArray(last)) {
+                                return ring;
+                            }
+                            if (first[0] === last[0] && first[1] === last[1]) {
+                                return ring;
+                            }
+                            return [...ring, [first[0], first[1]]];
+                        });
+                    });
+                    return { type: 'MultiPolygon', coordinates: closedCoordinates };
+                }
+            };
+
+            const closedGeometry = ensureClosed(municipalityBoundary.geometry);
+            const featureObj = feature(closedGeometry);
+            const bounds = bbox(featureObj);
+            const leafletBounds = L.latLngBounds(
+                [bounds[1], bounds[0]], // Southwest
+                [bounds[3], bounds[2]]  // Northeast
+            );
+            
+            if (leafletBounds.isValid()) {
+                map.fitBounds(leafletBounds, { padding: [50, 50], maxZoom: 18 });
+            }
+        } catch (error) {
+            console.error('Error fitting map to municipality boundary:', error);
+        }
+    }, [map, municipalityBoundary]);
 
     return null;
 }
 
 export default function ZoningMap() {
+    // Get CSRF token from Inertia shared props and cache it
+    const page = usePage<SharedData>();
+    useEffect(() => {
+        if (page.props.csrf_token) {
+            setCsrfToken(page.props.csrf_token);
+        }
+    }, [page.props.csrf_token]);
+
     const [sidebarOpen, setSidebarOpen] = useState(() => {
         if (typeof window !== 'undefined') {
             return window.innerWidth >= 1024;
@@ -642,8 +1051,8 @@ export default function ZoningMap() {
     const [barangayBoundaries, setBarangayBoundaries] = useState<Zone[]>([]);
     const [selectedBarangay, setSelectedBarangay] = useState<Zone | null>(null);
     const [editMode, setEditMode] = useState<'zoning' | 'municipal' | 'barangay'>('zoning');
-    const mapCenter: [number, number] = [14.5995, 120.9842]; // Default to Manila
-    const mapZoom = 16;
+    const [mapCenter, setMapCenter] = useState<[number, number]>([14.5995, 120.9842]); // Default to Manila
+    const mapZoom = 18;
 
     // Load zones and classifications on mount
     useEffect(() => {
@@ -654,11 +1063,79 @@ export default function ZoningMap() {
         loadBarangayBoundaries();
     }, []);
 
+    // Helper function to ensure polygon rings are closed
+    const ensureClosedPolygon = (geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): GeoJSON.Polygon | GeoJSON.MultiPolygon => {
+        if (geometry.type === 'Polygon') {
+            if (!Array.isArray(geometry.coordinates)) {
+                return geometry;
+            }
+            const closedCoordinates = geometry.coordinates.map((ring) => {
+                if (!Array.isArray(ring) || ring.length === 0) {
+                    return ring;
+                }
+                const first = ring[0];
+                const last = ring[ring.length - 1];
+                if (!Array.isArray(first) || !Array.isArray(last)) {
+                    return ring;
+                }
+                if (first[0] === last[0] && first[1] === last[1]) {
+                    return ring;
+                }
+                return [...ring, [first[0], first[1]]];
+            });
+            return {
+                type: 'Polygon',
+                coordinates: closedCoordinates,
+            };
+        } else {
+            if (!Array.isArray(geometry.coordinates)) {
+                return geometry;
+            }
+            const closedCoordinates = geometry.coordinates.map((polygon) => {
+                if (!Array.isArray(polygon)) {
+                    return polygon;
+                }
+                return polygon.map((ring) => {
+                    if (!Array.isArray(ring) || ring.length === 0) {
+                        return ring;
+                    }
+                    const first = ring[0];
+                    const last = ring[ring.length - 1];
+                    if (!Array.isArray(first) || !Array.isArray(last)) {
+                        return ring;
+                    }
+                    if (first[0] === last[0] && first[1] === last[1]) {
+                        return ring;
+                    }
+                    return [...ring, [first[0], first[1]]];
+                });
+            });
+            return {
+                type: 'MultiPolygon',
+                coordinates: closedCoordinates,
+            };
+        }
+    };
+
     // Load municipal boundary
     const loadMunicipalBoundary = async () => {
         try {
             const boundary = await getMunicipalBoundary();
             setMunicipalityBoundary(boundary || null);
+            
+            // Calculate center from municipality boundary if available
+            if (boundary && boundary.geometry) {
+                try {
+                    const closedGeometry = ensureClosedPolygon(boundary.geometry);
+                    const featureObj = closedGeometry.type === 'Polygon'
+                        ? feature(closedGeometry)
+                        : feature(closedGeometry);
+                    const centroidPoint = centroid(featureObj);
+                    setMapCenter([centroidPoint.geometry.coordinates[1], centroidPoint.geometry.coordinates[0]]);
+                } catch (error) {
+                    console.error('Error calculating municipality boundary center:', error);
+                }
+            }
         } catch (error) {
             console.error('Failed to load municipal boundary:', error);
         }
@@ -868,6 +1345,7 @@ export default function ZoningMap() {
     const handlePolygonEdited = useCallback(
         async (layers: L.LayerGroup) => {
             if (!selectedZone || !selectedZone.geometry) {
+                console.warn('handlePolygonEdited: No selected zone or geometry');
                 return;
             }
 
@@ -880,19 +1358,43 @@ export default function ZoningMap() {
                 });
 
                 if (editedLayers.length === 0) {
+                    console.warn('handlePolygonEdited: No edited layers found');
+                    setSaving(false);
                     return;
                 }
 
                 // Convert edited layers to geometry
                 const geometries: GeoJSON.Polygon[] = [];
                 for (const layer of editedLayers) {
-                    const geometry = leafletToGeoJSON(layer);
-                    if (geometry && geometry.type === 'Polygon') {
-                        geometries.push(geometry);
+                    try {
+                        const geometry = leafletToGeoJSON(layer);
+                        if (geometry) {
+                            if (geometry.type === 'Polygon') {
+                                geometries.push(geometry);
+                            } else if (geometry.type === 'MultiPolygon') {
+                                // Extract individual polygons from MultiPolygon
+                                const multiPoly = geometry as GeoJSON.MultiPolygon;
+                                multiPoly.coordinates.forEach((coords) => {
+                                    geometries.push({
+                                        type: 'Polygon',
+                                        coordinates: coords,
+                                    });
+                                });
+                            } else {
+                                console.warn('handlePolygonEdited: Unsupported geometry type:', geometry.type);
+                            }
+                        } else {
+                            console.warn('handlePolygonEdited: Failed to convert layer to GeoJSON');
+                        }
+                    } catch (err) {
+                        console.error('handlePolygonEdited: Error converting layer to GeoJSON:', err, layer);
                     }
                 }
 
                 if (geometries.length === 0) {
+                    console.error('handlePolygonEdited: No valid geometries found after conversion');
+                    showError('Failed to process edited geometry. Please try again.');
+                    setSaving(false);
                     return;
                 }
 
@@ -993,8 +1495,9 @@ export default function ZoningMap() {
                 await loadAllZonesForMap();
                 showSuccess('Zone boundaries updated successfully');
             } catch (error) {
-                showError('Failed to update zone boundaries');
-                console.error(error);
+                console.error('handlePolygonEdited: Error updating zone:', error);
+                const errorMessage = error instanceof Error ? error.message : 'Failed to update zone boundaries';
+                showError(errorMessage);
             } finally {
                 setSaving(false);
             }
@@ -1544,23 +2047,27 @@ export default function ZoningMap() {
                                     setMapFocusKey(Date.now());
                                     setIsDrawing(false);
                                     if (startEdit) {
-                                        // Edit button clicked - activate edit mode directly
+                                        // Edit button clicked - open modal for editing
                                         setShouldShowPopup(false);
-                                        setShowZoneDetailsPanel(false);
-                                        // Use setTimeout to ensure state is updated before activating edit mode
-                                        setTimeout(() => {
-                                            if (z.geometry) {
-                                                setIsEditing(true);
-                                            } else {
-                                                setIsDrawing(true);
-                                            }
-                                        }, 0);
+                                        setShowZoneDetailsPanel(true);
+                                        setIsEditing(false);
                                     } else {
                                         // Clicking on map polygon shows popup and info panel
                                         setShouldShowPopup(true);
                                         setShowZoneDetailsPanel(true);
                                         setIsEditing(false);
                                     }
+                                }}
+                                onSelectBarangay={(barangay) => {
+                                    if (editMode === 'zoning') {
+                                        setSelectedBarangay(barangay);
+                                        setSelectedClassification(null); // Clear classification when barangay changes
+                                    }
+                                }}
+                                onEditCancel={() => {
+                                    // Exit edit mode when cancel is clicked
+                                    setIsEditing(false);
+                                    setShowZoneDetailsPanel(true); // Show panel again after canceling edit
                                 }}
                             />
                         </MapContainer>

@@ -78,8 +78,43 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}', [\App\Http\Controllers\SubdivisionApplicationController::class, 'show'])->name('show');
     });
 
-    // Zones API for frontend zone detection and map rendering
+    // Zones API for frontend zone detection and map rendering (authenticated)
     Route::get('/api/zones', [\App\Http\Controllers\Admin\ZoneController::class, 'getAllZones'])->name('zones.all');
+});
+
+// Public routes (no authentication required)
+Route::get('/api/zones/public', [\App\Http\Controllers\Admin\ZoneController::class, 'getAllZones'])->name('zones.public');
+Route::get('/api/classifications/public', function (Request $request) {
+    $query = \App\Models\ZoningClassification::query();
+
+    if ($request->has('active_only') && $request->active_only) {
+        $query->active();
+    }
+
+    $classifications = $query->orderBy('code', 'asc')->get()->map(function ($classification) {
+        return [
+            'id' => (string) $classification->id,
+            'code' => $classification->code,
+            'name' => $classification->name,
+            'description' => $classification->description,
+            'allowed_uses' => $classification->allowed_uses,
+            'color' => $classification->color,
+            'is_active' => $classification->is_active,
+        ];
+    });
+
+    return response()->json([
+        'success' => true,
+        'data' => $classifications,
+    ]);
+})->name('classifications.public');
+
+// Public user zoning map route
+Route::get('/zoning-map', function () {
+    return Inertia::render('User/ZoningMap');
+})->name('zoning-map');
+
+Route::middleware('auth')->group(function () {
 
     // Prerequisite verification (before application submission)
     Route::post('/api/verify-prerequisites', [\App\Http\Controllers\PrerequisiteVerificationController::class, 'verify'])->name('prerequisites.verify');
@@ -150,6 +185,14 @@ Route::middleware('auth')->group(function () {
         Route::put('/{id}', [HousingBeneficiaryController::class, 'update'])->name('update');
         Route::post('/{id}/documents', [HousingBeneficiaryController::class, 'uploadDocuments'])->name('uploadDocuments');
         Route::post('/{id}/documents/{documentId}/replace', [HousingBeneficiaryController::class, 'replaceDocument'])->name('replaceDocument');
+        Route::post('/{id}/award/accept', [HousingBeneficiaryController::class, 'acceptAward'])->name('award.accept');
+        Route::post('/{id}/award/decline', [HousingBeneficiaryController::class, 'declineAward'])->name('award.decline');
+    });
+
+    // Beneficiary Profile routes (user-facing)
+    Route::prefix('beneficiary/profile')->name('beneficiary.profile.')->group(function () {
+        Route::get('/', [HousingBeneficiaryController::class, 'showProfile'])->name('show');
+        Route::patch('/', [HousingBeneficiaryController::class, 'updateProfile'])->name('update');
     });
 
     // Complaints (for citizens)
@@ -254,6 +297,9 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
                 Route::post('/{id}/request-documents', [AdminHousingBeneficiaryController::class, 'requestDocuments'])->name('requestDocuments');
                 Route::patch('/{id}/documents/{documentId}/approve', [AdminHousingBeneficiaryController::class, 'approveDocument'])->name('documents.approve');
                 Route::patch('/{id}/documents/{documentId}/reject', [AdminHousingBeneficiaryController::class, 'rejectDocument'])->name('documents.reject');
+                Route::post('/{id}/assign-case-officer', [AdminHousingBeneficiaryController::class, 'assignCaseOfficer'])->name('assignCaseOfficer');
+                Route::post('/{id}/auto-assign-case-officer', [AdminHousingBeneficiaryController::class, 'autoAssignCaseOfficer'])->name('autoAssignCaseOfficer');
+                Route::get('/case-officers/workload', [AdminHousingBeneficiaryController::class, 'getCaseOfficerWorkload'])->name('caseOfficers.workload');
             });
 
             // Site Visits
@@ -311,14 +357,27 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
             });
 
             Route::prefix('beneficiaries')->name('beneficiaries.')->group(function () {
-                Route::get('/', function () {
-                    return Inertia::render('Admin/Housing/BeneficiariesIndex');
-                })->name('index');
+                Route::get('/', [\App\Http\Controllers\Admin\BeneficiaryController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\BeneficiaryController::class, 'show'])->name('show');
+                Route::patch('/{id}/sectors', [\App\Http\Controllers\Admin\BeneficiaryController::class, 'updateSectors'])->name('updateSectors');
+                Route::post('/{id}/auto-detect-sectors', [\App\Http\Controllers\Admin\BeneficiaryController::class, 'autoDetectSectors'])->name('autoDetectSectors');
+                Route::patch('/{id}/status', [\App\Http\Controllers\Admin\BeneficiaryController::class, 'updateStatus'])->name('updateStatus');
+                Route::post('/{id}/archive', [\App\Http\Controllers\Admin\BeneficiaryController::class, 'archive'])->name('archive');
+                Route::post('/{id}/restore', [\App\Http\Controllers\Admin\BeneficiaryController::class, 'restore'])->name('restore');
             });
 
             Route::get('/reports', function () {
                 return Inertia::render('Admin/Housing/Reports');
             })->name('reports');
+
+            // Awards
+            Route::prefix('awards')->name('awards.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\AwardController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\AwardController::class, 'show'])->name('show');
+                Route::post('/{id}/approve', [\App\Http\Controllers\Admin\AwardController::class, 'approve'])->name('approve');
+                Route::post('/{id}/reject', [\App\Http\Controllers\Admin\AwardController::class, 'reject'])->name('reject');
+                Route::post('/{id}/schedule-turnover', [\App\Http\Controllers\Admin\AwardController::class, 'scheduleTurnover'])->name('scheduleTurnover');
+            });
         });
 
         // Subdivision & Building Review routes

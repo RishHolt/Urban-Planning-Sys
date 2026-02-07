@@ -1,7 +1,8 @@
 import { router, useForm, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
-import { getCsrfToken } from '../../../data/services';
+import { getCsrfToken, setCsrfToken } from '../../../data/services';
+import type { SharedData } from '../../../types';
 import AdminContentCard from '../../../components/AdminContentCard';
 import Button from '../../../components/Button';
 import AdminDocumentViewerModal from '../../../components/AdminDocumentViewerModal';
@@ -91,6 +92,18 @@ interface ApplicationDetailsProps {
         eligibility_status: string;
         eligibility_remarks: string | null;
         denial_reason: string | null;
+        case_officer_id: number | null;
+        case_officer: {
+            id: number;
+            name: string;
+            email: string;
+        } | null;
+        project_id: number | null;
+        project: {
+            id: number;
+            project_name: string;
+            project_code: string;
+        } | null;
         submitted_at: string | null;
         reviewed_at: string | null;
         approved_at: string | null;
@@ -100,13 +113,45 @@ interface ApplicationDetailsProps {
             first_name: string;
             middle_name: string | null;
             last_name: string;
+            suffix?: string | null;
+            full_name?: string;
+            birth_date?: string | null;
+            age?: number | null;
+            gender?: string;
+            civil_status?: string;
             email: string;
             contact_number: string;
+            mobile_number?: string | null;
+            telephone_number?: string | null;
             current_address: string;
+            address?: string | null;
+            street?: string | null;
             barangay: string;
+            city?: string | null;
+            province?: string | null;
+            zip_code?: string | null;
+            years_of_residency?: number | null;
+            employment_status?: string;
+            occupation?: string | null;
+            employer_name?: string | null;
+            monthly_income?: number | null;
+            household_income?: number | null;
+            has_existing_property?: boolean;
             priority_status: string;
             priority_id_no: string | null;
+            sector_tags?: string[];
         };
+        household_members?: Array<{
+            id: string;
+            full_name: string;
+            relationship: string;
+            birth_date: string | null;
+            age: number | null;
+            gender: string;
+            occupation: string | null;
+            monthly_income: number;
+            is_dependent: boolean;
+        }>;
         documents: Document[];
         document_summary?: {
             total_uploaded: number;
@@ -121,10 +166,24 @@ interface ApplicationDetailsProps {
         allocation: Allocation | null;
         allocation_history: AllocationHistory[];
     };
+    case_officers?: Array<{
+        id: number;
+        name: string;
+        email: string;
+        role: string;
+    }>;
 }
 
-export default function ApplicationDetails({ application }: ApplicationDetailsProps) {
-    const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
+export default function ApplicationDetails({ application, case_officers = [] }: ApplicationDetailsProps) {
+    const page = usePage<SharedData>();
+    const { flash } = page.props;
+    
+    // Set CSRF token from Inertia shared props
+    useEffect(() => {
+        if (page.props.csrf_token) {
+            setCsrfToken(page.props.csrf_token);
+        }
+    }, [page.props.csrf_token]);
     const [showSiteVisitModal, setShowSiteVisitModal] = useState(false);
     const [showEligibilityModal, setShowEligibilityModal] = useState(false);
     const [showValidationModal, setShowValidationModal] = useState(false);
@@ -141,6 +200,8 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
     const [eligibilityResult, setEligibilityResult] = useState<any>(null);
     const [loadingValidation, setLoadingValidation] = useState(false);
     const [loadingEligibility, setLoadingEligibility] = useState(false);
+    const [validationError, setValidationError] = useState<string | null>(null);
+    const [eligibilityError, setEligibilityError] = useState<string | null>(null);
 
     const { data: statusData, setData: setStatusData, patch, processing: statusProcessing } = useForm({
         application_status: application.application_status,
@@ -160,6 +221,10 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         findings: '',
         recommendation: 'eligible' as 'eligible' | 'not_eligible' | 'needs_followup',
         remarks: '',
+    });
+
+    const { data: caseOfficerData, setData: setCaseOfficerData, post: postCaseOfficer, processing: caseOfficerProcessing } = useForm({
+        case_officer_id: application.case_officer_id || '',
     });
 
     const formatDate = (dateString: string | null): string => {
@@ -276,6 +341,25 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
             preserveScroll: true,
             onSuccess: () => {
                 setShowEligibilityModal(false);
+                router.reload({ only: ['application'] });
+            },
+        });
+    };
+
+    const handleMarkEligible = () => {
+        // Use router.patch directly with the data
+        router.patch(`/admin/housing/applications/${application.id}/status`, {
+            application_status: 'eligible',
+            eligibility_status: 'eligible',
+            eligibility_remarks: statusData.eligibility_remarks || 'Application marked as eligible after review.',
+            denial_reason: '',
+        }, {
+            preserveScroll: false,
+            onSuccess: () => {
+                router.reload({ only: ['application'] });
+            },
+            onError: (errors) => {
+                console.error('Error marking as eligible:', errors);
             },
         });
     };
@@ -330,21 +414,48 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         });
     };
 
+    const handleAssignCaseOfficer = (e: React.FormEvent) => {
+        e.preventDefault();
+        postCaseOfficer(`/admin/housing/applications/${application.id}/assign-case-officer`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                router.reload({ only: ['application'] });
+            },
+        });
+    };
+
+    const handleAutoAssignCaseOfficer = () => {
+        router.post(`/admin/housing/applications/${application.id}/auto-assign-case-officer`, {}, {
+            preserveScroll: true,
+            onSuccess: () => {
+                router.reload({ only: ['application'] });
+            },
+        });
+    };
+
     const canScheduleSiteVisit = ['under_review', 'submitted'].includes(application.application_status);
-    const canMarkEligibility = ['site_visit_completed', 'under_review'].includes(application.application_status);
+    // Only allow marking eligibility after a site visit has been completed
     const hasCompletedSiteVisit = application.site_visits.some(v => v.status === 'completed');
+    const canMarkEligibility = hasCompletedSiteVisit || application.application_status === 'site_visit_completed';
 
     const handleValidateApplication = async () => {
         setLoadingValidation(true);
         setValidationError(null);
         try {
+            const csrfToken = getCsrfToken();
+            if (!csrfToken) {
+                throw new Error('CSRF token not available. Please refresh the page and try again.');
+            }
+
             const response = await fetch(`/admin/housing/applications/${application.id}/validate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
+                credentials: 'include',
             });
 
             if (!response.ok) {
@@ -394,13 +505,20 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
         setLoadingEligibility(true);
         setEligibilityError(null);
         try {
+            const csrfToken = getCsrfToken();
+            if (!csrfToken) {
+                throw new Error('CSRF token not available. Please refresh the page and try again.');
+            }
+
             const response = await fetch(`/admin/housing/applications/${application.id}/check-eligibility`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
+                credentials: 'include',
                 body: JSON.stringify({ auto_update: autoUpdate }),
             });
 
@@ -446,6 +564,16 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
             {flash?.error && (
                 <div className="mb-6 p-4 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-lg">
                     {flash.error}
+                </div>
+            )}
+            {validationError && (
+                <div className="mb-6 p-4 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-lg">
+                    <strong>Validation Error:</strong> {validationError}
+                </div>
+            )}
+            {eligibilityError && (
+                <div className="mb-6 p-4 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-lg">
+                    <strong>Eligibility Check Error:</strong> {eligibilityError}
                 </div>
             )}
 
@@ -501,14 +629,78 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                         {canMarkEligibility && (
                             <Button
                                 variant="primary"
-                                onClick={() => setShowEligibilityModal(true)}
+                                onClick={handleMarkEligible}
+                                disabled={statusProcessing}
                                 className="flex items-center gap-2"
                             >
                                 <CheckCircle size={18} />
-                                Mark Eligibility
+                                {statusProcessing ? 'Marking...' : 'Mark as Eligible'}
                             </Button>
                         )}
                     </div>
+                </AdminContentCard>
+
+                {/* Case Officer Assignment */}
+                <AdminContentCard padding="lg">
+                    <div className="flex justify-between items-start mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <User size={20} />
+                            Case Officer Assignment
+                        </h3>
+                    </div>
+                    {application.case_officer ? (
+                        <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Assigned Case Officer</p>
+                                    <p className="text-lg font-semibold text-gray-900 dark:text-white">{application.case_officer.name}</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">{application.case_officer.email}</p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800 mb-4">
+                            <p className="text-sm text-yellow-800 dark:text-yellow-200">No case officer assigned yet.</p>
+                        </div>
+                    )}
+                    <form onSubmit={handleAssignCaseOfficer} className="space-y-4">
+                        <div>
+                            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Assign Case Officer
+                            </label>
+                            <div className="flex gap-3">
+                                <select
+                                    value={caseOfficerData.case_officer_id}
+                                    onChange={(e) => setCaseOfficerData('case_officer_id', e.target.value)}
+                                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                                >
+                                    <option value="">Select Case Officer</option>
+                                    {case_officers.map((officer) => (
+                                        <option key={officer.id} value={officer.id}>
+                                            {officer.name} ({officer.email}) - {officer.role}
+                                        </option>
+                                    ))}
+                                </select>
+                                <Button
+                                    type="submit"
+                                    variant="primary"
+                                    disabled={!caseOfficerData.case_officer_id || caseOfficerProcessing}
+                                    className="flex items-center gap-2"
+                                >
+                                    {caseOfficerProcessing ? 'Assigning...' : 'Assign'}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={handleAutoAssignCaseOfficer}
+                                    disabled={case_officers.length === 0}
+                                    className="flex items-center gap-2"
+                                >
+                                    Auto Assign
+                                </Button>
+                            </div>
+                        </div>
+                    </form>
                 </AdminContentCard>
 
                 {/* Tabs for Application Details */}
@@ -529,9 +721,31 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                         <div>
                             <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Full Name</label>
                             <p className="text-gray-900 dark:text-white">
-                                {application.beneficiary.first_name} {application.beneficiary.middle_name} {application.beneficiary.last_name}
+                                {application.beneficiary.full_name || `${application.beneficiary.first_name} ${application.beneficiary.middle_name || ''} ${application.beneficiary.last_name}`.trim()}
+                                {application.beneficiary.suffix && ` ${application.beneficiary.suffix}`}
                             </p>
                         </div>
+                        {application.beneficiary.birth_date && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Birth Date</label>
+                                <p className="text-gray-900 dark:text-white">
+                                    {formatDate(application.beneficiary.birth_date)}
+                                    {application.beneficiary.age && ` (Age: ${application.beneficiary.age})`}
+                                </p>
+                            </div>
+                        )}
+                        {application.beneficiary.gender && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Gender</label>
+                                <p className="text-gray-900 dark:text-white capitalize">{application.beneficiary.gender}</p>
+                            </div>
+                        )}
+                        {application.beneficiary.civil_status && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Civil Status</label>
+                                <p className="text-gray-900 dark:text-white capitalize">{application.beneficiary.civil_status.replace('_', ' ')}</p>
+                            </div>
+                        )}
                         <div className="flex items-center gap-2">
                             <Mail size={16} className="text-gray-400" />
                             <div>
@@ -543,20 +757,68 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             <Phone size={16} className="text-gray-400" />
                             <div>
                                 <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Contact Number</label>
-                                <p className="text-gray-900 dark:text-white">{application.beneficiary.contact_number}</p>
+                                <p className="text-gray-900 dark:text-white">
+                                    {application.beneficiary.mobile_number || application.beneficiary.contact_number}
+                                    {application.beneficiary.telephone_number && ` / ${application.beneficiary.telephone_number}`}
+                                </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 md:col-span-2">
                             <MapPin size={16} className="text-gray-400" />
-                            <div>
+                            <div className="flex-1">
                                 <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Current Address</label>
-                                <p className="text-gray-900 dark:text-white">{application.beneficiary.current_address}</p>
+                                <p className="text-gray-900 dark:text-white">
+                                    {application.beneficiary.current_address || application.beneficiary.address}
+                                    {application.beneficiary.street && `, ${application.beneficiary.street}`}
+                                    {application.beneficiary.barangay && `, ${application.beneficiary.barangay}`}
+                                    {application.beneficiary.city && `, ${application.beneficiary.city}`}
+                                    {application.beneficiary.province && `, ${application.beneficiary.province}`}
+                                    {application.beneficiary.zip_code && ` ${application.beneficiary.zip_code}`}
+                                </p>
                             </div>
                         </div>
-                        <div>
-                            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Barangay</label>
-                            <p className="text-gray-900 dark:text-white">{application.beneficiary.barangay}</p>
-                        </div>
+                        {application.beneficiary.years_of_residency !== null && application.beneficiary.years_of_residency !== undefined && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Years of Residency</label>
+                                <p className="text-gray-900 dark:text-white">{application.beneficiary.years_of_residency} years</p>
+                            </div>
+                        )}
+                        {application.beneficiary.employment_status && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Employment Status</label>
+                                <p className="text-gray-900 dark:text-white capitalize">{application.beneficiary.employment_status.replace('_', ' ')}</p>
+                            </div>
+                        )}
+                        {application.beneficiary.occupation && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Occupation</label>
+                                <p className="text-gray-900 dark:text-white">{application.beneficiary.occupation}</p>
+                            </div>
+                        )}
+                        {application.beneficiary.employer_name && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Employer</label>
+                                <p className="text-gray-900 dark:text-white">{application.beneficiary.employer_name}</p>
+                            </div>
+                        )}
+                        {application.beneficiary.monthly_income !== null && application.beneficiary.monthly_income !== undefined && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Monthly Income</label>
+                                <p className="text-gray-900 dark:text-white">₱{application.beneficiary.monthly_income.toLocaleString()}</p>
+                            </div>
+                        )}
+                        {application.beneficiary.household_income !== null && application.beneficiary.household_income !== undefined && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Household Income</label>
+                                <p className="text-gray-900 dark:text-white">₱{application.beneficiary.household_income.toLocaleString()}</p>
+                            </div>
+                        )}
+                        {application.beneficiary.has_existing_property !== undefined && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Has Existing Property</label>
+                                <p className="text-gray-900 dark:text-white">{application.beneficiary.has_existing_property ? 'Yes' : 'No'}</p>
+                            </div>
+                        )}
                         <div>
                             <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Priority Status</label>
                             <p className="text-gray-900 dark:text-white capitalize">{application.beneficiary.priority_status.replace('_', ' ')}</p>
@@ -567,7 +829,45 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                 <p className="text-gray-900 dark:text-white">{application.beneficiary.priority_id_no}</p>
                             </div>
                         )}
+                        {application.beneficiary.sector_tags && application.beneficiary.sector_tags.length > 0 && (
+                            <div className="md:col-span-2">
+                                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Sectors</label>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    {application.beneficiary.sector_tags.map((sector: string, index: number) => (
+                                        <span key={index} className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs capitalize">
+                                            {sector.replace('_', ' ')}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
+                    {application.household_members && application.household_members.length > 0 && (
+                        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Household Members</h4>
+                            <div className="space-y-3">
+                                {application.household_members.map((member) => (
+                                    <div key={member.id} className="p-3 bg-gray-50 dark:bg-dark-bg rounded-lg border border-gray-200 dark:border-gray-700">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                                            <div>
+                                                <span className="font-medium text-gray-900 dark:text-white">{member.full_name}</span>
+                                                <span className="text-gray-600 dark:text-gray-400 ml-2">({member.relationship})</span>
+                                            </div>
+                                            <div className="text-gray-600 dark:text-gray-400">
+                                                {member.birth_date && `Born: ${formatDate(member.birth_date)}`}
+                                                {member.age !== null && ` (Age: ${member.age})`}
+                                            </div>
+                                            <div className="text-gray-600 dark:text-gray-400">
+                                                {member.occupation && `Occupation: ${member.occupation}`}
+                                                {member.monthly_income > 0 && ` | Income: ₱${member.monthly_income.toLocaleString()}`}
+                                                {member.is_dependent && <span className="ml-2 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-0.5 rounded">Dependent</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </AdminContentCard>
 
                         {/* Application Details */}
@@ -827,7 +1127,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                 )}
 
                 {/* Status Update Section */}
-                <AdminContentCard padding="lg">
+                <AdminContentCard padding="lg" id="status-update-form">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Update Status</h3>
                     <form onSubmit={handleStatusUpdate}>
                         <div className="space-y-4">
@@ -901,19 +1201,36 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
 
             {/* Site Visit Scheduling Modal */}
             {showSiteVisitModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-dark-surface rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Schedule Site Visit</h3>
+                <div
+                    className="z-50 fixed inset-0 flex justify-center items-center bg-black/50 backdrop-blur-sm p-4"
+                    onClick={() => setShowSiteVisitModal(false)}
+                >
+                    <div
+                        className="relative flex flex-col bg-white dark:bg-dark-surface shadow-2xl rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="top-0 z-10 sticky flex justify-between items-center bg-white dark:bg-dark-surface px-6 py-4 border-gray-200 dark:border-gray-700 border-b">
+                            <div>
+                                <h2 className="font-bold text-gray-900 dark:text-white text-xl">
+                                    Schedule Site Visit
+                                </h2>
+                                <p className="mt-1 text-gray-500 dark:text-gray-400 text-sm">
+                                    Schedule a home verification visit
+                                </p>
+                            </div>
                             <button
                                 onClick={() => setShowSiteVisitModal(false)}
-                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+                                aria-label="Close modal"
                             >
-                                <X size={24} />
+                                <X size={24} className="text-gray-500 dark:text-gray-400" />
                             </button>
                         </div>
-                        <form onSubmit={handleScheduleSiteVisit}>
-                            <div className="space-y-4">
+
+                        {/* Scrollable Content */}
+                        <div className="flex-1 px-6 py-6 overflow-y-auto">
+                            <form onSubmit={handleScheduleSiteVisit} className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Scheduled Date
@@ -952,30 +1269,47 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                         Cancel
                                     </Button>
                                 </div>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}
 
             {/* Complete Site Visit Modal */}
             {showCompleteVisitModal !== null && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-dark-surface rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Complete Site Visit</h3>
+                <div
+                    className="z-50 fixed inset-0 flex justify-center items-center bg-black/50 backdrop-blur-sm p-4"
+                    onClick={() => setShowCompleteVisitModal(null)}
+                >
+                    <div
+                        className="relative flex flex-col bg-white dark:bg-dark-surface shadow-2xl rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="top-0 z-10 sticky flex justify-between items-center bg-white dark:bg-dark-surface px-6 py-4 border-gray-200 dark:border-gray-700 border-b">
+                            <div>
+                                <h2 className="font-bold text-gray-900 dark:text-white text-xl">
+                                    Complete Site Visit
+                                </h2>
+                                <p className="mt-1 text-gray-500 dark:text-gray-400 text-sm">
+                                    Record findings from the site visit
+                                </p>
+                            </div>
                             <button
                                 onClick={() => setShowCompleteVisitModal(null)}
-                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+                                aria-label="Close modal"
                             >
-                                <X size={24} />
+                                <X size={24} className="text-gray-500 dark:text-gray-400" />
                             </button>
                         </div>
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            handleCompleteVisit(showCompleteVisitModal);
-                        }}>
-                            <div className="space-y-4">
+
+                        {/* Scrollable Content */}
+                        <div className="flex-1 px-6 py-6 overflow-y-auto">
+                            <form onSubmit={(e) => {
+                                e.preventDefault();
+                                handleCompleteVisit(showCompleteVisitModal);
+                            }} className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Living Conditions <span className="text-red-500">*</span>
@@ -1042,8 +1376,8 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                         Cancel
                                     </Button>
                                 </div>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}
@@ -1065,26 +1399,47 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
 
             {/* Validation Results Modal */}
             {showValidationModal && validationResult && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-dark-surface rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Application Validation Results</h3>
+                <div
+                    className="z-50 fixed inset-0 flex justify-center items-center bg-black/50 backdrop-blur-sm p-4"
+                    onClick={() => {
+                        setShowValidationModal(false);
+                        setValidationError(null);
+                    }}
+                >
+                    <div
+                        className="relative flex flex-col bg-white dark:bg-dark-surface shadow-2xl rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="top-0 z-10 sticky flex justify-between items-center bg-white dark:bg-dark-surface px-6 py-4 border-gray-200 dark:border-gray-700 border-b">
+                            <div>
+                                <h2 className="font-bold text-gray-900 dark:text-white text-xl">
+                                    Application Validation Results
+                                </h2>
+                                <p className="mt-1 text-gray-500 dark:text-gray-400 text-sm">
+                                    Review validation assessment
+                                </p>
+                            </div>
                             <button
                                 onClick={() => {
                                     setShowValidationModal(false);
                                     setValidationError(null);
                                 }}
-                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+                                aria-label="Close modal"
                             >
-                                <X size={24} />
+                                <X size={24} className="text-gray-500 dark:text-gray-400" />
                             </button>
                         </div>
-                        {validationError && (
-                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                                <p className="text-sm text-red-800 dark:text-red-200">{validationError}</p>
-                            </div>
-                        )}
-                        <div className="space-y-4">
+
+                        {/* Scrollable Content */}
+                        <div className="flex-1 px-6 py-6 overflow-y-auto">
+                            {validationError && (
+                                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                    <p className="text-sm text-red-800 dark:text-red-200">{validationError}</p>
+                                </div>
+                            )}
+                            <div className="space-y-4">
                             <div className={`p-4 rounded-lg ${
                                 validationResult.is_valid
                                     ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
@@ -1163,6 +1518,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             >
                                 Close
                             </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1170,26 +1526,47 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
 
             {/* Eligibility Check Results Modal */}
             {showEligibilityCheckModal && eligibilityResult && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-dark-surface rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Eligibility Check Results</h3>
+                <div
+                    className="z-50 fixed inset-0 flex justify-center items-center bg-black/50 backdrop-blur-sm p-4"
+                    onClick={() => {
+                        setShowEligibilityCheckModal(false);
+                        setEligibilityError(null);
+                    }}
+                >
+                    <div
+                        className="relative flex flex-col bg-white dark:bg-dark-surface shadow-2xl rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="top-0 z-10 sticky flex justify-between items-center bg-white dark:bg-dark-surface px-6 py-4 border-gray-200 dark:border-gray-700 border-b">
+                            <div>
+                                <h2 className="font-bold text-gray-900 dark:text-white text-xl">
+                                    Eligibility Check Results
+                                </h2>
+                                <p className="mt-1 text-gray-500 dark:text-gray-400 text-sm">
+                                    Review eligibility assessment
+                                </p>
+                            </div>
                             <button
                                 onClick={() => {
                                     setShowEligibilityCheckModal(false);
                                     setEligibilityError(null);
                                 }}
-                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                className="hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors"
+                                aria-label="Close modal"
                             >
-                                <X size={24} />
+                                <X size={24} className="text-gray-500 dark:text-gray-400" />
                             </button>
                         </div>
-                        {eligibilityError && (
-                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                                <p className="text-sm text-red-800 dark:text-red-200">{eligibilityError}</p>
-                            </div>
-                        )}
-                        <div className="space-y-4">
+
+                        {/* Scrollable Content */}
+                        <div className="flex-1 px-6 py-6 overflow-y-auto">
+                            {eligibilityError && (
+                                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                    <p className="text-sm text-red-800 dark:text-red-200">{eligibilityError}</p>
+                                </div>
+                            )}
+                            <div className="space-y-4">
                             <div className={`p-4 rounded-lg ${
                                 eligibilityResult.is_eligible
                                     ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
@@ -1269,6 +1646,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                 >
                                     Close
                                 </Button>
+                            </div>
                             </div>
                         </div>
                     </div>

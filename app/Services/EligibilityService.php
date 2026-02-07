@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\BeneficiarySector;
 use App\DataTransferObjects\EligibilityResult;
 use App\Models\BeneficiaryApplication;
 
@@ -76,6 +77,16 @@ class EligibilityService
             $reasons = array_merge($reasons, $documentCheck['missing']);
         } else {
             $passedCriteria[] = 'documents';
+        }
+
+        // Check sector-based eligibility
+        $sectorCheck = $this->checkSectorEligibility($beneficiary, $program);
+        if (! $sectorCheck['eligible']) {
+            if (! empty($sectorCheck['reasons'])) {
+                $reasons = array_merge($reasons, $sectorCheck['reasons']);
+            }
+            // Sector eligibility is not a hard requirement, so we don't add to failedCriteria
+            // but we note it in the remarks
         }
 
         // Determine eligibility
@@ -168,5 +179,46 @@ class EligibilityService
         }
 
         return $remarks;
+    }
+
+    /**
+     * Check sector-based eligibility requirements.
+     */
+    protected function checkSectorEligibility($beneficiary, string $program): array
+    {
+        $sectors = $beneficiary->getSectors();
+        $reasons = [];
+        $eligible = true;
+
+        // Check if beneficiary has required sectors for the program
+        $requiredSectors = config("housing.eligibility_criteria.{$program}.required_sectors", []);
+
+        if (! empty($requiredSectors)) {
+            $hasRequiredSector = false;
+            foreach ($requiredSectors as $requiredSector) {
+                if ($beneficiary->hasSector(BeneficiarySector::from($requiredSector))) {
+                    $hasRequiredSector = true;
+                    break;
+                }
+            }
+
+            if (! $hasRequiredSector) {
+                $eligible = false;
+                $reasons[] = 'Beneficiary does not belong to any required sector for this program';
+            }
+        }
+
+        // Validate sector assignments
+        $sectorService = app(BeneficiarySectorService::class);
+        foreach ($sectors as $sector) {
+            if (! $sectorService->validateSector($beneficiary, $sector)) {
+                $reasons[] = "Sector '{$sector->label()}' validation failed - please verify supporting documents";
+            }
+        }
+
+        return [
+            'eligible' => $eligible,
+            'reasons' => $reasons,
+        ];
     }
 }

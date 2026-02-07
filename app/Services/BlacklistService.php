@@ -13,6 +13,11 @@ class BlacklistService
      */
     public function isBlacklisted(Beneficiary $beneficiary): bool
     {
+        // Only check if beneficiary has an ID
+        if (! $beneficiary->id) {
+            return false;
+        }
+
         return Blacklist::where('beneficiary_id', $beneficiary->id)
             ->where('status', 'active')
             ->exists();

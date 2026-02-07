@@ -16,9 +16,23 @@ class HousingBeneficiaryPriorityService
     public function calculatePriorityScore(BeneficiaryApplication $application): int
     {
         $beneficiary = $application->beneficiary;
+        $program = $application->housing_program;
 
-        // Priority status multiplier
-        $priorityMultiplier = $this->getPriorityMultiplier($beneficiary->priority_status);
+        // Get configurable weights
+        $weights = config("housing.priority_scoring.{$program}.weights", [
+            'priority_multiplier' => 100,
+            'income_factor' => 50,
+            'residency_factor' => 30,
+            'household_factor' => 20,
+            'sector_boost' => 25,
+        ]);
+
+        // Priority status multiplier (now uses sector-based multiplier)
+        $sectorService = app(BeneficiarySectorService::class);
+        $priorityMultiplier = $sectorService->getSectorPriorityMultiplier($beneficiary);
+        // Also consider legacy priority_status
+        $legacyMultiplier = $this->getPriorityMultiplier($beneficiary->priority_status);
+        $priorityMultiplier = max($priorityMultiplier, $legacyMultiplier);
 
         // Income factor (lower income = higher priority)
         $incomeFactor = $this->calculateIncomeFactor($beneficiary->monthly_income);
@@ -29,18 +43,42 @@ class HousingBeneficiaryPriorityService
         // Household size factor (larger household = higher priority)
         $householdFactor = $this->calculateHouseholdFactor($beneficiary);
 
-        // Days since application (earlier = higher priority)
-        $daysSinceApplication = Carbon::parse($application->submitted_at)->diffInDays(now());
+        // Sector boost (additional points for having multiple sectors)
+        $sectorBoost = $this->calculateSectorBoost($beneficiary);
 
-        // Calculate final score
-        $score = ($priorityMultiplier * 100)
-            + ($incomeFactor * 50)
-            + ($residencyFactor * 30)
-            + ($householdFactor * 20)
-            - $daysSinceApplication;
+        // Days since application (earlier = higher priority, but with diminishing returns)
+        $daysSinceApplication = Carbon::parse($application->submitted_at)->diffInDays(now());
+        $daysPenalty = min($daysSinceApplication, 365); // Cap at 1 year
+
+        // Calculate final score using configurable weights
+        $score = ($priorityMultiplier * ($weights['priority_multiplier'] ?? 100))
+            + ($incomeFactor * ($weights['income_factor'] ?? 50))
+            + ($residencyFactor * ($weights['residency_factor'] ?? 30))
+            + ($householdFactor * ($weights['household_factor'] ?? 20))
+            + ($sectorBoost * ($weights['sector_boost'] ?? 25))
+            - ($daysPenalty * 0.1); // Small penalty for waiting time
 
         // Ensure score is non-negative
         return max(0, (int) $score);
+    }
+
+    /**
+     * Calculate sector boost (additional points for multiple sectors).
+     */
+    protected function calculateSectorBoost(Beneficiary $beneficiary): float
+    {
+        $sectors = $beneficiary->getSectors();
+        $sectorCount = count($sectors);
+
+        // More sectors = higher boost, but with diminishing returns
+        return match ($sectorCount) {
+            0 => 0.0,
+            1 => 1.0,
+            2 => 2.5,
+            3 => 4.0,
+            4 => 5.5,
+            default => 6.0, // Cap at 4+ sectors
+        };
     }
 
     /**

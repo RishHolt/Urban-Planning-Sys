@@ -1,10 +1,11 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, useForm, usePage, router } from '@inertiajs/react';
 import Header from '../../../components/Header';
 import Footer from '../../../components/Footer';
 import Button from '../../../components/Button';
 import StatusBadge from '../../../components/StatusBadge';
 import ApplicationDetailsTabs, { TabPanel } from '../../../components/ApplicationDetailsTabs';
-import { ArrowLeft, CheckCircle, XCircle, Clock, User, Mail, Phone, MapPin, FileText, Eye, Download, Home, Calendar, List } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, User, Mail, Phone, MapPin, FileText, Eye, Download, Home, Calendar, List, Trophy, Upload, Edit, X, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
 
 interface Document {
     id: number;
@@ -47,6 +48,27 @@ interface Allocation {
     } | null;
 }
 
+interface Award {
+    id: string;
+    award_no: string;
+    award_date: string;
+    acceptance_deadline: string | null;
+    accepted_at: string | null;
+    status: string;
+    unit: {
+        unit_no: string;
+        project: {
+            project_name: string;
+        } | null;
+    } | null;
+}
+
+interface CaseOfficer {
+    id: number;
+    name: string;
+    email: string;
+}
+
 interface ApplicationDetailsProps {
     application: {
         id: string;
@@ -57,6 +79,7 @@ interface ApplicationDetailsProps {
         eligibility_status: string;
         eligibility_remarks: string | null;
         submitted_at: string | null;
+        case_officer: CaseOfficer | null;
         beneficiary: {
             beneficiary_no: string;
             first_name: string;
@@ -72,11 +95,74 @@ interface ApplicationDetailsProps {
         site_visits: SiteVisit[];
         waitlist: Waitlist | null;
         allocation: Allocation | null;
+        award: Award | null;
     };
 }
 
 export default function ApplicationDetails({ application }: ApplicationDetailsProps) {
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
+    const [showAcceptModal, setShowAcceptModal] = useState(false);
+    const [showDeclineModal, setShowDeclineModal] = useState(false);
+    const [showUploadModal, setShowUploadModal] = useState(false);
+    const [replacingDocumentId, setReplacingDocumentId] = useState<number | null>(null);
+
+    const acceptAwardForm = useForm({
+        remarks: '',
+    });
+
+    const declineAwardForm = useForm({
+        reason: '',
+    });
+
+    const uploadDocumentsForm = useForm({
+        documents: [] as Array<{ document_type: string; file: File | null }>,
+    });
+
+    const replaceDocumentForm = useForm({
+        file: null as File | null,
+    });
+
+    const handleAcceptAward = (e: React.FormEvent) => {
+        e.preventDefault();
+        acceptAwardForm.post(`/applications/housing/${application.id}/award/accept`, {
+            onSuccess: () => {
+                setShowAcceptModal(false);
+                acceptAwardForm.reset();
+            },
+        });
+    };
+
+    const handleDeclineAward = (e: React.FormEvent) => {
+        e.preventDefault();
+        declineAwardForm.post(`/applications/housing/${application.id}/award/decline`, {
+            onSuccess: () => {
+                setShowDeclineModal(false);
+                declineAwardForm.reset();
+            },
+        });
+    };
+
+    const handleUploadDocuments = (e: React.FormEvent) => {
+        e.preventDefault();
+        uploadDocumentsForm.post(`/applications/housing/${application.id}/documents`, {
+            forceFormData: true,
+            onSuccess: () => {
+                setShowUploadModal(false);
+                uploadDocumentsForm.reset();
+            },
+        });
+    };
+
+    const handleReplaceDocument = (documentId: number) => {
+        if (!replaceDocumentForm.data.file) return;
+        replaceDocumentForm.post(`/applications/housing/${application.id}/documents/${documentId}/replace`, {
+            forceFormData: true,
+            onSuccess: () => {
+                setReplacingDocumentId(null);
+                replaceDocumentForm.reset();
+            },
+        });
+    };
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -402,6 +488,71 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                 </section>
                             )}
 
+                            {/* Award Information */}
+                            {application.award && (
+                                <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                                    <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
+                                        <Trophy size={20} />
+                                        Housing Award
+                                    </h2>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-600 dark:text-gray-400">Award Number</span>
+                                            <span className="font-mono font-semibold text-gray-900 dark:text-white">
+                                                {application.award.award_no}
+                                            </span>
+                                        </div>
+                                        {application.award.unit && (
+                                            <div>
+                                                <p className="mb-1 text-gray-600 dark:text-gray-400">Assigned Unit</p>
+                                                <p className="font-semibold text-gray-900 dark:text-white">
+                                                    {application.award.unit.unit_no}
+                                                    {application.award.unit.project && ` - ${application.award.unit.project.project_name}`}
+                                                </p>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-600 dark:text-gray-400">Award Date</span>
+                                            <span className="font-semibold text-gray-900 dark:text-white">
+                                                {formatDate(application.award.award_date)}
+                                            </span>
+                                        </div>
+                                        {application.award.acceptance_deadline && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-600 dark:text-gray-400">Acceptance Deadline</span>
+                                                <span className={`font-semibold ${
+                                                    new Date(application.award.acceptance_deadline) < new Date()
+                                                        ? 'text-red-600 dark:text-red-400'
+                                                        : 'text-gray-900 dark:text-white'
+                                                }`}>
+                                                    {formatDate(application.award.acceptance_deadline)}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {application.award.accepted_at && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-600 dark:text-gray-400">Accepted On</span>
+                                                <span className="font-semibold text-gray-900 dark:text-white">
+                                                    {formatDate(application.award.accepted_at)}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-600 dark:text-gray-400">Status</span>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                                application.award.status === 'accepted'
+                                                    ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                                                    : application.award.status === 'declined' || application.award.status === 'cancelled'
+                                                    ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                                                    : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
+                                            }`}>
+                                                {application.award.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </section>
+                            )}
+
                             {/* Allocation Information */}
                             {application.allocation && (
                                 <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
@@ -511,6 +662,30 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
 
                         {/* Sidebar */}
                         <div className="space-y-6">
+                            {/* Case Officer Information */}
+                            {application.case_officer && (
+                                <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                                    <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
+                                        <User size={20} />
+                                        Case Officer
+                                    </h2>
+                                    <div className="space-y-2">
+                                        <div>
+                                            <p className="mb-1 text-gray-500 dark:text-gray-400 text-sm">Name</p>
+                                            <p className="font-medium text-gray-900 dark:text-white">
+                                                {application.case_officer.name}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="mb-1 text-gray-500 dark:text-gray-400 text-sm">Email</p>
+                                            <p className="font-medium text-gray-900 dark:text-white">
+                                                {application.case_officer.email}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </section>
+                            )}
+
                             {/* Application Info */}
                             <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
                                 <h2 className="mb-4 font-semibold text-gray-900 dark:text-white text-xl">

@@ -26,8 +26,12 @@ class BlacklistController extends Controller
 
         $query = Blacklist::with('beneficiary');
 
-        if ($request->has('status')) {
+        // Default to showing only active blacklist entries if no status filter is provided
+        if ($request->has('status') && $request->status !== '') {
             $query->where('status', $request->status);
+        } else {
+            // Default: show only active blacklist entries
+            $query->where('status', 'active');
         }
 
         $blacklist = $query->orderBy('blacklisted_date', 'desc')

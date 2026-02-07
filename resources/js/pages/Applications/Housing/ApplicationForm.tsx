@@ -50,7 +50,6 @@ export default function ApplicationForm() {
             barangay: '',
             yearsOfResidency: '',
             employmentStatus: '',
-            employerName: '',
             monthlyIncome: '',
             hasExistingProperty: false,
             priorityStatus: 'none',
@@ -89,7 +88,6 @@ export default function ApplicationForm() {
             'beneficiary.current_address': 'beneficiary.currentAddress',
             'beneficiary.years_of_residency': 'beneficiary.yearsOfResidency',
             'beneficiary.employment_status': 'beneficiary.employmentStatus',
-            'beneficiary.employer_name': 'beneficiary.employerName',
             'beneficiary.monthly_income': 'beneficiary.monthlyIncome',
             'beneficiary.has_existing_property': 'beneficiary.hasExistingProperty',
             'beneficiary.priority_status': 'beneficiary.priorityStatus',
@@ -276,7 +274,7 @@ export default function ApplicationForm() {
                     if (key.startsWith('beneficiary.contactNumber') || key.startsWith('beneficiary.email') ||
                         key.startsWith('beneficiary.currentAddress') || key.startsWith('beneficiary.barangay') ||
                         key.startsWith('beneficiary.yearsOfResidency')) return 2;
-                    if (key.startsWith('beneficiary.employmentStatus') || key.startsWith('beneficiary.employerName') ||
+                    if (key.startsWith('beneficiary.employmentStatus') ||
                         key.startsWith('beneficiary.monthlyIncome')) return 3;
                     if (key.startsWith('beneficiary.priorityStatus') || key.startsWith('beneficiary.priorityIdNo')) return 4;
                     if (key.startsWith('housing_program') || key.startsWith('application_reason')) return 6;
@@ -288,37 +286,41 @@ export default function ApplicationForm() {
             return;
         }
 
-        // Use useForm().post() with transform to convert to FormData format
-        // This matches the pattern used in ClearanceApplication but handles FormData conversion
+        // Prepare FormData for file uploads
         const formData = prepareFormData(data);
 
-        // Use router.post for FormData, store errors in state for display
+        // Use router.post with FormData - Inertia handles CSRF automatically
         router.post('/applications/housing', formData, {
             preserveScroll: true,
             onError: (errorBag) => {
+                console.error('Submission error:', errorBag);
+                console.error('Error keys:', Object.keys(errorBag));
+                console.error('Error details:', JSON.stringify(errorBag, null, 2));
                 // Store errors in state so they persist and can be displayed
                 setBackendErrors(errorBag as ValidationErrors);
 
                 // Navigate to the first step with an error
                 const errorKeys = Object.keys(errorBag);
-                const firstErrorStep = Math.min(
-                    ...errorKeys.map(key => {
-                        const mappedKey = mapBackendErrorKey(key);
-                        if (mappedKey.startsWith('beneficiary.firstName') || mappedKey.startsWith('beneficiary.lastName') ||
-                            mappedKey.startsWith('beneficiary.middleName') || mappedKey.startsWith('beneficiary.birthDate') ||
-                            mappedKey.startsWith('beneficiary.gender') || mappedKey.startsWith('beneficiary.civilStatus')) return 1;
-                        if (mappedKey.startsWith('beneficiary.contactNumber') || mappedKey.startsWith('beneficiary.email') ||
-                            mappedKey.startsWith('beneficiary.currentAddress') || mappedKey.startsWith('beneficiary.barangay') ||
-                            mappedKey.startsWith('beneficiary.yearsOfResidency')) return 2;
-                        if (mappedKey.startsWith('beneficiary.employmentStatus') || mappedKey.startsWith('beneficiary.employerName') ||
-                            mappedKey.startsWith('beneficiary.monthlyIncome')) return 3;
-                        if (mappedKey.startsWith('beneficiary.priorityStatus') || mappedKey.startsWith('beneficiary.priorityIdNo')) return 4;
-                        if (key.startsWith('housing_program') || key.startsWith('application_reason')) return 6;
-                        if (key.startsWith('documents.') || key.startsWith('documents[')) return 7;
-                        return 1;
-                    })
-                );
-                setCurrentStep(firstErrorStep);
+                if (errorKeys.length > 0) {
+                    const firstErrorStep = Math.min(
+                        ...errorKeys.map(key => {
+                            const mappedKey = mapBackendErrorKey(key);
+                            if (mappedKey.startsWith('beneficiary.firstName') || mappedKey.startsWith('beneficiary.lastName') ||
+                                mappedKey.startsWith('beneficiary.middleName') || mappedKey.startsWith('beneficiary.birthDate') ||
+                                mappedKey.startsWith('beneficiary.gender') || mappedKey.startsWith('beneficiary.civilStatus')) return 1;
+                            if (mappedKey.startsWith('beneficiary.contactNumber') || mappedKey.startsWith('beneficiary.email') ||
+                                mappedKey.startsWith('beneficiary.currentAddress') || mappedKey.startsWith('beneficiary.barangay') ||
+                                mappedKey.startsWith('beneficiary.yearsOfResidency')) return 2;
+                            if (mappedKey.startsWith('beneficiary.employmentStatus') ||
+                                mappedKey.startsWith('beneficiary.monthlyIncome')) return 3;
+                            if (mappedKey.startsWith('beneficiary.priorityStatus') || mappedKey.startsWith('beneficiary.priorityIdNo')) return 4;
+                            if (key.startsWith('housing_program') || key.startsWith('application_reason')) return 6;
+                            if (key.startsWith('documents.') || key.startsWith('documents[')) return 7;
+                            return 1;
+                        })
+                    );
+                    setCurrentStep(firstErrorStep);
+                }
             },
             onSuccess: () => {
                 // Clear errors on success
@@ -428,25 +430,27 @@ export default function ApplicationForm() {
                     {/* Form Content */}
                     <div className="bg-white dark:bg-dark-surface shadow-lg p-6 md:p-8 rounded-2xl">
                         {/* Show general error if exists */}
-                        {(errors as any).error && (
+                        {((errors as any).error || backendErrors.error) && (
                             <div className="mb-6 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
                                 <div className="flex items-start gap-2">
                                     <AlertCircle size={18} className="mt-0.5 text-red-600 dark:text-red-400" />
-                                    <p className="text-sm text-red-800 dark:text-red-200">{(errors as any).error}</p>
+                                    <p className="text-sm text-red-800 dark:text-red-200">
+                                        {(errors as any).error || backendErrors.error || 'An error occurred while submitting your application.'}
+                                    </p>
                                 </div>
                             </div>
                         )}
 
                         {/* Debug: Show all errors if any exist */}
-                        {Object.keys(errors).length > 0 && (
+                        {(Object.keys(errors).length > 0 || Object.keys(backendErrors).length > 0) && (
                             <div className="mb-6 rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-4">
                                 <div className="flex items-start gap-2">
                                     <AlertCircle size={18} className="mt-0.5 text-yellow-600 dark:text-yellow-400" />
                                     <div className="text-sm text-yellow-800 dark:text-yellow-200">
                                         <p className="font-semibold mb-2">Validation Errors:</p>
                                         <ul className="list-disc list-inside space-y-1">
-                                            {Object.entries(errors).slice(0, 5).map(([key, value]) => (
-                                                <li key={key}>{key}: {String(value)}</li>
+                                            {Object.entries({ ...errors, ...backendErrors }).slice(0, 10).map(([key, value]) => (
+                                                <li key={key}><strong>{key}:</strong> {String(value)}</li>
                                             ))}
                                         </ul>
                                     </div>

@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\BeneficiaryApplication;
 use App\Services\ApplicationValidationService;
 use App\Services\BlacklistService;
+use App\Services\CaseOfficerService;
 use App\Services\EligibilityService;
 use App\Services\NotificationService;
 use App\Services\SiteVisitService;
@@ -25,7 +26,8 @@ class AdminHousingBeneficiaryController extends Controller
         protected SiteVisitService $siteVisitService,
         protected WaitlistService $waitlistService,
         protected ApplicationValidationService $validationService,
-        protected EligibilityService $eligibilityService
+        protected EligibilityService $eligibilityService,
+        protected CaseOfficerService $caseOfficerService
     ) {}
 
     /**
@@ -158,11 +160,14 @@ class AdminHousingBeneficiaryController extends Controller
     {
         $application = BeneficiaryApplication::with([
             'beneficiary',
+            'beneficiary.householdMembers',
             'documents',
             'siteVisits',
             'waitlistEntry',
             'allocation',
             'allocation.history',
+            'caseOfficer',
+            'project',
         ])->findOrFail($id);
 
         $this->authorize('view', $application);
@@ -223,6 +228,78 @@ class AdminHousingBeneficiaryController extends Controller
             ];
         }) ?? collect();
 
+        // Get available case officers
+        $caseOfficers = \App\Models\User::whereIn('role', ['housing_officer', 'social_worker'])
+            ->where('is_active', true)
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->first_name.' '.$user->last_name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                ];
+            });
+
+        // Format case officer
+        $caseOfficer = $application->caseOfficer ? [
+            'id' => $application->caseOfficer->id,
+            'name' => $application->caseOfficer->first_name.' '.$application->caseOfficer->last_name,
+            'email' => $application->caseOfficer->email,
+        ] : null;
+
+        // Format beneficiary with complete information
+        $beneficiary = $application->beneficiary;
+        $beneficiaryData = [
+            'id' => (string) $beneficiary->id,
+            'beneficiary_no' => $beneficiary->beneficiary_no,
+            'first_name' => $beneficiary->first_name,
+            'middle_name' => $beneficiary->middle_name,
+            'last_name' => $beneficiary->last_name,
+            'suffix' => $beneficiary->suffix,
+            'full_name' => $beneficiary->full_name,
+            'birth_date' => $beneficiary->birth_date?->format('Y-m-d'),
+            'age' => $beneficiary->age,
+            'gender' => $beneficiary->gender,
+            'civil_status' => $beneficiary->civil_status,
+            'email' => $beneficiary->email,
+            'contact_number' => $beneficiary->contact_number,
+            'mobile_number' => $beneficiary->mobile_number,
+            'telephone_number' => $beneficiary->telephone_number,
+            'current_address' => $beneficiary->current_address,
+            'address' => $beneficiary->address,
+            'street' => $beneficiary->street,
+            'barangay' => $beneficiary->barangay,
+            'city' => $beneficiary->city,
+            'province' => $beneficiary->province,
+            'zip_code' => $beneficiary->zip_code,
+            'years_of_residency' => $beneficiary->years_of_residency,
+            'employment_status' => $beneficiary->employment_status,
+            'occupation' => $beneficiary->occupation,
+            'employer_name' => $beneficiary->employer_name,
+            'monthly_income' => $beneficiary->monthly_income,
+            'household_income' => $beneficiary->household_income,
+            'has_existing_property' => $beneficiary->has_existing_property,
+            'priority_status' => $beneficiary->priority_status,
+            'priority_id_no' => $beneficiary->priority_id_no,
+            'sector_tags' => $beneficiary->sector_tags,
+        ];
+
+        // Load household members
+        $householdMembers = $beneficiary->householdMembers->map(function ($member) {
+            return [
+                'id' => (string) $member->id,
+                'full_name' => $member->full_name,
+                'relationship' => $member->relationship,
+                'birth_date' => $member->birth_date?->format('Y-m-d'),
+                'age' => $member->age,
+                'gender' => $member->gender,
+                'occupation' => $member->occupation,
+                'monthly_income' => $member->monthly_income,
+                'is_dependent' => $member->is_dependent,
+            ];
+        });
+
         return Inertia::render('Admin/Housing/ApplicationDetails', [
             'application' => [
                 'id' => (string) $application->id,
@@ -233,10 +310,19 @@ class AdminHousingBeneficiaryController extends Controller
                 'eligibility_status' => $application->eligibility_status,
                 'eligibility_remarks' => $application->eligibility_remarks,
                 'denial_reason' => $application->denial_reason,
+                'case_officer_id' => $application->case_officer_id,
+                'case_officer' => $caseOfficer,
+                'project_id' => $application->project_id,
+                'project' => $application->project ? [
+                    'id' => $application->project->id,
+                    'project_name' => $application->project->project_name,
+                    'project_code' => $application->project->project_code,
+                ] : null,
                 'submitted_at' => $application->submitted_at?->format('Y-m-d H:i:s'),
                 'reviewed_at' => $application->reviewed_at?->format('Y-m-d H:i:s'),
                 'approved_at' => $application->approved_at?->format('Y-m-d H:i:s'),
-                'beneficiary' => $application->beneficiary,
+                'beneficiary' => $beneficiaryData,
+                'household_members' => $householdMembers,
                 'documents' => $documents,
                 'document_summary' => $documentSummary,
                 'site_visits' => $siteVisits,
@@ -244,6 +330,7 @@ class AdminHousingBeneficiaryController extends Controller
                 'allocation' => $application->allocation,
                 'allocation_history' => $allocationHistory,
             ],
+            'case_officers' => $caseOfficers,
         ]);
     }
 
@@ -285,10 +372,21 @@ class AdminHousingBeneficiaryController extends Controller
 
         $application->update($updateData);
 
-        // If marked as eligible, add to waitlist
-        if ($newStatus === 'eligible' && $application->eligibility_status === 'eligible') {
-            $this->waitlistService->addToWaitlist($application);
-            $application->update(['application_status' => 'waitlisted']);
+        // Update beneficiary status based on application status
+        $beneficiary = $application->beneficiary;
+        if ($beneficiary) {
+            if ($newStatus === 'eligible' && $application->eligibility_status === 'eligible') {
+                // Mark beneficiary as qualified when application becomes eligible
+                if ($beneficiary->beneficiary_status === \App\BeneficiaryStatus::Applicant) {
+                    $beneficiary->update(['beneficiary_status' => \App\BeneficiaryStatus::Qualified]);
+                }
+                // Add to waitlist (this will update status to waitlisted)
+                $this->waitlistService->addToWaitlist($application);
+                $application->update(['application_status' => 'waitlisted']);
+            } elseif ($newStatus === 'not_eligible') {
+                // Mark beneficiary as disqualified if application is not eligible
+                $beneficiary->update(['beneficiary_status' => \App\BeneficiaryStatus::Disqualified]);
+            }
         }
 
         // Log audit
@@ -298,7 +396,7 @@ class AdminHousingBeneficiaryController extends Controller
             'resource_type' => 'beneficiary_application',
             'resource_id' => (string) $application->id,
             'changes' => [
-                'status_from' => $oldStatus,
+                'status_from' => $oldStatus instanceof \App\ApplicationStatus ? $oldStatus->value : (string) $oldStatus,
                 'status_to' => $newStatus,
                 'eligibility_status' => $request->eligibility_status ?? null,
             ],
@@ -311,7 +409,7 @@ class AdminHousingBeneficiaryController extends Controller
             NotificationService::notifyApplicationStatusChange(
                 $application->beneficiary->citizen_id,
                 $application->application_no,
-                $oldStatus,
+                $oldStatus instanceof \App\ApplicationStatus ? $oldStatus->value : (string) $oldStatus,
                 $newStatus,
                 $application->id
             );
@@ -453,7 +551,19 @@ class AdminHousingBeneficiaryController extends Controller
 
             // If eligible, automatically add to waitlist
             if ($eligibilityResult->isEligible && $eligibilityResult->determination === 'eligible') {
+                // Update beneficiary status to qualified first
+                $beneficiary = $application->beneficiary;
+                if ($beneficiary && $beneficiary->beneficiary_status === \App\BeneficiaryStatus::Applicant) {
+                    $beneficiary->update(['beneficiary_status' => \App\BeneficiaryStatus::Qualified]);
+                }
+                // Add to waitlist (this will update status to waitlisted)
                 $this->waitlistService->addToWaitlist($application);
+            } elseif ($eligibilityResult->determination === 'not_eligible') {
+                // Mark beneficiary as disqualified if not eligible
+                $beneficiary = $application->beneficiary;
+                if ($beneficiary) {
+                    $beneficiary->update(['beneficiary_status' => \App\BeneficiaryStatus::Disqualified]);
+                }
             }
         }
 
@@ -461,6 +571,79 @@ class AdminHousingBeneficiaryController extends Controller
             'success' => true,
             'data' => $eligibilityResult->toArray(),
             'auto_updated' => $request->boolean('auto_update'),
+        ]);
+    }
+
+    /**
+     * Assign a case officer to an application.
+     */
+    public function assignCaseOfficer(Request $request, string $id): RedirectResponse
+    {
+        $request->validate([
+            'case_officer_id' => ['required', 'exists:users,id'],
+        ]);
+
+        $application = BeneficiaryApplication::findOrFail($id);
+        $this->authorize('updateStatus', $application);
+
+        $this->caseOfficerService->assignCaseOfficer($application, $request->case_officer_id);
+
+        // Log audit
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'case_officer_assigned',
+            'resource_type' => 'beneficiary_application',
+            'resource_id' => (string) $application->id,
+            'changes' => [
+                'case_officer_id' => $request->case_officer_id,
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return back()->with('success', 'Case officer assigned successfully.');
+    }
+
+    /**
+     * Auto-assign a case officer to an application.
+     */
+    public function autoAssignCaseOfficer(string $id): RedirectResponse
+    {
+        $application = BeneficiaryApplication::findOrFail($id);
+        $this->authorize('updateStatus', $application);
+
+        $assignedOfficerId = $this->caseOfficerService->autoAssignCaseOfficer($application);
+
+        if ($assignedOfficerId) {
+            // Log audit
+            AuditLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'case_officer_auto_assigned',
+                'resource_type' => 'beneficiary_application',
+                'resource_id' => (string) $application->id,
+                'changes' => [
+                    'case_officer_id' => $assignedOfficerId,
+                ],
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+
+            return back()->with('success', 'Case officer auto-assigned successfully.');
+        }
+
+        return back()->withErrors(['error' => 'No available case officers found.']);
+    }
+
+    /**
+     * Get case officer workload statistics.
+     */
+    public function getCaseOfficerWorkload(): JsonResponse
+    {
+        $statistics = $this->caseOfficerService->getWorkloadStatistics();
+
+        return response()->json([
+            'success' => true,
+            'data' => $statistics,
         ]);
     }
 }

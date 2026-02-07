@@ -28,6 +28,7 @@ import {
     CheckSquare,
     FileSearch,
     Wrench,
+    Trophy,
 } from 'lucide-react';
 import type { SharedData } from '../types';
 
@@ -63,10 +64,12 @@ const MENU_ITEMS: MenuItem[] = [
         label: 'Housing Beneficiary',
         children: [
             { href: '/admin/housing/applications', icon: ListChecks, label: 'Applications' },
+            { href: '/admin/housing/beneficiaries', icon: Users, label: 'Beneficiaries' },
             { href: '/admin/housing/site-visits', icon: Calendar, label: 'Site Visits' },
             { href: '/admin/housing/projects', icon: Building, label: 'Projects' },
             { href: '/admin/housing/waitlist', icon: List, label: 'Waitlist' },
             { href: '/admin/housing/allocations', icon: Key, label: 'Allocations' },
+            { href: '/admin/housing/awards', icon: Trophy, label: 'Awards' },
             { href: '/admin/housing/blacklist', icon: Shield, label: 'Blacklist' },
         ],
     },

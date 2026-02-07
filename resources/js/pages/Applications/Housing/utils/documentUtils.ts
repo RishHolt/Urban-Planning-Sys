@@ -2,10 +2,10 @@ import { HousingApplicationFormData, PriorityStatus, DocumentType, CivilStatus }
 import { documentLabels } from './validation';
 
 export function getDocumentsToShow(data: HousingApplicationFormData): DocumentType[] {
+    // Always required documents for all applicants
     const alwaysRequired: DocumentType[] = ['valid_id', 'income_proof', 'barangay_certificate'];
-    const optional: DocumentType[] = ['birth_certificate', 'dswd_certification'];
     
-    // Conditionally add documents based on civil status
+    // Documents to show based on conditions
     const conditionalDocs: DocumentType[] = [];
     
     // Marriage certificate only for married status
@@ -13,10 +13,7 @@ export function getDocumentsToShow(data: HousingApplicationFormData): DocumentTy
         conditionalDocs.push('marriage_certificate');
     }
     
-    // Tax declaration - only show if user has existing property (might need it for property verification)
-    // Actually, let's remove tax_declaration as it's not typically needed for housing applications
-    // If needed later, we can add it back conditionally
-    
+    // Priority-specific documents - ONLY show if that priority status is selected
     const priorityDocs: Record<PriorityStatus, DocumentType[]> = {
         'none': [],
         'pwd': ['pwd_id'],
@@ -24,14 +21,22 @@ export function getDocumentsToShow(data: HousingApplicationFormData): DocumentTy
         'solo_parent': ['solo_parent_id'],
         'disaster_victim': ['disaster_certificate'],
         'indigenous': [],
+        '': [], // Empty string case
     };
     
-    return [
+    // Get priority documents for current priority status
+    const currentPriorityStatus = data.beneficiary.priorityStatus || 'none';
+    const priorityDocuments = priorityDocs[currentPriorityStatus] || [];
+    
+    // Combine all documents that should be shown
+    const documentsToShow: DocumentType[] = [
         ...alwaysRequired,
-        ...(priorityDocs[data.beneficiary.priorityStatus] || []),
+        ...priorityDocuments, // Only priority docs for selected status
         ...conditionalDocs,
-        ...optional,
     ];
+    
+    // Remove duplicates (in case of any overlap)
+    return Array.from(new Set(documentsToShow));
 }
 
 export function isDocumentRequired(

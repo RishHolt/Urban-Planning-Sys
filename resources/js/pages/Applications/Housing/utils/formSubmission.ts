@@ -18,7 +18,6 @@ export function prepareFormData(data: HousingApplicationFormData): FormData {
         barangay: 'barangay',
         yearsOfResidency: 'years_of_residency',
         employmentStatus: 'employment_status',
-        employerName: 'employer_name',
         monthlyIncome: 'monthly_income',
         hasExistingProperty: 'has_existing_property',
         priorityStatus: 'priority_status',

@@ -18,8 +18,13 @@ export default function DocumentsStep({ data, errors, onDocumentChange }: Docume
                     Required Documents
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
-                    Upload supporting documents for your application.
+                    Upload supporting documents for your application. Only documents relevant to your profile are shown.
                 </p>
+                {data.beneficiary.priorityStatus && data.beneficiary.priorityStatus !== 'none' && (
+                    <p className="mt-2 text-blue-600 dark:text-blue-400 text-sm font-medium">
+                        Priority Status: {data.beneficiary.priorityStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} - Additional document required
+                    </p>
+                )}
             </div>
 
             <div className="space-y-6">

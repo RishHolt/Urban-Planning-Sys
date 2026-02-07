@@ -133,4 +133,85 @@ class NotificationService
             default => str_replace('_', ' ', ucwords($type, '_')),
         };
     }
+
+    /**
+     * Create a notification for award approval.
+     */
+    public static function notifyAwardApproval(int $userId, string $awardNumber, ?int $awardId = null): Notification
+    {
+        $title = 'Housing Award Approved';
+        $message = "Congratulations! Your housing award {$awardNumber} has been approved. Please review and accept the award within 30 days.";
+
+        return self::create(
+            $userId,
+            'award_approved',
+            $title,
+            $message,
+            'award',
+            $awardId
+        );
+    }
+
+    /**
+     * Create a notification for award rejection.
+     */
+    public static function notifyAwardRejection(int $userId, string $awardNumber, string $reason, ?int $awardId = null): Notification
+    {
+        $title = 'Housing Award Rejected';
+        $message = "Your housing award {$awardNumber} has been rejected. Reason: {$reason}";
+
+        return self::create(
+            $userId,
+            'award_rejected',
+            $title,
+            $message,
+            'award',
+            $awardId
+        );
+    }
+
+    /**
+     * Create a notification for award acceptance.
+     */
+    public static function notifyAwardAcceptance(string $awardNumber, ?int $awardId = null): Notification
+    {
+        // This notification goes to admins, so we need to find the relevant admin users
+        // For now, we'll create a system notification
+        $title = 'Award Accepted';
+        $message = "Housing award {$awardNumber} has been accepted by the beneficiary.";
+
+        // In a real implementation, you'd send this to relevant admin users
+        // For now, we'll return null as this needs user context
+        return null;
+    }
+
+    /**
+     * Create a notification for award decline.
+     */
+    public static function notifyAwardDecline(string $awardNumber, string $reason, ?int $awardId = null): Notification
+    {
+        $title = 'Award Declined';
+        $message = "Housing award {$awardNumber} has been declined. Reason: {$reason}";
+
+        // In a real implementation, you'd send this to relevant admin users
+        return null;
+    }
+
+    /**
+     * Create a notification for turnover scheduling.
+     */
+    public static function notifyTurnoverScheduled(int $userId, string $awardNumber, \DateTime $turnoverDate, ?int $awardId = null): Notification
+    {
+        $title = 'Unit Turnover Scheduled';
+        $message = "Your unit turnover for award {$awardNumber} has been scheduled for {$turnoverDate->format('F d, Y')}. Please prepare for the turnover process.";
+
+        return self::create(
+            $userId,
+            'turnover_scheduled',
+            $title,
+            $message,
+            'award',
+            $awardId
+        );
+    }
 }

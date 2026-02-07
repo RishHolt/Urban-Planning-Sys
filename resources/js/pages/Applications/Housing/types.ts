@@ -30,7 +30,6 @@ export interface HousingApplicationFormData {
         barangay: string;
         yearsOfResidency: string;
         employmentStatus: EmploymentStatus;
-        employerName: string;
         monthlyIncome: string;
         hasExistingProperty: boolean;
         priorityStatus: PriorityStatus;
