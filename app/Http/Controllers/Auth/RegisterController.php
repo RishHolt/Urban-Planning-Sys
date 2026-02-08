@@ -23,8 +23,9 @@ class RegisterController extends Controller
     public function store(RegisterRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        $otp = null;
 
-        DB::connection('user_db')->transaction(function () use ($validated, $request) {
+        DB::transaction(function () use ($validated, $request, &$otp) {
             // Create User
             $user = User::create([
                 'email' => $validated['email'],
@@ -57,9 +58,10 @@ class RegisterController extends Controller
         });
 
         // Return response with email and OTP code for testing (browser console)
-        return back()->with([
+        return redirect()->route('verify-otp.show')->with([
             'email' => $validated['email'],
-            'otp_code' => $otp->code, // For browser console testing
+            'otp_code' => $otp?->code, // For browser console testing
+            'type' => 'registration',
         ]);
     }
 }

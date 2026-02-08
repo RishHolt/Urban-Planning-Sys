@@ -6,7 +6,6 @@ use App\Models\HousingProject;
 use App\Models\HousingUnit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -62,7 +61,7 @@ class HousingUnitController extends Controller
                 'string',
                 'max:50',
                 function ($attribute, $value, $fail) {
-                    $exists = DB::connection('hbr_db')
+                    $exists = DB
                         ->table('housing_units')
                         ->where('unit_no', $value)
                         ->exists();

@@ -2,18 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class ZoningClassification extends Model
+class ZoningClassification extends ZcsModel
 {
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'zcs_db';
-
     /**
      * The attributes that are mass assignable.
      *

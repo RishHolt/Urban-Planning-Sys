@@ -2,19 +2,11 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class SubdivisionApplication extends Model
+class SubdivisionApplication extends SbrModel
 {
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'sbr_db';
-
     /**
      * The attributes that are mass assignable.
      *
@@ -24,6 +16,7 @@ class SubdivisionApplication extends Model
         'reference_no',
         'user_id',
         'zoning_clearance_no',
+        'project_type',
         'applicant_type',
         'contact_number',
         'contact_email',
@@ -36,6 +29,16 @@ class SubdivisionApplication extends Model
         'total_area_sqm',
         'total_lots_planned',
         'open_space_percentage',
+        'building_type',
+        'number_of_floors',
+        'building_footprint_sqm',
+        'total_floor_area_sqm',
+        'front_setback_m',
+        'rear_setback_m',
+        'side_setback_m',
+        'floor_area_ratio',
+        'building_open_space_sqm',
+        'building_review_status',
         'current_stage',
         'status',
         'denial_reason',
@@ -56,6 +59,13 @@ class SubdivisionApplication extends Model
             'pin_lng' => 'decimal:8',
             'total_area_sqm' => 'decimal:2',
             'open_space_percentage' => 'decimal:2',
+            'building_footprint_sqm' => 'decimal:2',
+            'total_floor_area_sqm' => 'decimal:2',
+            'front_setback_m' => 'decimal:2',
+            'rear_setback_m' => 'decimal:2',
+            'side_setback_m' => 'decimal:2',
+            'floor_area_ratio' => 'decimal:2',
+            'building_open_space_sqm' => 'decimal:2',
             'is_active' => 'boolean',
             'submitted_at' => 'datetime',
             'approved_at' => 'datetime',

@@ -2,19 +2,11 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Inspection extends Model
+class Inspection extends ZcsModel
 {
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'zcs_db';
-
     /**
      * The attributes that are mass assignable.
      *
@@ -63,7 +55,7 @@ class Inspection extends Model
      */
     public function inspector(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(User::class, 'inspector_id');
+        return $this->belongsTo(User::class, 'inspector_id');
     }
 
     /**
@@ -71,7 +63,7 @@ class Inspection extends Model
      */
     public function reviewer(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(User::class, 'reviewed_by');
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 
     /**

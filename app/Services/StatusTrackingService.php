@@ -35,7 +35,7 @@ class StatusTrackingService
             $updateData['reviewed_at'] = now();
         }
 
-        if ($newStatus === 'eligible' && $application->eligibility_status === 'eligible') {
+        if ($newStatus === 'verified' && $application->eligibility_status === 'eligible') {
             $updateData['approved_by'] = $updatedBy;
             $updateData['approved_at'] = now();
         }
@@ -76,11 +76,12 @@ class StatusTrackingService
     {
         $validTransitions = [
             'submitted' => ['under_review', 'cancelled'],
-            'under_review' => ['site_visit_scheduled', 'eligible', 'not_eligible', 'cancelled'],
+            'under_review' => ['site_visit_scheduled', 'verified', 'rejected', 'cancelled'],
             'site_visit_scheduled' => ['site_visit_completed', 'cancelled'],
-            'site_visit_completed' => ['eligible', 'not_eligible', 'cancelled'],
-            'eligible' => ['waitlisted', 'not_eligible', 'cancelled'],
-            'not_eligible' => ['cancelled'],
+            'site_visit_completed' => ['verified', 'rejected', 'cancelled'],
+            'verified' => ['waitlisted', 'rejected', 'cancelled'],
+            'approved' => ['allocated', 'cancelled'],
+            'rejected' => ['cancelled'],
             'waitlisted' => ['allocated', 'cancelled'],
             'allocated' => ['cancelled'],
             'cancelled' => [], // Terminal state

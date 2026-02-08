@@ -552,6 +552,155 @@ export const services: Service[] = [
             },
         ],
     },
+    {
+        id: 'development-clearance',
+        title: 'Development Clearance',
+        description: 'Apply for subdivision and building development clearance (PD 957)',
+        image: '/Building Review.png',
+        gradientFrom: 'from-indigo-100',
+        gradientTo: 'to-indigo-200',
+        borderColor: 'border-indigo-300',
+        titleColor: 'text-indigo-800',
+        descriptionColor: 'text-indigo-700',
+        darkGradientFrom: 'dark:from-gray-800',
+        darkGradientTo: 'dark:to-gray-700',
+        darkBorderColor: 'dark:border-indigo-700',
+        darkTitleColor: 'dark:text-indigo-400',
+        darkDescriptionColor: 'dark:text-gray-300',
+        whoCanApply: [
+            {
+                title: 'Developers',
+                description: 'Real estate developers subdividing land for residential, commercial, or mixed-use projects',
+                documents: [
+                    {
+                        title: 'Zoning Clearance',
+                        description: 'Valid Zoning Clearance Reference Number (prerequisite)',
+                    },
+                    {
+                        title: 'Proof of Ownership',
+                        description: 'TCT/OCT or other legal ownership documents',
+                    },
+                    {
+                        title: 'Subdivision Plans',
+                        description: 'Preliminary subdivision plan, site development plan',
+                    },
+                    {
+                        title: 'Building Plans',
+                        description: 'Conceptual building plans (if building structures as part of subdivision)',
+                    },
+                ],
+            },
+            {
+                title: 'Authorized Representatives',
+                description: 'Architects, Engineers, or Consultants with authorization from the developer',
+                documents: [
+                    {
+                        title: 'Authorization Letter',
+                        description: 'Notarized Special Power of Attorney or Authorization Letter',
+                    },
+                    {
+                        title: 'Zoning Clearance',
+                        description: 'Valid Zoning Clearance Reference Number',
+                    },
+                    {
+                        title: 'Project Plans',
+                        description: 'Subdivision and/or building plans as applicable',
+                    },
+                ],
+            },
+        ],
+        documents: [
+            {
+                id: 'subdivision-requirements',
+                title: 'Subdivision Requirements',
+                subtitle: 'Required for all subdivision projects',
+                items: [
+                    {
+                        title: 'Zoning Clearance Reference Number',
+                        description: 'Valid zoning clearance (prerequisite)',
+                    },
+                    {
+                        title: 'Preliminary Subdivision Plan',
+                        description: 'Lot layout, road network, open spaces',
+                    },
+                    {
+                        title: 'Site Development Plan',
+                        description: 'Infrastructure plans (roads, drainage, utilities)',
+                    },
+                    {
+                        title: 'Legal Ownership Documents',
+                        description: 'TCT/OCT, tax declaration, tax clearance',
+                    },
+                    {
+                        title: 'Environmental Compliance',
+                        description: 'ECC or Certificate of Non-Coverage (if applicable)',
+                    },
+                ],
+            },
+            {
+                id: 'building-requirements',
+                title: 'Building Review Requirements',
+                subtitle: 'Required if building structures as part of subdivision',
+                items: [
+                    {
+                        title: 'Conceptual Building Plans',
+                        description: 'Architectural layout, site plan, elevations',
+                    },
+                    {
+                        title: 'Building Specifications',
+                        description: 'Building type, floors, footprint, setbacks, FAR',
+                    },
+                    {
+                        title: 'Open Space Calculations',
+                        description: 'Open space requirements and compliance',
+                    },
+                ],
+            },
+        ],
+        serviceDetails: {
+            description: 'Development Clearance is a planning-level review required for subdivision projects under PD 957 (Subdivision and Condominium Buyers\' Protective Decree). It evaluates proposed subdivision and building projects to ensure compliance with zoning, land use, and planning regulations.',
+            purpose: [
+                'Ensure compliance with zoning and planning regulations',
+                'Validate lot layout, road/access, and open spaces (minimum 30%)',
+                'Review building concepts for planning-level compliance (setbacks, FAR, open spaces)',
+                'Provide prerequisite for Development Permit issuance',
+            ],
+            activitiesCovered: [
+                'Subdivision of land into residential, commercial, or mixed-use lots',
+                'Land development projects (roads, drainage, utilities, open spaces)',
+                'Building projects as part of subdivision development',
+                'Planning-level review of conceptual building designs',
+            ],
+            considerations: {
+                title: 'Review Considerations',
+                items: [
+                    'Lot layout and minimum lot sizes compliance',
+                    'Road network and access standards',
+                    'Open space requirements (minimum 30% for subdivisions)',
+                    'Zoning classification and permitted uses',
+                    'Setbacks, Floor Area Ratio (FAR), and open space requirements for buildings',
+                    'Planning-level compliance (not technical/structural review)',
+                ],
+            },
+            evaluationProcess: [
+                'Submit Development Clearance application with required documents',
+                'Planning-level review of subdivision layout and infrastructure',
+                'Building review (if applicable) for planning compliance',
+                'Reviewer comments and recommendations',
+                'Issuance of Development Clearance (Unofficial or Official)',
+            ],
+            processingTime: '5-10 working days',
+            processingTimeNote: 'Processing time may vary depending on project complexity and document completeness',
+            fees: 'Fees assessed based on LGU development clearance fee schedule',
+            feesNote: 'Final amount will be displayed before payment confirmation',
+            importantReminders: [
+                'Development Clearance is required for ALL subdivisions (PD 957)',
+                'Individual buildings on existing lots do NOT need Development Clearance - go directly to Building Permit',
+                'Building Review in Development Clearance is planning-level only (not technical/structural)',
+                'Development Clearance is a prerequisite for Development Permit and Certificate of Registration',
+            ],
+        },
+    },
 ];
 
 // Zone API functions

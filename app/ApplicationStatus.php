@@ -9,8 +9,6 @@ enum ApplicationStatus: string
     case SiteVisitScheduled = 'site_visit_scheduled';
     case SiteVisitCompleted = 'site_visit_completed';
     case Verified = 'verified';
-    case Eligible = 'eligible';
-    case NotEligible = 'not_eligible';
     case Approved = 'approved';
     case Rejected = 'rejected';
     case Waitlisted = 'waitlisted';
@@ -28,8 +26,6 @@ enum ApplicationStatus: string
             self::SiteVisitScheduled => 'Site Visit Scheduled',
             self::SiteVisitCompleted => 'Site Visit Completed',
             self::Verified => 'Verified',
-            self::Eligible => 'Eligible',
-            self::NotEligible => 'Not Eligible',
             self::Approved => 'Approved',
             self::Rejected => 'Rejected',
             self::Waitlisted => 'Waitlisted',

@@ -29,6 +29,8 @@ import {
     FileSearch,
     Wrench,
     Trophy,
+    Eye,
+    UserCog,
 } from 'lucide-react';
 import type { SharedData } from '../types';
 
@@ -63,22 +65,18 @@ const MENU_ITEMS: MenuItem[] = [
         icon: Home,
         label: 'Housing Beneficiary',
         children: [
-            { href: '/admin/housing/applications', icon: ListChecks, label: 'Applications' },
-            { href: '/admin/housing/beneficiaries', icon: Users, label: 'Beneficiaries' },
-            { href: '/admin/housing/site-visits', icon: Calendar, label: 'Site Visits' },
-            { href: '/admin/housing/projects', icon: Building, label: 'Projects' },
-            { href: '/admin/housing/waitlist', icon: List, label: 'Waitlist' },
-            { href: '/admin/housing/allocations', icon: Key, label: 'Allocations' },
-            { href: '/admin/housing/awards', icon: Trophy, label: 'Awards' },
-            { href: '/admin/housing/blacklist', icon: Shield, label: 'Blacklist' },
+            { href: '/admin/housing/applications', icon: ListChecks, label: 'Applications & Beneficiaries' },
+            { href: '/admin/housing/projects', icon: Building, label: 'Projects & Units' },
+            { href: '/admin/housing/waitlist', icon: List, label: 'Waitlist & Allocations' },
         ],
     },
     {
         icon: FileSearch,
-        label: 'Subdivision & Building Review',
+        label: 'Subdivision & Building',
         children: [
-            { href: '/admin/subdivision/applications', icon: ListChecks, label: 'Subdivision Applications' },
-            { href: '/admin/building/reviews', icon: FileSearch, label: 'Building Reviews' },
+            { href: '/admin/development-clearance/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+            { href: '/admin/development-clearance/applications', icon: ListChecks, label: 'Applications' },
+            { href: '/admin/subdivision/certificates', icon: FileCheck, label: 'Issued Certificates' },
             { href: '/admin/subdivision/reports', icon: BarChart3, label: 'Reports' },
         ],
     },
@@ -86,11 +84,35 @@ const MENU_ITEMS: MenuItem[] = [
         icon: Wrench,
         label: 'Infrastructure Projects',
         children: [
+            { href: '/admin/infrastructure/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { href: '/admin/infrastructure/projects', icon: Building2, label: 'Projects' },
+            { href: '/admin/infrastructure/contractors', icon: Users, label: 'Contractors' },
             { href: '/admin/infrastructure/reports', icon: BarChart3, label: 'Reports' },
         ],
     },
-    { href: '/admin/audit-logs', icon: History, label: 'Audit Logs' },
+    {
+        icon: Eye,
+        label: 'Occupancy Monitoring',
+        children: [
+            { href: '/admin/occupancy/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+            { href: '/admin/occupancy/buildings', icon: Building, label: 'Buildings' },
+            { href: '/admin/occupancy/units', icon: Home, label: 'Units' },
+            { href: '/admin/occupancy/records', icon: ClipboardList, label: 'Occupancy Records' },
+            { href: '/admin/occupancy/inspections', icon: ClipboardCheck, label: 'Inspections' },
+            { href: '/admin/occupancy/complaints', icon: AlertTriangle, label: 'Complaints' },
+            { href: '/admin/occupancy/violations', icon: FileWarning, label: 'Violations' },
+            { href: '/admin/occupancy/reports', icon: BarChart3, label: 'Reports' },
+        ],
+    },
+    {
+        icon: UserCog,
+        label: 'User Management',
+        children: [
+            { href: '/admin/user-management', icon: Users, label: 'Users' },
+            { href: '/admin/role-management', icon: Shield, label: 'Roles' },
+        ],
+    },
+    { href: '/admin/audit-logs', icon: History, label: 'System Logs' },
     { href: '/admin/reports', icon: BarChart3, label: 'Reports' },
 ];
 

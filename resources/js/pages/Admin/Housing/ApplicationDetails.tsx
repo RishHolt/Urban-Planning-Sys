@@ -92,12 +92,6 @@ interface ApplicationDetailsProps {
         eligibility_status: string;
         eligibility_remarks: string | null;
         denial_reason: string | null;
-        case_officer_id: number | null;
-        case_officer: {
-            id: number;
-            name: string;
-            email: string;
-        } | null;
         project_id: number | null;
         project: {
             id: number;
@@ -166,15 +160,9 @@ interface ApplicationDetailsProps {
         allocation: Allocation | null;
         allocation_history: AllocationHistory[];
     };
-    case_officers?: Array<{
-        id: number;
-        name: string;
-        email: string;
-        role: string;
-    }>;
 }
 
-export default function ApplicationDetails({ application, case_officers = [] }: ApplicationDetailsProps) {
+export default function ApplicationDetails({ application }: ApplicationDetailsProps) {
     const page = usePage<SharedData>();
     const { flash } = page.props;
     
@@ -223,9 +211,6 @@ export default function ApplicationDetails({ application, case_officers = [] }: 
         remarks: '',
     });
 
-    const { data: caseOfficerData, setData: setCaseOfficerData, post: postCaseOfficer, processing: caseOfficerProcessing } = useForm({
-        case_officer_id: application.case_officer_id || '',
-    });
 
     const formatDate = (dateString: string | null): string => {
         if (!dateString) return 'N/A';
@@ -269,13 +254,18 @@ export default function ApplicationDetails({ application, case_officers = [] }: 
                 className: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
                 icon: <CheckCircle size={16} />
             },
-            'eligible': {
-                label: 'Eligible',
+            'verified': {
+                label: 'Verified',
                 className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
                 icon: <CheckCircle size={16} />
             },
-            'not_eligible': {
-                label: 'Not Eligible',
+            'approved': {
+                label: 'Approved',
+                className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+                icon: <CheckCircle size={16} />
+            },
+            'rejected': {
+                label: 'Rejected',
                 className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
                 icon: <XCircle size={16} />
             },
@@ -316,6 +306,8 @@ export default function ApplicationDetails({ application, case_officers = [] }: 
                 return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Eligible</span>;
             case 'not_eligible':
                 return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">Not Eligible</span>;
+            case 'conditional':
+                return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200">Conditional</span>;
             default:
                 return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">Pending</span>;
         }
@@ -349,7 +341,7 @@ export default function ApplicationDetails({ application, case_officers = [] }: 
     const handleMarkEligible = () => {
         // Use router.patch directly with the data
         router.patch(`/admin/housing/applications/${application.id}/status`, {
-            application_status: 'eligible',
+            application_status: 'verified',
             eligibility_status: 'eligible',
             eligibility_remarks: statusData.eligibility_remarks || 'Application marked as eligible after review.',
             denial_reason: '',
@@ -414,24 +406,6 @@ export default function ApplicationDetails({ application, case_officers = [] }: 
         });
     };
 
-    const handleAssignCaseOfficer = (e: React.FormEvent) => {
-        e.preventDefault();
-        postCaseOfficer(`/admin/housing/applications/${application.id}/assign-case-officer`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                router.reload({ only: ['application'] });
-            },
-        });
-    };
-
-    const handleAutoAssignCaseOfficer = () => {
-        router.post(`/admin/housing/applications/${application.id}/auto-assign-case-officer`, {}, {
-            preserveScroll: true,
-            onSuccess: () => {
-                router.reload({ only: ['application'] });
-            },
-        });
-    };
 
     const canScheduleSiteVisit = ['under_review', 'submitted'].includes(application.application_status);
     // Only allow marking eligibility after a site visit has been completed
@@ -638,69 +612,6 @@ export default function ApplicationDetails({ application, case_officers = [] }: 
                             </Button>
                         )}
                     </div>
-                </AdminContentCard>
-
-                {/* Case Officer Assignment */}
-                <AdminContentCard padding="lg">
-                    <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                            <User size={20} />
-                            Case Officer Assignment
-                        </h3>
-                    </div>
-                    {application.case_officer ? (
-                        <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Assigned Case Officer</p>
-                                    <p className="text-lg font-semibold text-gray-900 dark:text-white">{application.case_officer.name}</p>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">{application.case_officer.email}</p>
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800 mb-4">
-                            <p className="text-sm text-yellow-800 dark:text-yellow-200">No case officer assigned yet.</p>
-                        </div>
-                    )}
-                    <form onSubmit={handleAssignCaseOfficer} className="space-y-4">
-                        <div>
-                            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Assign Case Officer
-                            </label>
-                            <div className="flex gap-3">
-                                <select
-                                    value={caseOfficerData.case_officer_id}
-                                    onChange={(e) => setCaseOfficerData('case_officer_id', e.target.value)}
-                                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
-                                >
-                                    <option value="">Select Case Officer</option>
-                                    {case_officers.map((officer) => (
-                                        <option key={officer.id} value={officer.id}>
-                                            {officer.name} ({officer.email}) - {officer.role}
-                                        </option>
-                                    ))}
-                                </select>
-                                <Button
-                                    type="submit"
-                                    variant="primary"
-                                    disabled={!caseOfficerData.case_officer_id || caseOfficerProcessing}
-                                    className="flex items-center gap-2"
-                                >
-                                    {caseOfficerProcessing ? 'Assigning...' : 'Assign'}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    onClick={handleAutoAssignCaseOfficer}
-                                    disabled={case_officers.length === 0}
-                                    className="flex items-center gap-2"
-                                >
-                                    Auto Assign
-                                </Button>
-                            </div>
-                        </div>
-                    </form>
                 </AdminContentCard>
 
                 {/* Tabs for Application Details */}
@@ -1144,8 +1055,9 @@ export default function ApplicationDetails({ application, case_officers = [] }: 
                                     <option value="under_review">Under Review</option>
                                     <option value="site_visit_scheduled">Site Visit Scheduled</option>
                                     <option value="site_visit_completed">Site Visit Completed</option>
-                                    <option value="eligible">Eligible</option>
-                                    <option value="not_eligible">Not Eligible</option>
+                                    <option value="verified">Verified</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="rejected">Rejected</option>
                                     <option value="waitlisted">Waitlisted</option>
                                     <option value="allocated">Allocated</option>
                                     <option value="cancelled">Cancelled</option>
@@ -1163,6 +1075,7 @@ export default function ApplicationDetails({ application, case_officers = [] }: 
                                     <option value="pending">Pending</option>
                                     <option value="eligible">Eligible</option>
                                     <option value="not_eligible">Not Eligible</option>
+                                    <option value="conditional">Conditional</option>
                                 </select>
                             </div>
                             <div>

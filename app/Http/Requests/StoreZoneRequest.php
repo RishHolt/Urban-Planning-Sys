@@ -22,7 +22,7 @@ class StoreZoneRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'zoning_classification_id' => ['required', 'exists:zcs_db.zoning_classifications,id'],
+            'zoning_classification_id' => ['required', 'exists:zoning_classifications,id'],
             'label' => ['nullable', 'string', 'max:100', 'regex:/^ZN-\d{8}$/'], // Optional, but if provided must match format
             'geometry' => ['nullable', 'array'], // GeoJSON Polygon or MultiPolygon
             'is_active' => ['boolean'],

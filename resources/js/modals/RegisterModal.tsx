@@ -3,6 +3,7 @@ import { useForm, usePage } from '@inertiajs/react';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import VerifyOtpModal from './VerifyOtpModal';
+import Recaptcha from '../components/Recaptcha';
 import { showError } from '../lib/swal';
 import { X, Mail, Lock, User, Phone, MapPin, Eye, EyeOff } from 'lucide-react';
 
@@ -17,8 +18,9 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
     const [noMiddleName, setNoMiddleName] = useState(false);
     const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
     const [registrationEmail, setRegistrationEmail] = useState('');
+    const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
 
-    const { flash } = usePage().props as any;
+    const { flash, recaptcha_site_key } = usePage().props as any;
 
     // Check for email in flash data (from backend redirect)
     useEffect(() => {
@@ -52,6 +54,7 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
         city: '',
         password: '',
         password_confirmation: '',
+        'g-recaptcha-response': '',
     });
 
     if (!isOpen) {
@@ -104,6 +107,11 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
                                 await showError('Passwords do not match');
                                 return;
                             }
+                            if (!recaptchaToken) {
+                                await showError('Please complete the reCAPTCHA verification');
+                                return;
+                            }
+                            setData('g-recaptcha-response', recaptchaToken);
                             post('/register', {
                                 preserveState: true,
                                 preserveScroll: true,
@@ -376,6 +384,19 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
                             </button>
                         </div>
 
+                        {recaptcha_site_key && (
+                            <div className="flex justify-center">
+                                <Recaptcha
+                                    siteKey={recaptcha_site_key}
+                                    onChange={setRecaptchaToken}
+                                    onError={() => setRecaptchaToken(null)}
+                                />
+                            </div>
+                        )}
+                        {errors['g-recaptcha-response'] && (
+                            <p className="text-red-500 text-sm">{errors['g-recaptcha-response']}</p>
+                        )}
+
                         {/* Submit Button */}
                         <div className="pt-4">
                             <Button
@@ -383,10 +404,15 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
                                 variant="primary"
                                 size="lg"
                                 className="w-full"
-                                disabled={processing || !isPasswordValid}
+                                disabled={processing || !isPasswordValid || (recaptcha_site_key && !recaptchaToken)}
                             >
                                 {processing ? 'Creating Account...' : 'Create Account'}
                             </Button>
+                            {recaptcha_site_key && !recaptchaToken && (
+                                <p className="mt-2 text-center text-red-500 text-sm">
+                                    Please complete the reCAPTCHA verification
+                                </p>
+                            )}
                         </div>
                     </form>
                 </div>

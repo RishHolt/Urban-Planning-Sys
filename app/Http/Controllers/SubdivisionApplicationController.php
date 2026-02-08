@@ -68,7 +68,7 @@ class SubdivisionApplicationController extends Controller
 
         $referenceNo = null;
 
-        DB::connection('sbr_db')->transaction(function () use ($validated, &$referenceNo) {
+        DB::transaction(function () use ($validated, &$referenceNo) {
             $referenceNo = SubdivisionApplication::generateReferenceNo();
 
             $application = SubdivisionApplication::create([
@@ -103,7 +103,7 @@ class SubdivisionApplicationController extends Controller
             ]);
         });
 
-        return redirect()->route('subdivision-applications.show', ['id' => DB::connection('sbr_db')->table('subdivision_applications')->where('reference_no', $referenceNo)->value('id')])
+        return redirect()->route('subdivision-applications.show', ['id' => DB::table('subdivision_applications')->where('reference_no', $referenceNo)->value('id')])
             ->with('success', 'Subdivision application submitted successfully. Reference: '.$referenceNo);
     }
 

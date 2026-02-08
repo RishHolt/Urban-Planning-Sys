@@ -8,13 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class InspectionChecklistItem extends Model
 {
     /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'zcs_db';
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>

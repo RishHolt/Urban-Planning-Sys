@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\DB;
 
 class StoreBlacklistRequest extends FormRequest
 {
@@ -26,7 +25,7 @@ class StoreBlacklistRequest extends FormRequest
             'beneficiary_id' => [
                 'required',
                 function ($attribute, $value, $fail) {
-                    $exists = DB::connection('hbr_db')
+                    $exists = DB
                         ->table('beneficiaries')
                         ->where('id', $value)
                         ->exists();

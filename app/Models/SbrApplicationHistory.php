@@ -2,17 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-
-class SbrApplicationHistory extends Model
+class SbrApplicationHistory extends SbrModel
 {
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'sbr_db';
-
     /**
      * The table associated with the model.
      *

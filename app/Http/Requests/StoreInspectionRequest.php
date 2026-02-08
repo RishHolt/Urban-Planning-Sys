@@ -23,8 +23,8 @@ class StoreInspectionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'application_id' => ['required', 'exists:zcs_db.zoning_applications,id'],
-            'inspector_id' => ['required', 'integer', 'exists:user_db.users,id'],
+            'application_id' => ['required', 'exists:zoning_applications,id'],
+            'inspector_id' => ['required', 'integer', 'exists:users,id'],
             'scheduled_date' => ['required', 'date', 'after_or_equal:today'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'findings' => ['nullable', 'string'],

@@ -71,7 +71,8 @@ export default function AuditLogs({ logs, filters: initialFilters }: AuditLogsPr
 
     return (
         <AdminLayout
-            title="Audit Logs"
+            title="System Logs"
+            description="View system activity and security logs"
         >
             <AdminFilterSection
                 searchValue={data.search}
@@ -94,6 +95,13 @@ export default function AuditLogs({ logs, filters: initialFilters }: AuditLogsPr
                             >
                                 <option value="">All Actions</option>
                                 <option value="status_updated">Status Updated</option>
+                                <option value="user_created">User Created</option>
+                                <option value="user_updated">User Updated</option>
+                                <option value="user_deleted">User Deleted</option>
+                                <option value="user_status_toggled">User Status Toggled</option>
+                                <option value="role_created">Role Created</option>
+                                <option value="role_updated">Role Updated</option>
+                                <option value="role_deleted">Role Deleted</option>
                                 <option value="created">Created</option>
                                 <option value="updated">Updated</option>
                                 <option value="deleted">Deleted</option>
@@ -109,8 +117,11 @@ export default function AuditLogs({ logs, filters: initialFilters }: AuditLogsPr
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
                             >
                                 <option value="">All Resources</option>
+                                <option value="user">User</option>
+                                <option value="role">Role</option>
                                 <option value="zoning_application">Zoning Application</option>
                                 <option value="zone">Zone</option>
+                                <option value="beneficiary_application">Beneficiary Application</option>
                             </select>
                         </div>
                         <div>
@@ -139,12 +150,12 @@ export default function AuditLogs({ logs, filters: initialFilters }: AuditLogsPr
                 }
             />
 
-            {/* Audit Logs Table */}
+            {/* System Logs Table */}
             <div className="bg-white dark:bg-dark-surface shadow-lg rounded-lg overflow-hidden">
                 {logs.data.length === 0 ? (
                     <AdminEmptyState
                         icon={History}
-                        title="No Audit Logs Found"
+                        title="No System Logs Found"
                         description="Try adjusting your search or filter criteria."
                     />
                 ) : (

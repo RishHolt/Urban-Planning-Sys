@@ -27,8 +27,6 @@ class ZoningApplicationController extends Controller
         $query = ZoningApplication::with(['zone'])
             ->where('user_id', Auth::id());
 
-
-
         // Filter by status if provided
         if ($request->has('status')) {
             $query->byStatus($request->status);
@@ -64,7 +62,7 @@ class ZoningApplicationController extends Controller
         $application = $this->zoningApplicationService->createApplication($request->validated());
 
         return redirect()->route('zoning-applications.index')
-            ->with('success', 'Application submitted successfully. Reference Number: ' . $application->reference_no);
+            ->with('success', 'Application submitted successfully. Reference Number: '.$application->reference_no);
     }
 
     /**
@@ -98,7 +96,7 @@ class ZoningApplicationController extends Controller
     {
         // Only validate fields necessary for fee calculation
         $validated = $request->validate([
-            'zone_id' => 'nullable|exists:zcs_db.zones,id',
+            'zone_id' => 'nullable|exists:zones,id',
             'is_subdivision' => 'boolean',
             'total_lots_planned' => 'nullable|integer',
             'floor_area_sqm' => 'nullable|numeric',
@@ -110,4 +108,3 @@ class ZoningApplicationController extends Controller
         return response()->json($assessment);
     }
 }
-

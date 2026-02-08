@@ -19,6 +19,12 @@ export default function Home() {
             return;
         }
         
+        // Navigate directly to development clearance application
+        if (service.id === 'development-clearance') {
+            router.visit('/development-clearance/create');
+            return;
+        }
+        
         setSelectedService(service);
         setIsModalOpen(true);
     };

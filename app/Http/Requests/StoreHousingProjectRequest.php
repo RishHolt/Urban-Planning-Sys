@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\DB;
 
 class StoreHousingProjectRequest extends FormRequest
 {
@@ -28,7 +27,7 @@ class StoreHousingProjectRequest extends FormRequest
                 'string',
                 'max:50',
                 function ($attribute, $value, $fail) {
-                    $exists = DB::connection('hbr_db')
+                    $exists = DB
                         ->table('housing_projects')
                         ->where('project_code', $value)
                         ->exists();

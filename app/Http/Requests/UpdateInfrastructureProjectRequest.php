@@ -36,7 +36,7 @@ class UpdateInfrastructureProjectRequest extends FormRequest
             'target_completion' => ['nullable', 'date', 'after_or_equal:start_date'],
             'actual_completion' => ['nullable', 'date'],
             'status' => ['sometimes', 'required', Rule::in(['planning', 'approved', 'bidding', 'contract_signed', 'ongoing', 'suspended', 'delayed', 'completed', 'cancelled'])],
-            'project_manager_id' => ['sometimes', 'required', 'exists:user_db.users,id'],
+            'project_manager_id' => ['sometimes', 'required', 'exists:users,id'],
             'scope_of_work' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ];

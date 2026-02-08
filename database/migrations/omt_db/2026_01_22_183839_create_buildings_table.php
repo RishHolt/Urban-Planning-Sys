@@ -7,19 +7,11 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Get the migration connection name.
-     */
-    public function getConnection(): ?string
-    {
-        return 'omt_db';
-    }
-
-    /**
      * Run the migrations.
      */
     public function up(): void
     {
-        Schema::connection('omt_db')->create('BUILDINGS', function (Blueprint $table) {
+        Schema::create('BUILDINGS', function (Blueprint $table) {
             $table->id();
             $table->string('building_code', 30)->unique();
             $table->string('sbr_reference_no', 30)->nullable();
@@ -59,6 +51,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::connection('omt_db')->dropIfExists('BUILDINGS');
+        Schema::dropIfExists('BUILDINGS');
     }
 };

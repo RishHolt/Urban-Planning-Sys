@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\DB;
 
 class StoreSiteVisitRequest extends FormRequest
 {
@@ -26,7 +25,7 @@ class StoreSiteVisitRequest extends FormRequest
             'application_id' => [
                 'required',
                 function ($attribute, $value, $fail) {
-                    $exists = DB::connection('hbr_db')
+                    $exists = DB
                         ->table('beneficiary_applications')
                         ->where('id', $value)
                         ->exists();

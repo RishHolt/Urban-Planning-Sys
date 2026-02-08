@@ -19,7 +19,7 @@ class InspectionService
         string $scheduledDate,
         ?string $notes = null
     ): Inspection {
-        DB::connection('zcs_db')->beginTransaction();
+        DB::beginTransaction();
 
         try {
             $application = ZoningApplication::findOrFail($applicationId);
@@ -82,11 +82,11 @@ class InspectionService
                 );
             }
 
-            DB::connection('zcs_db')->commit();
+            DB::commit();
 
             return $inspection;
         } catch (\Exception $e) {
-            DB::connection('zcs_db')->rollBack();
+            DB::rollBack();
             throw $e;
         }
     }
@@ -100,7 +100,7 @@ class InspectionService
         ?string $findings = null,
         ?string $recommendations = null
     ): void {
-        DB::connection('zcs_db')->beginTransaction();
+        DB::beginTransaction();
 
         try {
             $inspection->update([
@@ -145,9 +145,9 @@ class InspectionService
                 );
             }
 
-            DB::connection('zcs_db')->commit();
+            DB::commit();
         } catch (\Exception $e) {
-            DB::connection('zcs_db')->rollBack();
+            DB::rollBack();
             throw $e;
         }
     }

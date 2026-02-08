@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\BeneficiaryApplication;
-use Illuminate\Support\Facades\DB;
 
 class CaseOfficerService
 {
@@ -21,7 +20,7 @@ class CaseOfficerService
     public function autoAssignCaseOfficer(BeneficiaryApplication $application): ?int
     {
         // Get available case officers (users with housing_officer or social_worker role)
-        $caseOfficers = DB::connection('user_db')
+        $caseOfficers = DB
             ->table('users')
             ->whereIn('role', ['housing_officer', 'social_worker'])
             ->where('is_active', true)
@@ -57,7 +56,7 @@ class CaseOfficerService
      */
     public function getWorkloadStatistics(): array
     {
-        $officers = DB::connection('user_db')
+        $officers = DB
             ->table('users')
             ->whereIn('role', ['housing_officer', 'social_worker'])
             ->where('is_active', true)

@@ -11,13 +11,6 @@ class ApplicationEvaluation extends Model
     use HasFactory;
 
     /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'hbr_db';
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -63,6 +56,6 @@ class ApplicationEvaluation extends Model
      */
     public function evaluator(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'evaluated_by');
+        return $this->belongsTo(\App\Models\User::class, 'evaluated_by');
     }
 }

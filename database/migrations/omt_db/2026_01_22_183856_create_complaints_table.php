@@ -7,19 +7,11 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Get the migration connection name.
-     */
-    public function getConnection(): ?string
-    {
-        return 'omt_db';
-    }
-
-    /**
      * Run the migrations.
      */
     public function up(): void
     {
-        Schema::connection('omt_db')->create('COMPLAINTS', function (Blueprint $table) {
+        Schema::create('COMPLAINTS', function (Blueprint $table) {
             $table->id();
             $table->string('complaint_no', 30)->unique();
             $table->foreignId('building_id')->constrained('BUILDINGS', 'id')->onDelete('cascade');
@@ -54,6 +46,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::connection('omt_db')->dropIfExists('COMPLAINTS');
+        Schema::dropIfExists('COMPLAINTS');
     }
 };

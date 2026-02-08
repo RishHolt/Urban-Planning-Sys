@@ -22,7 +22,7 @@ class StoreIssuedCertificateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'application_id' => ['required', 'exists:sbr_db.subdivision_applications,id'],
+            'application_id' => ['required', 'exists:subdivision_applications,id'],
             'issue_date' => ['required', 'date'],
             'valid_until' => ['nullable', 'date', 'after:issue_date'],
             'conditions' => ['nullable', 'string'],

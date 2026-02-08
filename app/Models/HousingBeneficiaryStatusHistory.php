@@ -11,13 +11,6 @@ class HousingBeneficiaryStatusHistory extends Model
     use HasFactory;
 
     /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'hbr_db';
-
-    /**
      * The table associated with the model.
      *
      * @var string

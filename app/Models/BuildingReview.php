@@ -2,18 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class BuildingReview extends Model
+class BuildingReview extends SbrModel
 {
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'sbr_db';
-
     /**
      * The attributes that are mass assignable.
      *

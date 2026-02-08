@@ -19,15 +19,19 @@ if (typeof window !== 'undefined' && !(L.Icon.Default.prototype as any)._iconUrl
 interface LocationMarkerProps {
     position?: [number, number];
     onLocationSelect: (lat: number, lng: number) => void;
+    readOnly?: boolean;
 }
 
-const LocationMarker = memo(function LocationMarker({ position, onLocationSelect }: LocationMarkerProps) {
+const LocationMarker = memo(function LocationMarker({ position, onLocationSelect, readOnly = false }: LocationMarkerProps) {
     const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(
         position || null
     );
 
     const map = useMapEvents({
         click(e) {
+            if (readOnly) {
+                return; // Don't allow clicking when read-only
+            }
             const { lat, lng } = e.latlng;
             if (validateCoordinates(lat, lng)) {
                 setMarkerPosition([lat, lng]);
@@ -58,6 +62,7 @@ interface MapComponentProps {
     onLocationSelect: (lat: number, lng: number) => void;
     zoom?: number;
     zones?: Zone[];
+    readOnly?: boolean;
 }
 
 // Component to update map center and zoom when prop changes
@@ -172,6 +177,7 @@ export default memo(function MapComponent({
     onLocationSelect,
     zoom = 13,
     zones,
+    readOnly = false,
 }: MapComponentProps) {
     const handleLocationSelect = useCallback((lat: number, lng: number) => {
         onLocationSelect(lat, lng);
@@ -183,13 +189,13 @@ export default memo(function MapComponent({
             zoom={zoom}
             style={{ height: '400px', width: '100%' }}
             className="z-0"
-            zoomControl={true}
-            scrollWheelZoom={true}
-            doubleClickZoom={true}
-            dragging={true}
-            touchZoom={true}
-            boxZoom={true}
-            keyboard={true}
+            zoomControl={!readOnly}
+            scrollWheelZoom={!readOnly}
+            doubleClickZoom={!readOnly}
+            dragging={!readOnly}
+            touchZoom={!readOnly}
+            boxZoom={!readOnly}
+            keyboard={!readOnly}
             preferCanvas={true}
             fadeAnimation={false}
             zoomAnimation={true}
@@ -211,6 +217,7 @@ export default memo(function MapComponent({
             <LocationMarker
                 position={latitude && longitude ? [latitude, longitude] : undefined}
                 onLocationSelect={handleLocationSelect}
+                readOnly={readOnly}
             />
         </MapContainer>
     );

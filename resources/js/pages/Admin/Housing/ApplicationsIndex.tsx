@@ -4,7 +4,7 @@ import AdminLayout from '../../../components/AdminLayout';
 import AdminFilterSection from '../../../components/AdminFilterSection';
 import AdminEmptyState from '../../../components/AdminEmptyState';
 import Input from '../../../components/Input';
-import { FileText, Eye, CheckCircle, XCircle, Clock, Calendar, List, Home, Trophy, ArrowUpDown } from 'lucide-react';
+import { FileText, Eye, CheckCircle, XCircle, Clock, Calendar, List, Home, Users, ListChecks } from 'lucide-react';
 
 interface Application {
     id: string;
@@ -16,59 +16,96 @@ interface Application {
     eligibility_status: string;
     submittedAt: string | null;
     createdAt: string;
-    priority_score?: number;
-    rank?: number;
+}
+
+interface Beneficiary {
+    id: string;
+    beneficiary_no: string;
+    full_name: string;
+    email: string;
+    contact_number: string;
+    barangay: string;
+    sectors: string[];
+    status: string | null;
+    total_applications: number;
+    registered_at: string;
 }
 
 interface ApplicationsIndexProps {
-    applications: {
+    applications?: {
         data: Application[];
         links: any;
         meta: any;
     };
+    beneficiaries?: {
+        data: Beneficiary[];
+        links: any;
+        meta: any;
+    };
     filters: {
+        view?: 'applications' | 'beneficiaries';
         search?: string;
         status?: string;
         housing_program?: string;
         eligibility_status?: string;
+        sector?: string;
+        barangay?: string;
         dateFrom?: string;
         dateTo?: string;
     };
 }
 
-export default function ApplicationsIndex({ applications, filters: initialFilters }: ApplicationsIndexProps) {
+export default function ApplicationsIndex({ applications, beneficiaries, filters: initialFilters }: ApplicationsIndexProps) {
+    const [activeTab, setActiveTab] = useState<'applications' | 'beneficiaries'>(
+        (initialFilters.view as 'applications' | 'beneficiaries') || 'applications'
+    );
     const [showFilters, setShowFilters] = useState(false);
-    const [showRanked, setShowRanked] = useState(false);
-    const { data, setData, get } = useForm({
+    
+    // Applications form
+    const { data: appData, setData: setAppData, get: appGet } = useForm({
         search: initialFilters.search || '',
         status: initialFilters.status || '',
         housing_program: initialFilters.housing_program || '',
         eligibility_status: initialFilters.eligibility_status || '',
         dateFrom: initialFilters.dateFrom || '',
         dateTo: initialFilters.dateTo || '',
-        ranked: false,
     });
 
-    const handleSearch = (): void => {
-        get('/admin/housing/applications', {
+    // Beneficiaries form
+    const { data: benData, setData: setBenData, get: benGet } = useForm({
+        search: initialFilters.search || '',
+        status: initialFilters.status || '',
+        sector: initialFilters.sector || '',
+        barangay: initialFilters.barangay || '',
+    });
+
+    const handleTabChange = (tab: 'applications' | 'beneficiaries'): void => {
+        setActiveTab(tab);
+        router.get('/admin/housing/applications', {
+            view: tab,
             preserveState: true,
             preserveScroll: true,
         });
     };
 
-    const handleToggleRanked = (): void => {
-        const newRanked = !data.ranked;
-        setData('ranked', newRanked);
-        setShowRanked(newRanked);
-        get('/admin/housing/applications', {
-            data: { ...data, ranked: newRanked },
+    const handleAppSearch = (): void => {
+        appGet('/admin/housing/applications', {
+            data: { ...appData, view: 'applications' },
             preserveState: true,
             preserveScroll: true,
         });
     };
 
-    const handleReset = (): void => {
-        setData({
+    const handleBenSearch = (): void => {
+        benGet('/admin/housing/applications', {
+            data: { ...benData, view: 'beneficiaries' },
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
+
+    const handleAppReset = (): void => {
+        setAppData({
             search: '',
             status: '',
             housing_program: '',
@@ -76,7 +113,17 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
             dateFrom: '',
             dateTo: '',
         });
-        router.get('/admin/housing/applications');
+        router.get('/admin/housing/applications', { view: 'applications' });
+    };
+
+    const handleBenReset = (): void => {
+        setBenData({
+            search: '',
+            status: '',
+            sector: '',
+            barangay: '',
+        });
+        router.get('/admin/housing/applications', { view: 'beneficiaries' });
     };
 
     const getStatusBadge = (status: string) => {
@@ -101,13 +148,18 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                 className: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
                 icon: <CheckCircle size={14} />
             },
-            'eligible': {
-                label: 'Eligible',
+            'verified': {
+                label: 'Verified',
                 className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
                 icon: <CheckCircle size={14} />
             },
-            'not_eligible': {
-                label: 'Not Eligible',
+            'approved': {
+                label: 'Approved',
+                className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+                icon: <CheckCircle size={14} />
+            },
+            'rejected': {
+                label: 'Rejected',
                 className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
                 icon: <XCircle size={14} />
             },
@@ -148,6 +200,8 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                 return <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">Eligible</span>;
             case 'not_eligible':
                 return <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">Not Eligible</span>;
+            case 'conditional':
+                return <span className="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200">Conditional</span>;
             default:
                 return <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">Pending</span>;
         }
@@ -174,36 +228,48 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
 
     return (
         <AdminLayout
-            title="Housing Applications"
-            description="Review and manage all housing beneficiary applications"
+            title="Applications & Beneficiaries"
+            description="Manage housing applications and beneficiary records"
         >
-            <div className="mb-6 flex justify-between items-center">
-                <div className="flex items-center gap-3">
+            {/* Tabs */}
+            <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+                <nav className="flex gap-4">
                     <button
-                        onClick={handleToggleRanked}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                            showRanked
-                                ? 'bg-primary text-white'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        onClick={() => handleTabChange('applications')}
+                        className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                            activeTab === 'applications'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                         }`}
                     >
-                        <Trophy size={18} />
-                        {showRanked ? 'Show Ranked' : 'Show Standard View'}
+                        <div className="flex items-center gap-2">
+                            <ListChecks size={18} />
+                            Applications
+                        </div>
                     </button>
-                    {showRanked && (
-                        <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                            <ArrowUpDown size={16} />
-                            Applications sorted by priority score
-                        </span>
-                    )}
-                </div>
+                    <button
+                        onClick={() => handleTabChange('beneficiaries')}
+                        className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                            activeTab === 'beneficiaries'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                        }`}
+                    >
+                        <div className="flex items-center gap-2">
+                            <Users size={18} />
+                            Beneficiaries
+                        </div>
+                    </button>
+                </nav>
             </div>
 
-            <AdminFilterSection
-                searchValue={data.search}
-                onSearchChange={(value) => setData('search', value)}
-                onSearch={handleSearch}
-                onReset={handleReset}
+            {activeTab === 'applications' && (
+                <>
+                    <AdminFilterSection
+                        searchValue={appData.search}
+                        onSearchChange={(value) => setAppData('search', value)}
+                        onSearch={handleAppSearch}
+                        onReset={handleAppReset}
                 showFilters={showFilters}
                 onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder="Search by application number, beneficiary name, or beneficiary number..."
@@ -214,8 +280,8 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                                 Application Status
                             </label>
                             <select
-                                value={data.status}
-                                onChange={(e) => setData('status', e.target.value)}
+                                value={appData.status}
+                                onChange={(e) => setAppData('status', e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
                             >
                                 <option value="">All Statuses</option>
@@ -223,8 +289,9 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                                 <option value="under_review">Under Review</option>
                                 <option value="site_visit_scheduled">Site Visit Scheduled</option>
                                 <option value="site_visit_completed">Site Visit Completed</option>
-                                <option value="eligible">Eligible</option>
-                                <option value="not_eligible">Not Eligible</option>
+                                <option value="verified">Verified</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
                                 <option value="waitlisted">Waitlisted</option>
                                 <option value="allocated">Allocated</option>
                                 <option value="cancelled">Cancelled</option>
@@ -235,8 +302,8 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                                 Housing Program
                             </label>
                             <select
-                                value={data.housing_program}
-                                onChange={(e) => setData('housing_program', e.target.value)}
+                                value={appData.housing_program}
+                                onChange={(e) => setAppData('housing_program', e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
                             >
                                 <option value="">All Programs</option>
@@ -251,14 +318,15 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                                 Eligibility Status
                             </label>
                             <select
-                                value={data.eligibility_status}
-                                onChange={(e) => setData('eligibility_status', e.target.value)}
+                                value={appData.eligibility_status}
+                                onChange={(e) => setAppData('eligibility_status', e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
                             >
                                 <option value="">All Eligibility Statuses</option>
                                 <option value="pending">Pending</option>
                                 <option value="eligible">Eligible</option>
                                 <option value="not_eligible">Not Eligible</option>
+                                <option value="conditional">Conditional</option>
                             </select>
                         </div>
                         <div>
@@ -268,8 +336,8 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                             <Input
                                 type="date"
                                 name="dateFrom"
-                                value={data.dateFrom}
-                                onChange={(e) => setData('dateFrom', e.target.value)}
+                                value={appData.dateFrom}
+                                onChange={(e) => setAppData('dateFrom', e.target.value)}
                             />
                         </div>
                         <div>
@@ -279,17 +347,17 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                             <Input
                                 type="date"
                                 name="dateTo"
-                                value={data.dateTo}
-                                onChange={(e) => setData('dateTo', e.target.value)}
+                                value={appData.dateTo}
+                                onChange={(e) => setAppData('dateTo', e.target.value)}
                             />
                         </div>
                     </>
                 }
             />
 
-            {/* Applications Table */}
-            <div className="bg-white dark:bg-dark-surface shadow-lg rounded-lg overflow-hidden">
-                {applications.data.length === 0 ? (
+                    {/* Applications Table */}
+                    <div className="bg-white dark:bg-dark-surface shadow-lg rounded-lg overflow-hidden">
+                        {!applications || applications.data.length === 0 ? (
                     <AdminEmptyState
                         icon={FileText}
                         title="No Applications Found"
@@ -301,11 +369,6 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                             <table className="w-full">
                                 <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                                     <tr>
-                                        {showRanked && (
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                Rank
-                                            </th>
-                                        )}
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Application Number
                                         </th>
@@ -321,11 +384,6 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Eligibility Status
                                         </th>
-                                        {showRanked && (
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                Priority Score
-                                            </th>
-                                        )}
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Submitted At
                                         </th>
@@ -337,20 +395,6 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                                 <tbody className="bg-white dark:bg-dark-surface divide-y divide-gray-200 dark:divide-gray-700">
                                     {applications.data.map((application) => (
                                         <tr key={application.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                                            {showRanked && application.rank && (
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center gap-2">
-                                                        <Trophy className={`${
-                                                            application.rank <= 3
-                                                                ? 'text-yellow-500'
-                                                                : 'text-gray-400'
-                                                        }`} size={18} />
-                                                        <span className="font-bold text-gray-900 dark:text-white">
-                                                            #{application.rank}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                            )}
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="font-mono text-sm text-gray-900 dark:text-white">
                                                     {application.applicationNumber}
@@ -375,13 +419,6 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {getEligibilityBadge(application.eligibility_status)}
                                             </td>
-                                            {showRanked && application.priority_score !== undefined && (
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                                                        {application.priority_score.toLocaleString()}
-                                                    </span>
-                                                </td>
-                                            )}
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                                                 {formatDate(application.submittedAt)}
                                             </td>
@@ -411,7 +448,7 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                                             key={index}
                                             onClick={() => {
                                                 if (link.url) {
-                                                    router.get(link.url, {}, { preserveState: true, preserveScroll: true });
+                                                    router.get(link.url, { view: 'applications' }, { preserveState: true, preserveScroll: true });
                                                 }
                                             }}
                                             disabled={!link.url}
@@ -430,7 +467,198 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
                         )}
                     </>
                 )}
-            </div>
+                    </div>
+                </>
+            )}
+
+            {activeTab === 'beneficiaries' && (
+                <>
+                    <AdminFilterSection
+                        searchValue={benData.search}
+                        onSearchChange={(value) => setBenData('search', value)}
+                        onSearch={handleBenSearch}
+                        onReset={handleBenReset}
+                        showFilters={showFilters}
+                        onToggleFilters={() => setShowFilters(!showFilters)}
+                        searchPlaceholder="Search by beneficiary name, number, or email..."
+                        filterContent={
+                            <>
+                                <div>
+                                    <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Status
+                                    </label>
+                                    <select
+                                        value={benData.status}
+                                        onChange={(e) => setBenData('status', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    >
+                                        <option value="">All Statuses</option>
+                                        <option value="qualified">Qualified</option>
+                                        <option value="waitlisted">Waitlisted</option>
+                                        <option value="awarded">Awarded</option>
+                                        <option value="disqualified">Disqualified</option>
+                                        <option value="archived">Archived</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Sector
+                                    </label>
+                                    <select
+                                        value={benData.sector}
+                                        onChange={(e) => setBenData('sector', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    >
+                                        <option value="">All Sectors</option>
+                                        <option value="indigent">Indigent</option>
+                                        <option value="informal_settler">Informal Settler</option>
+                                        <option value="relocatee">Relocatee</option>
+                                        <option value="ofw">OFW</option>
+                                        <option value="senior_citizen">Senior Citizen</option>
+                                        <option value="pwd">PWD</option>
+                                        <option value="solo_parent">Solo Parent</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Barangay
+                                    </label>
+                                    <Input
+                                        type="text"
+                                        name="barangay"
+                                        value={benData.barangay}
+                                        onChange={(e) => setBenData('barangay', e.target.value)}
+                                        placeholder="Enter barangay"
+                                    />
+                                </div>
+                            </>
+                        }
+                    />
+
+                    {/* Beneficiaries Table */}
+                    <div className="bg-white dark:bg-dark-surface shadow-lg rounded-lg overflow-hidden">
+                        {!beneficiaries || beneficiaries.data.length === 0 ? (
+                            <AdminEmptyState
+                                icon={Users}
+                                title="No Beneficiaries Found"
+                                description="Try adjusting your search or filter criteria."
+                            />
+                        ) : (
+                            <>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Beneficiary
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Contact
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Location
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Sectors
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Status
+                                                </th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Applications
+                                                </th>
+                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Actions
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white dark:bg-dark-surface divide-y divide-gray-200 dark:divide-gray-700">
+                                            {beneficiaries.data.map((beneficiary) => (
+                                                <tr key={beneficiary.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div>
+                                                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                                                {beneficiary.full_name}
+                                                            </div>
+                                                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                                {beneficiary.beneficiary_no}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="text-sm text-gray-900 dark:text-white">{beneficiary.email}</div>
+                                                        <div className="text-sm text-gray-500 dark:text-gray-400">{beneficiary.contact_number}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                                        {beneficiary.barangay}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {beneficiary.sectors.map((sector, idx) => (
+                                                                <span
+                                                                    key={idx}
+                                                                    className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                                                >
+                                                                    {sector}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                                            {beneficiary.status || 'N/A'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                                        {beneficiary.total_applications}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                        <Link
+                                                            href={`/admin/housing/beneficiaries/${beneficiary.id}`}
+                                                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                                                        >
+                                                            <Eye size={16} />
+                                                        </Link>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {/* Pagination */}
+                                {beneficiaries.links && beneficiaries.links.length > 3 && (
+                                    <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                                            Showing {beneficiaries.meta?.from ?? 'N/A'} to {beneficiaries.meta?.to ?? 'N/A'} of {beneficiaries.meta?.total ?? 'N/A'} results
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {beneficiaries.links.map((link: any, index: number) => (
+                                                <button
+                                                    key={index}
+                                                    onClick={() => {
+                                                        if (link.url) {
+                                                            router.get(link.url, { view: 'beneficiaries' }, { preserveState: true, preserveScroll: true });
+                                                        }
+                                                    }}
+                                                    disabled={!link.url}
+                                                    className={`px-3 py-2 text-sm rounded-lg ${
+                                                        link.active
+                                                            ? 'bg-primary text-white'
+                                                            : link.url
+                                                            ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                                            : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                                    }`}
+                                                    dangerouslySetInnerHTML={{ __html: link.label }}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
         </AdminLayout>
     );
 }

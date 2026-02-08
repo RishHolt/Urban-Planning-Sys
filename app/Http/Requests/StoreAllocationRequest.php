@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\DB;
 
 class StoreAllocationRequest extends FormRequest
 {
@@ -26,7 +25,7 @@ class StoreAllocationRequest extends FormRequest
             'application_id' => [
                 'required',
                 function ($attribute, $value, $fail) {
-                    $exists = DB::connection('hbr_db')
+                    $exists = DB
                         ->table('beneficiary_applications')
                         ->where('id', $value)
                         ->exists();
@@ -39,7 +38,7 @@ class StoreAllocationRequest extends FormRequest
             'unit_id' => [
                 'required',
                 function ($attribute, $value, $fail) {
-                    $exists = DB::connection('hbr_db')
+                    $exists = DB
                         ->table('housing_units')
                         ->where('id', $value)
                         ->exists();

@@ -8,13 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 class EmailVerification extends Model
 {
     /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'user_db';
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>

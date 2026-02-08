@@ -2,20 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class ZoningApplication extends Model
+class ZoningApplication extends ZcsModel
 {
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'zcs_db';
-
     /**
      * The table associated with the model.
      *
@@ -124,7 +116,7 @@ class ZoningApplication extends Model
      */
     public function user(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class);
+        return $this->belongsTo(\App\Models\User::class);
     }
 
     /**
@@ -150,6 +142,7 @@ class ZoningApplication extends Model
     {
         return $query->where('status', $status);
     }
+
     /**
      * Get the documents for the application.
      */
@@ -194,7 +187,7 @@ class ZoningApplication extends Model
      */
     public static function generateReferenceNo(): string
     {
-        $prefix = 'ZC-' . date('Y-m');
+        $prefix = 'ZC-'.date('Y-m');
         $lastRecord = self::where('reference_no', 'like', "{$prefix}-%")
             ->orderBy('id', 'desc')
             ->first();
@@ -205,6 +198,6 @@ class ZoningApplication extends Model
             $sequence = (int) end($parts) + 1;
         }
 
-        return $prefix . '-' . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
+        return $prefix.'-'.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
     }
 }

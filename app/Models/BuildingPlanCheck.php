@@ -2,18 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class BuildingPlanCheck extends Model
+class BuildingPlanCheck extends SbrModel
 {
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'sbr_db';
-
     /**
      * Indicates if the model should be timestamped.
      *

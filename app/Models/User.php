@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -12,13 +13,6 @@ class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
-
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'user_db';
 
     /**
      * The attributes that are mass assignable.
@@ -69,5 +63,59 @@ class User extends Authenticatable
     public function emailVerifications(): HasMany
     {
         return $this->hasMany(EmailVerification::class, 'email', 'email');
+    }
+
+    /**
+     * Get the roles assigned to the user.
+     */
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id')
+            ->withPivot('created_at');
+    }
+
+    /**
+     * Check if the user has access to a specific module.
+     * Checks both enum role and dynamic roles.
+     */
+    public function hasModuleAccess(string $moduleCode): bool
+    {
+        // Super admin and admin have access to all modules
+        if (in_array($this->role, ['super_admin', 'admin'])) {
+            return true;
+        }
+
+        // Staff also have access to all modules
+        if ($this->role === 'staff') {
+            return true;
+        }
+
+        // Check dynamic roles for module access
+        return $this->roles()
+            ->whereHas('modules', function ($query) use ($moduleCode) {
+                $query->where('code', $moduleCode);
+            })
+            ->exists();
+    }
+
+    /**
+     * Check if the user has any of the specified roles.
+     * Checks both enum role and dynamic roles.
+     *
+     * @param  array<string>|string  $roleNames
+     */
+    public function hasAnyRole(array|string $roleNames): bool
+    {
+        $roleNames = is_array($roleNames) ? $roleNames : [$roleNames];
+
+        // Check enum role
+        if (in_array($this->role, $roleNames)) {
+            return true;
+        }
+
+        // Check dynamic roles
+        return $this->roles()
+            ->whereIn('name', $roleNames)
+            ->exists();
     }
 }

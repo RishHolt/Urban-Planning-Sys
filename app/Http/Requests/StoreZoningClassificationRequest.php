@@ -27,7 +27,7 @@ class StoreZoningClassificationRequest extends FormRequest
                 'string',
                 'max:20',
                 'regex:/^[A-Z0-9\-]+$/i', // Alphanumeric with dashes
-                'unique:zcs_db.zoning_classifications,code',
+                'unique:zoning_classifications,code',
             ],
             'name' => ['required', 'string', 'max:100'],
             'description' => ['nullable', 'string'],

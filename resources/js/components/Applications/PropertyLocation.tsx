@@ -24,6 +24,7 @@ interface PropertyLocationProps {
     errors?: Record<string, string>;
     // View mode props
     showMap?: boolean;
+    readOnly?: boolean; // If true, location cannot be changed
 }
 
 export default function PropertyLocation({
@@ -41,6 +42,7 @@ export default function PropertyLocation({
     onAddressChange,
     errors = {},
     showMap = true,
+    readOnly = false,
 }: PropertyLocationProps) {
     const [detectedZone, setDetectedZone] = useState<Zone | null>(zone || null);
     const [loadingZones, setLoadingZones] = useState(false);
@@ -190,10 +192,18 @@ export default function PropertyLocation({
                 <MapPicker
                     latitude={pinLat || undefined}
                     longitude={pinLng || undefined}
-                    onLocationSelect={handleLocationSelect}
+                    onLocationSelect={readOnly ? () => {} : handleLocationSelect}
                     error={errors.pin_lat || errors.pin_lng}
                     zones={zones}
+                    readOnly={readOnly}
                 />
+                {readOnly && (
+                    <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <p className="text-blue-800 dark:text-blue-200 text-sm">
+                            <strong>Location locked:</strong> This location is from your Zoning Clearance and cannot be changed.
+                        </p>
+                    </div>
+                )}
 
                 {geocoding && (
                     <div className="flex items-center gap-2 mt-2 text-blue-600 dark:text-blue-400 text-xs">

@@ -37,7 +37,7 @@ class BlacklistService
 
             // Update application status
             $application->update([
-                'application_status' => 'not_eligible',
+                'application_status' => 'rejected',
                 'eligibility_status' => 'not_eligible',
                 'denial_reason' => "Application rejected: Beneficiary is blacklisted. Reason: {$blacklist->reason}",
             ]);

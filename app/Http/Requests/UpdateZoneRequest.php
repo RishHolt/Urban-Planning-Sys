@@ -22,7 +22,7 @@ class UpdateZoneRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'zoning_classification_id' => ['sometimes', 'required', 'exists:zcs_db.zoning_classifications,id'],
+            'zoning_classification_id' => ['sometimes', 'required', 'exists:zoning_classifications,id'],
             'label' => ['nullable', 'string', 'max:100'],
             'geometry' => ['nullable', 'array'], // GeoJSON Polygon or MultiPolygon
             'is_active' => ['sometimes', 'boolean'],

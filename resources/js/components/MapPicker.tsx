@@ -27,6 +27,7 @@ interface MapPickerProps {
     center?: [number, number];
     zoom?: number;
     zones?: Zone[];
+    readOnly?: boolean;
 }
 
 function MapPicker({
@@ -39,6 +40,7 @@ function MapPicker({
     center: propCenter,
     zoom,
     zones,
+    readOnly = false,
 }: MapPickerProps) {
     const [isValid, setIsValid] = useState(true);
     const [validationError, setValidationError] = useState<string>('');
@@ -100,17 +102,18 @@ function MapPicker({
                         center={center}
                         latitude={latitude}
                         longitude={longitude}
-                        onLocationSelect={handleLocationSelect}
+                        onLocationSelect={readOnly ? () => {} : handleLocationSelect}
                         zoom={zoom}
                         zones={zones}
+                        readOnly={readOnly}
                     />
                 </Suspense>
             </div>
-            {(latitude || longitude) && (
+            {(latitude != null && longitude != null) && (
                 <div className="mt-2 flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm">
                     <MapPin size={16} />
                     <span>
-                        Coordinates: {latitude?.toFixed(6)}, {longitude?.toFixed(6)}
+                        Coordinates: {typeof latitude === 'number' ? latitude.toFixed(6) : latitude}, {typeof longitude === 'number' ? longitude.toFixed(6) : longitude}
                     </span>
                 </div>
             )}

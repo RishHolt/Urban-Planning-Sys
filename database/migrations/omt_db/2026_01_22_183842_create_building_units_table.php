@@ -9,17 +9,12 @@ return new class extends Migration
     /**
      * Get the migration connection name.
      */
-    public function getConnection(): ?string
-    {
-        return 'omt_db';
-    }
-
     /**
      * Run the migrations.
      */
     public function up(): void
     {
-        Schema::connection('omt_db')->create('BUILDING_UNITS', function (Blueprint $table) {
+        Schema::create('BUILDING_UNITS', function (Blueprint $table) {
             $table->id();
             $table->foreignId('building_id')->constrained('BUILDINGS', 'id')->onDelete('cascade');
             $table->string('unit_no', 20);
@@ -49,6 +44,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::connection('omt_db')->dropIfExists('BUILDING_UNITS');
+        Schema::dropIfExists('BUILDING_UNITS');
     }
 };

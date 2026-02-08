@@ -3,19 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Contractor extends Model
+class Contractor extends IpcModel
 {
     use HasFactory;
-
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'ipc_db';
 
     /**
      * The attributes that are mass assignable.

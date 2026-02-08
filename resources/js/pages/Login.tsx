@@ -7,6 +7,7 @@ import Input from '../components/Input';
 import GoogleIcon from '../components/GoogleIcon';
 import RegisterModal from '../modals/RegisterModal';
 import VerifyOtpModal from '../modals/VerifyOtpModal';
+import Recaptcha from '../components/Recaptcha';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
@@ -14,11 +15,13 @@ export default function Login() {
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
     const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
     const [otpEmail, setOtpEmail] = useState('');
+    const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
 
-    const { flash } = usePage().props as any;
+    const { flash, recaptcha_site_key } = usePage().props as any;
     const { data, setData, post, processing, errors } = useForm({
         email: '',
         password: '',
+        'g-recaptcha-response': '',
     });
 
     // Check for email in flash data (from backend redirect)
@@ -49,6 +52,17 @@ export default function Login() {
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Only require reCAPTCHA token if site key is configured
+        if (recaptcha_site_key && !recaptchaToken) {
+            return;
+        }
+
+        // Only set reCAPTCHA response if token exists
+        if (recaptchaToken) {
+            setData('g-recaptcha-response', recaptchaToken);
+        }
+        
         post('/login', {
             preserveState: true,
             preserveScroll: true,
@@ -161,15 +175,33 @@ export default function Login() {
                                     </button>
                                 </div>
 
+                                {recaptcha_site_key && (
+                                    <div className="flex justify-center">
+                                        <Recaptcha
+                                            siteKey={recaptcha_site_key}
+                                            onChange={setRecaptchaToken}
+                                            onError={() => setRecaptchaToken(null)}
+                                        />
+                                    </div>
+                                )}
+                                {errors['g-recaptcha-response'] && (
+                                    <p className="text-red-500 text-sm">{errors['g-recaptcha-response']}</p>
+                                )}
+
                                 <Button
                                     type="submit"
                                     variant="primary"
                                     size="lg"
                                     className="w-full"
-                                    disabled={processing}
+                                    disabled={processing || (recaptcha_site_key && !recaptchaToken)}
                                 >
                                     {processing ? 'Logging in...' : 'Login'}
                                 </Button>
+                                {recaptcha_site_key && !recaptchaToken && (
+                                    <p className="mt-2 text-center text-red-500 text-sm">
+                                        Please complete the reCAPTCHA verification
+                                    </p>
+                                )}
                             </form>
 
                             {/* Separator */}

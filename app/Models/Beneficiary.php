@@ -5,23 +5,15 @@ namespace App\Models;
 use App\BeneficiarySector;
 use App\BeneficiaryStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
-class Beneficiary extends Model
+class Beneficiary extends HbrModel
 {
     use HasFactory;
-
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'hbr_db';
 
     /**
      * The table associated with the model.
@@ -308,7 +300,7 @@ class Beneficiary extends Model
      */
     public function user(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'citizen_id');
+        return $this->belongsTo(\App\Models\User::class, 'citizen_id');
     }
 
     /**

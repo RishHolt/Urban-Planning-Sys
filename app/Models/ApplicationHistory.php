@@ -2,18 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ApplicationHistory extends Model
+class ApplicationHistory extends ZcsModel
 {
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'zcs_db';
-
     /**
      * The table associated with the model.
      *

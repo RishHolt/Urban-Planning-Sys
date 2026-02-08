@@ -23,7 +23,7 @@ class StoreBuildingPlanCheckRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'building_review_id' => ['required', 'exists:sbr_db.building_reviews,id'],
+            'building_review_id' => ['required', 'exists:building_reviews,id'],
             'check_type' => ['required', Rule::in(['safety_sanitation', 'structural', 'deed_restrictions'])],
             'result' => ['required', Rule::in(['passed', 'failed', 'conditional'])],
             'findings' => ['nullable', 'string'],

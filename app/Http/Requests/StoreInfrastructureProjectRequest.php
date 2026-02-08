@@ -33,7 +33,7 @@ class StoreInfrastructureProjectRequest extends FormRequest
             'budget' => ['required', 'numeric', 'min:0'],
             'start_date' => ['nullable', 'date'],
             'target_completion' => ['nullable', 'date', 'after_or_equal:start_date'],
-            'project_manager_id' => ['required', 'exists:user_db.users,id'],
+            'project_manager_id' => ['required', 'exists:users,id'],
             'scope_of_work' => ['nullable', 'string'],
             'sbr_reference_no' => ['nullable', 'string', 'max:30'],
         ];

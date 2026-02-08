@@ -3,19 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ProjectDocument extends Model
+class ProjectDocument extends HbrModel
 {
     use HasFactory;
-
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'hbr_db';
 
     /**
      * The table associated with the model.

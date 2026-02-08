@@ -8,13 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ZoningInspectionPhoto extends Model
 {
     /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'zcs_db';
-
-    /**
      * The table associated with the model.
      *
      * @var string
@@ -59,6 +52,6 @@ class ZoningInspectionPhoto extends Model
      */
     public function uploadedBy(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(User::class, 'uploaded_by');
+        return $this->belongsTo(User::class, 'uploaded_by');
     }
 }

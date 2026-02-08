@@ -5,21 +5,13 @@ namespace App\Models;
 use App\ApplicationStatus;
 use App\EligibilityStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class BeneficiaryApplication extends Model
+class BeneficiaryApplication extends HbrModel
 {
     use HasFactory;
-
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'hbr_db';
 
     /**
      * The table associated with the model.
@@ -172,7 +164,7 @@ class BeneficiaryApplication extends Model
      */
     public function caseOfficer(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'case_officer_id');
+        return $this->belongsTo(\App\Models\User::class, 'case_officer_id');
     }
 
     /**
@@ -180,7 +172,7 @@ class BeneficiaryApplication extends Model
      */
     public function reviewer(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'reviewed_by');
+        return $this->belongsTo(\App\Models\User::class, 'reviewed_by');
     }
 
     /**
@@ -188,7 +180,7 @@ class BeneficiaryApplication extends Model
      */
     public function approver(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'approved_by');
+        return $this->belongsTo(\App\Models\User::class, 'approved_by');
     }
 
     /**

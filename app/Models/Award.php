@@ -3,20 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
-class Award extends Model
+class Award extends HbrModel
 {
     use HasFactory;
-
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'hbr_db';
 
     /**
      * The attributes that are mass assignable.
@@ -139,7 +131,7 @@ class Award extends Model
      */
     public function generator(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'generated_by');
+        return $this->belongsTo(\App\Models\User::class, 'generated_by');
     }
 
     /**
@@ -147,7 +139,7 @@ class Award extends Model
      */
     public function approver(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'approved_by');
+        return $this->belongsTo(\App\Models\User::class, 'approved_by');
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Services\RecaptchaService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -23,7 +24,7 @@ class RegisterRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             // User fields
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
@@ -39,6 +40,13 @@ class RegisterRequest extends FormRequest
             'barangay' => ['required', 'string', 'max:255'],
             'city' => ['required', 'string', 'max:255'],
         ];
+
+        // Only require reCAPTCHA if site key is configured
+        if (config('services.recaptcha.site_key')) {
+            $rules['g-recaptcha-response'] = ['required', 'string'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -61,6 +69,28 @@ class RegisterRequest extends FormRequest
             'street.required' => 'Street is required.',
             'barangay.required' => 'Barangay is required.',
             'city.required' => 'City is required.',
+            'g-recaptcha-response.required' => 'Please complete the reCAPTCHA verification.',
         ];
+    }
+
+    /**
+     * Configure the validator instance.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            // Only verify captcha if site key is configured and token is provided
+            if (config('services.recaptcha.site_key') && $this->has('g-recaptcha-response')) {
+                $recaptchaService = app(RecaptchaService::class);
+                $token = $this->input('g-recaptcha-response');
+
+                if (! $recaptchaService->verify($token, $this->ip())) {
+                    $validator->errors()->add(
+                        'g-recaptcha-response',
+                        'reCAPTCHA verification failed. Please try again.'
+                    );
+                }
+            }
+        });
     }
 }

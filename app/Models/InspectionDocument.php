@@ -8,13 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class InspectionDocument extends Model
 {
     /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'zcs_db';
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -55,6 +48,6 @@ class InspectionDocument extends Model
      */
     public function uploadedBy(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(User::class, 'uploaded_by');
+        return $this->belongsTo(User::class, 'uploaded_by');
     }
 }

@@ -2,18 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class IssuedClearance extends Model
+class IssuedClearance extends ZcsModel
 {
-    /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'zcs_db';
-
     /**
      * The table associated with the model.
      *
@@ -62,7 +54,7 @@ class IssuedClearance extends Model
      */
     public function approvedBy(): BelongsTo
     {
-        return $this->setConnection('user_db')->belongsTo(\App\Models\User::class, 'issued_by');
+        return $this->belongsTo(\App\Models\User::class, 'issued_by');
     }
 
     /**

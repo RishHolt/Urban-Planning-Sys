@@ -57,12 +57,12 @@ class SiteVisitService
         if ($recommendation === 'eligible') {
             $application->update([
                 'eligibility_status' => 'eligible',
-                'application_status' => 'eligible',
+                'application_status' => 'verified',
             ]);
         } elseif ($recommendation === 'not_eligible') {
             $application->update([
                 'eligibility_status' => 'not_eligible',
-                'application_status' => 'not_eligible',
+                'application_status' => 'rejected',
                 'denial_reason' => "Site visit failed: {$findings}",
             ]);
         }

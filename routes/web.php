@@ -48,6 +48,10 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store']);
     Route::post('/login/resend-otp', [LoginController::class, 'resendOtp'])->name('login.resend-otp');
+
+    // Google OAuth
+    Route::get('/auth/google', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'redirect'])->name('google.redirect');
+    Route::get('/auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'callback'])->name('google.callback');
 });
 
 // Logout route - needs auth but not RedirectByRole
@@ -78,8 +82,19 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}', [\App\Http\Controllers\SubdivisionApplicationController::class, 'show'])->name('show');
     });
 
+    // Development Clearance routes
+    Route::prefix('development-clearance')->name('development-clearance.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\DevelopmentClearanceController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\DevelopmentClearanceController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\DevelopmentClearanceController::class, 'store'])->name('store');
+        Route::get('/{id}', [\App\Http\Controllers\DevelopmentClearanceController::class, 'show'])->name('show');
+    });
+
     // Zones API for frontend zone detection and map rendering (authenticated)
     Route::get('/api/zones', [\App\Http\Controllers\Admin\ZoneController::class, 'getAllZones'])->name('zones.all');
+
+    // Zoning Clearance Verification API
+    Route::get('/api/zoning-clearance/verify/{clearanceNo}', [\App\Http\Controllers\ZoningClearanceController::class, 'verify'])->name('zoning-clearance.verify');
 });
 
 // Public routes (no authentication required)
@@ -297,9 +312,6 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
                 Route::post('/{id}/request-documents', [AdminHousingBeneficiaryController::class, 'requestDocuments'])->name('requestDocuments');
                 Route::patch('/{id}/documents/{documentId}/approve', [AdminHousingBeneficiaryController::class, 'approveDocument'])->name('documents.approve');
                 Route::patch('/{id}/documents/{documentId}/reject', [AdminHousingBeneficiaryController::class, 'rejectDocument'])->name('documents.reject');
-                Route::post('/{id}/assign-case-officer', [AdminHousingBeneficiaryController::class, 'assignCaseOfficer'])->name('assignCaseOfficer');
-                Route::post('/{id}/auto-assign-case-officer', [AdminHousingBeneficiaryController::class, 'autoAssignCaseOfficer'])->name('autoAssignCaseOfficer');
-                Route::get('/case-officers/workload', [AdminHousingBeneficiaryController::class, 'getCaseOfficerWorkload'])->name('caseOfficers.workload');
             });
 
             // Site Visits
@@ -404,6 +416,19 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
             })->name('reports');
         });
 
+        // Development Clearance Admin routes
+        Route::prefix('development-clearance')->name('development-clearance.')->group(function () {
+            Route::get('/dashboard', function () {
+                return Inertia::render('Admin/DevelopmentClearance/Dashboard');
+            })->name('dashboard');
+
+            Route::prefix('applications')->name('applications.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\AdminDevelopmentClearanceController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\AdminDevelopmentClearanceController::class, 'show'])->name('show');
+                Route::post('/{id}/review', [\App\Http\Controllers\Admin\AdminDevelopmentClearanceController::class, 'review'])->name('review');
+            });
+        });
+
         // Building Review routes
         Route::prefix('building')->name('building.')->group(function () {
             Route::prefix('reviews')->name('reviews.')->group(function () {
@@ -416,9 +441,7 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
 
         // Infrastructure Project Coordination routes
         Route::prefix('infrastructure')->name('infrastructure.')->group(function () {
-            Route::get('/dashboard', function () {
-                return Inertia::render('Admin/Infrastructure/Dashboard');
-            })->name('dashboard');
+            Route::get('/dashboard', [\App\Http\Controllers\Admin\InfrastructureDashboardController::class, 'index'])->name('dashboard');
 
             Route::prefix('projects')->name('projects.')->group(function () {
                 Route::get('/', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'index'])->name('index');
@@ -427,12 +450,146 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
                 Route::get('/{id}', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'show'])->name('show');
                 Route::get('/{id}/edit', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'edit'])->name('edit');
                 Route::put('/{id}', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'update'])->name('update');
+                Route::patch('/{id}/status', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'updateStatus'])->name('updateStatus');
+                Route::get('/{id}/timeline', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'getTimeline'])->name('timeline');
+                Route::get('/{id}/progress', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'getProgress'])->name('progress');
                 Route::delete('/{id}', [\App\Http\Controllers\Admin\InfrastructureProjectController::class, 'destroy'])->name('destroy');
+
+                // Project Phases
+                Route::prefix('{projectId}/phases')->name('phases.')->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Admin\ProjectPhaseController::class, 'index'])->name('index');
+                    Route::post('/', [\App\Http\Controllers\Admin\ProjectPhaseController::class, 'store'])->name('store');
+                    Route::put('/{id}', [\App\Http\Controllers\Admin\ProjectPhaseController::class, 'update'])->name('update');
+                    Route::patch('/{id}/status', [\App\Http\Controllers\Admin\ProjectPhaseController::class, 'updateStatus'])->name('updateStatus');
+                    Route::patch('/{id}/progress', [\App\Http\Controllers\Admin\ProjectPhaseController::class, 'updateProgress'])->name('updateProgress');
+                    Route::delete('/{id}', [\App\Http\Controllers\Admin\ProjectPhaseController::class, 'destroy'])->name('destroy');
+
+                    // Phase Milestones
+                    Route::prefix('{phaseId}/milestones')->name('milestones.')->group(function () {
+                        Route::get('/', [\App\Http\Controllers\Admin\PhaseMilestoneController::class, 'index'])->name('index');
+                        Route::post('/', [\App\Http\Controllers\Admin\PhaseMilestoneController::class, 'store'])->name('store');
+                        Route::put('/{id}', [\App\Http\Controllers\Admin\PhaseMilestoneController::class, 'update'])->name('update');
+                        Route::post('/{id}/mark-achieved', [\App\Http\Controllers\Admin\PhaseMilestoneController::class, 'markAchieved'])->name('markAchieved');
+                        Route::post('/{id}/reschedule', [\App\Http\Controllers\Admin\PhaseMilestoneController::class, 'reschedule'])->name('reschedule');
+                        Route::delete('/{id}', [\App\Http\Controllers\Admin\PhaseMilestoneController::class, 'destroy'])->name('destroy');
+                    });
+                });
+
+                // Project Inspections
+                Route::prefix('{projectId}/inspections')->name('inspections.')->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Admin\ProjectInspectionController::class, 'index'])->name('index');
+                    Route::post('/', [\App\Http\Controllers\Admin\ProjectInspectionController::class, 'store'])->name('store');
+                    Route::get('/{id}', [\App\Http\Controllers\Admin\ProjectInspectionController::class, 'show'])->name('show');
+                    Route::put('/{id}', [\App\Http\Controllers\Admin\ProjectInspectionController::class, 'update'])->name('update');
+                    Route::post('/{id}/conduct', [\App\Http\Controllers\Admin\ProjectInspectionController::class, 'conduct'])->name('conduct');
+                    Route::post('/schedule', [\App\Http\Controllers\Admin\ProjectInspectionController::class, 'schedule'])->name('schedule');
+                });
+
+                // Project Contractors
+                Route::prefix('{projectId}/contractors')->name('contractors.')->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Admin\ProjectContractorController::class, 'index'])->name('index');
+                    Route::post('/', [\App\Http\Controllers\Admin\ProjectContractorController::class, 'store'])->name('store');
+                    Route::put('/{id}', [\App\Http\Controllers\Admin\ProjectContractorController::class, 'update'])->name('update');
+                    Route::delete('/{id}', [\App\Http\Controllers\Admin\ProjectContractorController::class, 'destroy'])->name('destroy');
+                });
+
+                // Budget Tracking
+                Route::prefix('{projectId}/budget')->name('budget.')->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Admin\BudgetTrackingController::class, 'index'])->name('index');
+                    Route::post('/', [\App\Http\Controllers\Admin\BudgetTrackingController::class, 'store'])->name('store');
+                    Route::put('/{id}', [\App\Http\Controllers\Admin\BudgetTrackingController::class, 'update'])->name('update');
+                    Route::post('/{id}/expense', [\App\Http\Controllers\Admin\BudgetTrackingController::class, 'recordExpense'])->name('recordExpense');
+                    Route::get('/{id}/summary', [\App\Http\Controllers\Admin\BudgetTrackingController::class, 'getSummary'])->name('summary');
+                });
+
+                // Project Photos
+                Route::prefix('{projectId}/photos')->name('photos.')->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Admin\ProjectPhotoController::class, 'index'])->name('index');
+                    Route::post('/', [\App\Http\Controllers\Admin\ProjectPhotoController::class, 'store'])->name('store');
+                    Route::get('/{id}', [\App\Http\Controllers\Admin\ProjectPhotoController::class, 'show'])->name('show');
+                    Route::put('/{id}', [\App\Http\Controllers\Admin\ProjectPhotoController::class, 'update'])->name('update');
+                    Route::delete('/{id}', [\App\Http\Controllers\Admin\ProjectPhotoController::class, 'destroy'])->name('destroy');
+                });
+
+                // Project Documents
+                Route::prefix('{projectId}/documents')->name('documents.')->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Admin\InfrastructureProjectDocumentController::class, 'index'])->name('index');
+                    Route::post('/', [\App\Http\Controllers\Admin\InfrastructureProjectDocumentController::class, 'store'])->name('store');
+                    Route::get('/{id}', [\App\Http\Controllers\Admin\InfrastructureProjectDocumentController::class, 'show'])->name('show');
+                    Route::delete('/{id}', [\App\Http\Controllers\Admin\InfrastructureProjectDocumentController::class, 'destroy'])->name('destroy');
+                });
+
+                // Project Updates
+                Route::prefix('{projectId}/updates')->name('updates.')->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Admin\ProjectUpdateController::class, 'index'])->name('index');
+                    Route::post('/', [\App\Http\Controllers\Admin\ProjectUpdateController::class, 'store'])->name('store');
+                    Route::get('/{id}', [\App\Http\Controllers\Admin\ProjectUpdateController::class, 'show'])->name('show');
+                    Route::put('/{id}', [\App\Http\Controllers\Admin\ProjectUpdateController::class, 'update'])->name('update');
+                    Route::delete('/{id}', [\App\Http\Controllers\Admin\ProjectUpdateController::class, 'destroy'])->name('destroy');
+                });
             });
 
-            Route::get('/reports', function () {
-                return Inertia::render('Admin/Infrastructure/Reports');
-            })->name('reports');
+            // Contractors Management
+            Route::prefix('contractors')->name('contractors.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\ContractorController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\Admin\ContractorController::class, 'store'])->name('store');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\ContractorController::class, 'show'])->name('show');
+                Route::put('/{id}', [\App\Http\Controllers\Admin\ContractorController::class, 'update'])->name('update');
+                Route::delete('/{id}', [\App\Http\Controllers\Admin\ContractorController::class, 'destroy'])->name('destroy');
+            });
+
+            Route::get('/reports', [\App\Http\Controllers\Admin\InfrastructureReportsController::class, 'index'])->name('reports');
+        });
+
+        // Occupancy Monitoring routes
+        Route::prefix('occupancy')->name('occupancy.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\Occupancy\OccupancyDashboardController::class, 'index'])->name('dashboard');
+
+            // Buildings
+            Route::resource('buildings', \App\Http\Controllers\Admin\Occupancy\BuildingController::class);
+            Route::post('buildings/{id}/register-from-housing', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'registerFromHousing'])->name('buildings.register-from-housing');
+            Route::post('buildings/{id}/register-from-sbr', [\App\Http\Controllers\Admin\Occupancy\BuildingController::class, 'registerFromSbr'])->name('buildings.register-from-sbr');
+
+            // Units
+            Route::resource('units', \App\Http\Controllers\Admin\Occupancy\BuildingUnitController::class);
+            Route::get('units/by-building/{building}', [\App\Http\Controllers\Admin\Occupancy\BuildingUnitController::class, 'byBuilding'])->name('units.by-building');
+
+            // Occupancy Records
+            Route::resource('records', \App\Http\Controllers\Admin\Occupancy\OccupancyRecordController::class);
+            Route::post('records/{record}/move-out', [\App\Http\Controllers\Admin\Occupancy\OccupancyRecordController::class, 'moveOut'])->name('records.move-out');
+
+            // Inspections
+            Route::resource('inspections', \App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class);
+            Route::post('inspections/{inspection}/complete', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'complete'])->name('inspections.complete');
+            Route::post('inspections/{inspection}/photos', [\App\Http\Controllers\Admin\Occupancy\OccupancyInspectionController::class, 'uploadPhoto'])->name('inspections.upload-photo');
+
+            // Complaints
+            Route::resource('complaints', \App\Http\Controllers\Admin\Occupancy\OccupancyComplaintController::class);
+            Route::post('complaints/{complaint}/assign', [\App\Http\Controllers\Admin\Occupancy\OccupancyComplaintController::class, 'assign'])->name('complaints.assign');
+            Route::post('complaints/{complaint}/resolve', [\App\Http\Controllers\Admin\Occupancy\OccupancyComplaintController::class, 'resolve'])->name('complaints.resolve');
+
+            // Violations
+            Route::resource('violations', \App\Http\Controllers\Admin\Occupancy\ViolationController::class);
+            Route::post('violations/{violation}/resolve', [\App\Http\Controllers\Admin\Occupancy\ViolationController::class, 'resolve'])->name('violations.resolve');
+
+            // Reports
+            Route::get('reports', [\App\Http\Controllers\Admin\Occupancy\OccupancyReportController::class, 'index'])->name('reports.index');
+            Route::get('reports/occupancy', [\App\Http\Controllers\Admin\Occupancy\OccupancyReportController::class, 'occupancy'])->name('reports.occupancy');
+            Route::get('reports/compliance', [\App\Http\Controllers\Admin\Occupancy\OccupancyReportController::class, 'compliance'])->name('reports.compliance');
+            Route::get('reports/violations', [\App\Http\Controllers\Admin\Occupancy\OccupancyReportController::class, 'violations'])->name('reports.violations');
+            Route::get('reports/export', [\App\Http\Controllers\Admin\Occupancy\OccupancyReportController::class, 'export'])->name('reports.export');
+        });
+
+        // User Management routes
+        Route::prefix('user-management')->name('user-management.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\UserManagementController::class, 'index'])->name('index');
+            Route::get('/create', [\App\Http\Controllers\Admin\UserManagementController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\Admin\UserManagementController::class, 'store'])->name('store');
+            Route::get('/{id}', [\App\Http\Controllers\Admin\UserManagementController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [\App\Http\Controllers\Admin\UserManagementController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [\App\Http\Controllers\Admin\UserManagementController::class, 'update'])->name('update');
+            Route::delete('/{id}', [\App\Http\Controllers\Admin\UserManagementController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/toggle-active', [\App\Http\Controllers\Admin\UserManagementController::class, 'toggleActive'])->name('toggle-active');
         });
 
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])->name('audit-logs.index');

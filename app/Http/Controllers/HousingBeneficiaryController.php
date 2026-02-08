@@ -176,7 +176,7 @@ class HousingBeneficiaryController extends Controller
         $this->authorize('create', BeneficiaryApplication::class);
 
         try {
-            DB::connection('hbr_db')->beginTransaction();
+            DB::beginTransaction();
 
             $validated = $request->validated();
             $userId = Auth::id();
@@ -276,7 +276,7 @@ class HousingBeneficiaryController extends Controller
 
             // Check blacklist again and auto-reject if needed
             if ($this->blacklistService->checkAndReject($application)) {
-                DB::connection('hbr_db')->commit();
+                DB::commit();
 
                 return redirect()->route('applications.housing.show', $application->id)
                     ->with('error', 'Your application was rejected because you are blacklisted.');
@@ -305,7 +305,7 @@ class HousingBeneficiaryController extends Controller
                 $application->id
             );
 
-            DB::connection('hbr_db')->commit();
+            DB::commit();
 
             // Return success with application ID confirmation
             return redirect()->route('applications.housing.success', [
@@ -313,7 +313,7 @@ class HousingBeneficiaryController extends Controller
                 'applicationId' => $application->id,
             ])->with('success', 'Application submitted successfully. Your application ID is: '.$application->application_no);
         } catch (\Exception $e) {
-            DB::connection('hbr_db')->rollBack();
+            DB::rollBack();
 
             Log::error('Housing beneficiary application submission error', [
                 'message' => $e->getMessage(),

@@ -13,13 +13,6 @@ class Household extends Model
     use HasFactory;
 
     /**
-     * The connection name for the model.
-     *
-     * @var string
-     */
-    protected $connection = 'hbr_db';
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>

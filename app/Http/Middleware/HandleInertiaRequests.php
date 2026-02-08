@@ -55,6 +55,7 @@ class HandleInertiaRequests extends Middleware
                 'error' => $request->session()->get('error'),
             ],
             'csrf_token' => csrf_token(), // Share CSRF token for fetch requests
+            'recaptcha_site_key' => config('services.recaptcha.site_key'),
         ];
     }
 }

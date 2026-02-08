@@ -11,7 +11,7 @@ use Inertia\Response;
 class AdminAuditLogController extends Controller
 {
     /**
-     * Display a listing of audit logs.
+     * Display a listing of system logs.
      */
     public function index(Request $request): Response
     {
