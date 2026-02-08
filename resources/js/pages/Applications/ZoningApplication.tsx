@@ -73,6 +73,10 @@ export default function ZoningApplication() {
         project_description: '',
         existing_structure: 'none', // Added to prevent ReviewStep crash
         purpose: '',
+        front_setback_m: null as number | null,
+        rear_setback_m: null as number | null,
+        side_setback_m: null as number | null,
+        building_footprint_sqm: null as number | null,
 
         // Step 4: Documents (Placeholder for now)
         // documents: [],
@@ -108,9 +112,17 @@ export default function ZoningApplication() {
                 const repInfo = data.is_representative ? !!data.representative_name : true;
                 return basicInfo && repInfo;
             case 2:
-                return !!(data.lot_address && data.zone_id && data.land_use_type && data.project_type && data.building_type);
+                return !!(data.lot_address && data.pin_lat && data.pin_lng);
             case 3:
-                const basicDetails = !!(data.lot_area_total > 0 && data.project_description && data.purpose);
+                const basicDetails = !!(
+                    data.lot_area_total > 0 &&
+                    data.project_description &&
+                    data.purpose &&
+                    data.land_use_type &&
+                    data.project_type &&
+                    data.building_type &&
+                    data.zone_id
+                );
                 const subDetails = data.is_subdivision ? !!data.subdivision_name : true;
                 return basicDetails && subDetails;
             case 4:
@@ -166,7 +178,10 @@ export default function ZoningApplication() {
             case 2:
                 return (
                     <LocationAndProjectInfoStep
-                        data={data}
+                        data={{
+                            ...data,
+                            project_description: data.project_description || '',
+                        }}
                         setData={setData}
                         errors={errors}
                         zones={zones}
@@ -179,6 +194,8 @@ export default function ZoningApplication() {
                         data={data}
                         setData={setData}
                         errors={errors}
+                        zones={zones}
+                        loadingZones={loadingZones}
                     />
                 );
             case 4:

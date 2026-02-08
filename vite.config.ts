@@ -24,6 +24,28 @@ export default defineConfig({
     esbuild: {
         jsx: 'automatic',
     },
+    optimizeDeps: {
+        include: ['@tensorflow/tfjs'],
+        esbuildOptions: {
+            target: 'esnext',
+        },
+    },
+    build: {
+        commonjsOptions: {
+            include: [/node_modules/],
+            transformMixedEsModules: true,
+        },
+        rollupOptions: {
+            output: {
+                manualChunks: (id) => {
+                    // Separate TensorFlow.js into its own chunk for better loading
+                    if (id.includes('@tensorflow/tfjs')) {
+                        return 'tensorflow';
+                    }
+                },
+            },
+        },
+    },
     server: {
         host: '0.0.0.0',
         port: 5173,

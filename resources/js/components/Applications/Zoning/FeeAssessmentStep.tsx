@@ -27,32 +27,60 @@ export default function FeeAssessmentStep({ data, setData, errors }: FeeAssessme
 
     useEffect(() => {
         const fetchAssessment = async () => {
+            // Don't fetch if we don't have at least zone_id
+            if (!data.zone_id) {
+                setError('Please select a zone first to calculate fees.');
+                setLoading(false);
+                return;
+            }
+
             setLoading(true);
             setError(null);
             try {
                 // Prepare payload with only necessary fields
                 const payload = {
                     zone_id: data.zone_id,
-                    is_subdivision: data.is_subdivision,
-                    total_lots_planned: data.total_lots_planned,
-                    floor_area_sqm: data.floor_area_sqm,
-                    project_type: data.project_type,
+                    is_subdivision: data.is_subdivision || false,
+                    total_lots_planned: data.total_lots_planned || null,
+                    floor_area_sqm: data.floor_area_sqm || null,
+                    project_type: data.project_type || null,
                 };
 
                 const response = await axios.post('/zoning-applications/assess-fees', payload);
+                
+                if (response.data.error) {
+                    setError(response.data.message || 'Failed to calculate fees. Please try again.');
+                    return;
+                }
+
                 setAssessment(response.data);
                 // Save fee to form data just in case, though backend recalculates it
-                setData('assessed_fee', response.data.amount);
-            } catch (err) {
+                if (response.data.amount !== undefined) {
+                    setData('assessed_fee', response.data.amount);
+                }
+            } catch (err: any) {
                 console.error('Fee assessment failed:', err);
-                setError('Failed to calculate fees. Please try again or contact support.');
+                
+                // Extract error message from response if available
+                const errorMessage = err.response?.data?.message 
+                    || err.response?.data?.error 
+                    || err.message 
+                    || 'Failed to calculate fees. Please try again or contact support.';
+                
+                setError(errorMessage);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchAssessment();
-    }, []); // Run once on mount
+        // Only fetch when zone_id is available
+        if (data.zone_id) {
+            fetchAssessment();
+        } else {
+            setLoading(false);
+            setError('Please select a zone first to calculate fees.');
+        }
+    }, [data.zone_id, data.is_subdivision, data.total_lots_planned, data.floor_area_sqm, data.project_type]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-PH', {

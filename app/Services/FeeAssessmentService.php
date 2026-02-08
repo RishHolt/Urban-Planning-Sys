@@ -8,9 +8,6 @@ class FeeAssessmentService
 {
     /**
      * Calculate the zoning fee based on the application data.
-     *
-     * @param  array  $data
-     * @return array
      */
     public function calculateZoningFee(array $data): array
     {
@@ -19,21 +16,29 @@ class FeeAssessmentService
         $classification = null;
 
         // Fetch zone classification derived from zone_id if available
-        if (!empty($data['zone_id'])) {
-            $zone = Zone::with('classification')->find($data['zone_id']);
-            if ($zone && $zone->classification) {
-                $classification = $zone->classification->code;
+        if (! empty($data['zone_id'])) {
+            try {
+                $zone = Zone::with('classification')->find($data['zone_id']);
+                if ($zone && $zone->classification) {
+                    $classification = $zone->classification->code;
+                }
+            } catch (\Exception $e) {
+                // If zone lookup fails, continue with null classification (will use default)
+                \Log::warning('Zone lookup failed in fee calculation', [
+                    'zone_id' => $data['zone_id'] ?? null,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
         // Subdivision Projects take precedence
-        if (!empty($data['is_subdivision']) && $data['is_subdivision']) {
+        if (! empty($data['is_subdivision']) && $data['is_subdivision']) {
             $baseFee = 1000;
             $unitFee = 5;
             $units = (int) ($data['total_lots_planned'] ?? 0);
-            
+
             $fee = $baseFee + ($unitFee * $units);
-            
+
             $breakdown = [
                 'type' => 'Subdivision Project',
                 'base_fee' => $baseFee,
@@ -43,7 +48,7 @@ class FeeAssessmentService
                 'quantity' => $units,
                 'total' => $fee,
             ];
-            
+
             return [
                 'amount' => $fee,
                 'breakdown' => $breakdown,
@@ -112,7 +117,7 @@ class FeeAssessmentService
         else {
             // Default to Residential House R1-R2 structure
             $fee = 500;
-            
+
             $breakdown = [
                 'type' => 'Residential House',
                 'classification' => $classification ?? 'N/A',
@@ -134,13 +139,19 @@ class FeeAssessmentService
 
     private function isIndustrial(?string $code): bool
     {
-        if (!$code) return false;
+        if (! $code) {
+            return false;
+        }
+
         return in_array(strtoupper($code), ['I1', 'I2', 'I-1', 'I-2']);
     }
 
     private function isCommercial(?string $code): bool
     {
-        if (!$code) return false;
+        if (! $code) {
+            return false;
+        }
+
         // Check for C1, C2, C3, and variants
         return preg_match('/^C-?[1-3]$/i', $code) === 1;
     }
@@ -152,8 +163,10 @@ class FeeAssessmentService
             return true;
         }
 
-        if (!$code) return false;
-        
+        if (! $code) {
+            return false;
+        }
+
         // Check for R3, R4 and variants
         return preg_match('/^R-?[3-4]$/i', $code) === 1;
     }

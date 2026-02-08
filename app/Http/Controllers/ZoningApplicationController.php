@@ -94,17 +94,46 @@ class ZoningApplicationController extends Controller
      */
     public function assessFees(Request $request): \Illuminate\Http\JsonResponse
     {
-        // Only validate fields necessary for fee calculation
-        $validated = $request->validate([
-            'zone_id' => 'nullable|exists:zones,id',
-            'is_subdivision' => 'boolean',
-            'total_lots_planned' => 'nullable|integer',
-            'floor_area_sqm' => 'nullable|numeric',
-            'project_type' => 'nullable|string',
-        ]);
+        try {
+            // Only validate fields necessary for fee calculation
+            $validated = $request->validate([
+                'zone_id' => 'nullable|exists:zones,id',
+                'is_subdivision' => 'nullable|boolean',
+                'total_lots_planned' => 'nullable|integer|min:0',
+                'floor_area_sqm' => 'nullable|numeric|min:0',
+                'project_type' => 'nullable|string',
+            ]);
 
-        $assessment = $this->feeAssessmentService->calculateZoningFee($validated);
+            // Ensure boolean values are properly cast
+            if (isset($validated['is_subdivision'])) {
+                $validated['is_subdivision'] = filter_var($validated['is_subdivision'], FILTER_VALIDATE_BOOLEAN);
+            } else {
+                $validated['is_subdivision'] = false;
+            }
 
-        return response()->json($assessment);
+            // Cache fee assessments for 1 hour
+            $cacheKey = 'fee_assessment_'.md5(json_encode($validated));
+            $assessment = \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function () use ($validated) {
+                return $this->feeAssessmentService->calculateZoningFee($validated);
+            });
+
+            return response()->json($assessment);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => 'Validation failed',
+                'message' => $e->getMessage(),
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Fee assessment error: '.$e->getMessage(), [
+                'exception' => $e,
+                'request_data' => $request->all(),
+            ]);
+
+            return response()->json([
+                'error' => 'Fee calculation failed',
+                'message' => 'Unable to calculate fees. Please ensure all required fields are provided.',
+            ], 500);
+        }
     }
 }

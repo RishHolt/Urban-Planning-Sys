@@ -13,7 +13,10 @@ class ZoningApplicationService
     public function __construct(
         protected TreasuryService $treasuryService,
         protected PermitLicensingService $permitLicensingService,
-        protected FeeAssessmentService $feeAssessmentService
+        protected FeeAssessmentService $feeAssessmentService,
+        protected ZoneDetectionService $zoneDetectionService,
+        protected ZoningValidationService $zoningValidationService,
+        protected ComplianceCheckerService $complianceCheckerService
     ) {}
 
     /**
@@ -25,6 +28,37 @@ class ZoningApplicationService
         $application = null;
 
         DB::transaction(function () use ($data, &$referenceNo, &$application) {
+            // Validate zone location if coordinates provided
+            if (isset($data['pin_lat']) && isset($data['pin_lng']) && isset($data['zone_id'])) {
+                $zoneValidation = $this->zoningValidationService->validateZoneLocation(
+                    $data['zone_id'],
+                    $data['pin_lat'],
+                    $data['pin_lng']
+                );
+
+                if (! $zoneValidation['valid']) {
+                    throw new \InvalidArgumentException($zoneValidation['message']);
+                }
+            }
+
+            // Validate land use compatibility
+            if (isset($data['zone_id']) && isset($data['land_use_type'])) {
+                $landUseValidation = $this->zoningValidationService->validateLandUseCompatibility(
+                    $data['zone_id'],
+                    $data['land_use_type']
+                );
+
+                if (! $landUseValidation['valid']) {
+                    throw new \InvalidArgumentException($landUseValidation['message']);
+                }
+            }
+
+            // Validate project requirements
+            $projectValidation = $this->zoningValidationService->validateProjectRequirements($data);
+            if (! $projectValidation['valid']) {
+                throw new \InvalidArgumentException(implode(' ', $projectValidation['errors']));
+            }
+
             // Generate reference number
             $referenceNo = ZoningApplication::generateReferenceNo();
 
@@ -109,11 +143,31 @@ class ZoningApplicationService
             // Run verifications
             $this->verifyPrerequisites($application, $data);
 
+            // Run compliance check
+            $zone = $application->zone;
+            $complianceResult = $this->complianceCheckerService->checkCompliance($data, $zone);
+            $complianceReport = $this->complianceCheckerService->generateComplianceReport($complianceResult);
+
+            // Store compliance result in application notes
+            $complianceNote = 'Compliance Score: '.$complianceResult['score'].'%';
+            if (! empty($complianceResult['violations'])) {
+                $complianceNote .= ' | Violations: '.count($complianceResult['violations']);
+            }
+            if (! empty($complianceResult['warnings'])) {
+                $complianceNote .= ' | Warnings: '.count($complianceResult['warnings']);
+            }
+
+            $application->update([
+                'notes' => ($application->notes ? $application->notes."\n\n" : '').'Compliance Check: '.$complianceNote,
+            ]);
+
             // Create initial history record
             ApplicationHistory::create([
                 'application_id' => $application->id,
                 'status' => 'pending',
-                'remarks' => 'Application submitted',
+                'remarks' => $complianceResult['compliant']
+                    ? 'Application submitted'
+                    : 'Application submitted with compliance issues: '.count($complianceResult['violations']).' violation(s)',
                 'updated_by' => Auth::id(),
                 'updated_at' => now(),
             ]);

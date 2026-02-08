@@ -235,6 +235,7 @@ class ZoneController extends Controller
     {
         $zones = Zone::with('classification')
             ->active()
+            ->zoning() // Only get actual zoning zones, exclude municipal and barangay boundaries
             ->withGeometry()
             ->orderBy('id', 'desc')
             ->get()

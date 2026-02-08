@@ -1,7 +1,13 @@
 import Input from '../../Input';
+import ComplianceStatusPanel from './ComplianceStatusPanel';
+import ZoningTypeSelector from './ZoningTypeSelector';
+import { Zone } from '../../../lib/zoneDetection';
 
 interface ProjectDetailsStepProps {
     data: {
+        pin_lat?: number | null;
+        pin_lng?: number | null;
+        zone_id?: number | null;
         lot_area_total: number;
         lot_area_used: number;
         number_of_storeys: number | null;
@@ -15,23 +21,115 @@ interface ProjectDetailsStepProps {
         lot_no: string;
         total_lots_planned: number | null;
         has_subdivision_plan: boolean;
+        land_use_type?: string;
+        project_type?: string;
+        building_type?: string;
+        front_setback_m?: number | null;
+        rear_setback_m?: number | null;
+        side_setback_m?: number | null;
+        building_footprint_sqm?: number | null;
     };
     setData: (key: string, value: unknown) => void;
     errors: Record<string, string>;
+    zones?: Zone[];
+    loadingZones?: boolean;
 }
 
 export default function ProjectDetailsStep({
     data,
     setData,
     errors,
+    zones = [],
+    loadingZones = false,
 }: ProjectDetailsStepProps) {
     return (
         <div className="space-y-6">
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <p className="text-blue-800 dark:text-blue-200 text-sm">
-                    <strong>Phase 3: Project Details</strong> - Provide specific details about the lot and the structure.
+                    <strong>Phase 3: Project Details</strong> - Provide specific details about the lot and the structure. Our AI will analyze your inputs to suggest the best zoning classification.
                 </p>
             </div>
+
+            {/* Project Classification Section */}
+            <div className="space-y-4 pt-4 border-b border-gray-200 dark:border-gray-700 pb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Project Classification</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Land Use Type
+                        </label>
+                        <select
+                            id="land_use_type"
+                            name="land_use_type"
+                            value={data.land_use_type || 'residential'}
+                            onChange={(e) => setData('land_use_type', e.target.value)}
+                            className="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-dark-surface focus:ring-primary focus:border-primary"
+                        >
+                            <option value="residential">Residential</option>
+                            <option value="commercial">Commercial</option>
+                            <option value="industrial">Industrial</option>
+                            <option value="agricultural">Agricultural</option>
+                            <option value="institutional">Institutional</option>
+                            <option value="mixed_use">Mixed Use</option>
+                        </select>
+                        {errors.land_use_type && <p className="mt-1 text-sm text-red-500">{errors.land_use_type}</p>}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Project Type
+                        </label>
+                        <select
+                            id="project_type"
+                            name="project_type"
+                            value={data.project_type || 'new_construction'}
+                            onChange={(e) => setData('project_type', e.target.value)}
+                            className="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-dark-surface focus:ring-primary focus:border-primary"
+                        >
+                            <option value="new_construction">New Construction</option>
+                            <option value="renovation">Renovation</option>
+                            <option value="addition">Addition/Extension</option>
+                            <option value="change_of_use">Change of Use</option>
+                        </select>
+                        {errors.project_type && <p className="mt-1 text-sm text-red-500">{errors.project_type}</p>}
+                    </div>
+
+                    <Input
+                        id="building_type"
+                        name="building_type"
+                        label="Building Type"
+                        value={data.building_type || ''}
+                        onChange={(e) => setData('building_type', e.target.value)}
+                        error={errors.building_type}
+                        placeholder="e.g. Apartment, Factory, Single-detached House"
+                        required
+                    />
+                </div>
+            </div>
+
+            {/* AI-Powered Zone Suggestions */}
+            {data.pin_lat && data.pin_lng && zones.length > 0 && (
+                <ZoningTypeSelector
+                    zones={zones}
+                    selectedZoneId={data.zone_id}
+                    onZoneSelect={(zoneId) => setData('zone_id', zoneId)}
+                    latitude={data.pin_lat}
+                    longitude={data.pin_lng}
+                    projectDescription={data.project_description || ''}
+                    landUseType={data.land_use_type || 'residential'}
+                    projectType={data.project_type || 'new_construction'}
+                    buildingType={data.building_type || ''}
+                    // Additional fields for enhanced AI analysis
+                    lotAreaTotal={data.lot_area_total}
+                    lotAreaUsed={data.lot_area_used}
+                    floorAreaSqm={data.floor_area_sqm}
+                    numberOfStoreys={data.number_of_storeys}
+                    numberOfUnits={data.number_of_units}
+                    purpose={data.purpose || ''}
+                    isSubdivision={data.is_subdivision}
+                />
+            )}
 
             <div className="space-y-4 pt-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Lot Information</h3>
@@ -98,6 +196,24 @@ export default function ProjectDetailsStep({
                     )}
                 </div>
             </div>
+
+            {/* Compliance Status Panel */}
+            {data.zone_id && (
+                <ComplianceStatusPanel
+                    applicationData={{
+                        zone_id: data.zone_id,
+                        lot_area_total: data.lot_area_total,
+                        lot_area_used: data.lot_area_used,
+                        floor_area_sqm: data.floor_area_sqm,
+                        number_of_storeys: data.number_of_storeys,
+                        front_setback_m: data.front_setback_m,
+                        rear_setback_m: data.rear_setback_m,
+                        side_setback_m: data.side_setback_m,
+                        building_footprint_sqm: data.building_footprint_sqm,
+                        land_use_type: data.land_use_type,
+                    }}
+                />
+            )}
 
             <div className="space-y-4 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Building & Structure</h3>

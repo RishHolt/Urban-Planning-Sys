@@ -13,11 +13,13 @@ class ZoneController extends Controller
      */
     public function index(): JsonResponse
     {
-        $zones = Zone::active()
-            ->zoning() // Only return zoning zones, not boundaries
-            ->with('classification')
-            ->get()
-            ->map(fn ($zone) => ZoneFormatter::format($zone, false));
+        $zones = \Illuminate\Support\Facades\Cache::remember('zones_for_detection', 3600, function () {
+            return Zone::active()
+                ->zoning() // Only return zoning zones, not boundaries
+                ->with('classification')
+                ->get()
+                ->map(fn ($zone) => ZoneFormatter::format($zone, false));
+        });
 
         return response()->json([
             'success' => true,

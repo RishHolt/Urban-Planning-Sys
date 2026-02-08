@@ -95,6 +95,12 @@ Route::middleware('auth')->group(function () {
 
     // Zoning Clearance Verification API
     Route::get('/api/zoning-clearance/verify/{clearanceNo}', [\App\Http\Controllers\ZoningClearanceController::class, 'verify'])->name('zoning-clearance.verify');
+
+    // AI-powered zoning suggestions API
+    Route::post('/api/ai/suggest-zoning-type', [\App\Http\Controllers\AISuggestionController::class, 'suggestZoningType'])->name('ai.suggest-zoning-type');
+
+    // Compliance checking API
+    Route::post('/api/zoning/check-compliance', [\App\Http\Controllers\ComplianceCheckController::class, 'checkCompliance'])->name('zoning.check-compliance');
 });
 
 // Public routes (no authentication required)
