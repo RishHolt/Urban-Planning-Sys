@@ -40,14 +40,13 @@ interface ClearancesIndexProps {
 }
 
 export default function ClearancesIndex({ clearances, filters: initialFilters = {} }: ClearancesIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         search: initialFilters.search || '',
         status: initialFilters.status || '',
     });
 
     const handleSearch = (): void => {
-        get('/clearances', {
+        router.get('/admin/zoning/clearances', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -58,7 +57,7 @@ export default function ClearancesIndex({ clearances, filters: initialFilters = 
             search: '',
             status: '',
         });
-        router.get('/clearances');
+        router.get('/admin/zoning/clearances');
     };
 
     const getStatusBadge = (status: string) => {
@@ -86,18 +85,20 @@ export default function ClearancesIndex({ clearances, filters: initialFilters = 
         }
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Issued Clearances"
             description="View and manage all issued zoning clearance certificates"
         >
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue={data.search}
                 onSearchChange={(value) => setData('search', value)}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder="Search by clearance number, reference number, or lot owner..."
                 filterContent={
                     <>
@@ -184,7 +185,7 @@ export default function ClearancesIndex({ clearances, filters: initialFilters = 
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <Link
-                                                    href={`/clearances/${clearance.id}`}
+                                                    href={`/admin/zoning/clearances/${clearance.id}`}
                                                     className="inline-flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors"
                                                 >
                                                     <Eye className="w-4 h-4" />

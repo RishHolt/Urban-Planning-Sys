@@ -4,12 +4,10 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterRequest;
-use App\Models\Profile;
 use App\Models\User;
 use App\Services\OtpService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
-use Inertia\Response;
 
 class RegisterController extends Controller
 {
@@ -30,7 +28,7 @@ class RegisterController extends Controller
             $user = User::create([
                 'email' => $validated['email'],
                 'password' => $validated['password'],
-                'role' => 'citizen',
+                'role' => 'user',
                 'is_active' => true,
             ]);
 

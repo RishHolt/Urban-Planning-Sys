@@ -3,7 +3,7 @@ import { useState } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import AdminContentCard from '../../../components/AdminContentCard';
 import Button from '../../../components/Button';
-import { Plus, Camera, X, Filter } from 'lucide-react';
+import { Plus, Camera, X } from 'lucide-react';
 import { showSuccess, showError, showConfirm } from '../../../lib/swal';
 import { getCsrfToken } from '../../../data/services';
 
@@ -61,10 +61,9 @@ interface PhotoGalleryProps {
 
 export default function PhotoGallery({ project, photos, phases, milestones, inspections, filters: initialFilters = {} }: PhotoGalleryProps) {
     const [showUploadModal, setShowUploadModal] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
-    const { data, setData, post, get } = useForm({
+    const { data, setData, post, get, processing } = useForm({
         photo: null as File | null,
         phase_id: '',
         milestone_id: '',
@@ -181,16 +180,7 @@ export default function PhotoGallery({ project, photos, phases, milestones, insp
                 label: 'Back to Project',
             }}
         >
-            <div className="mb-6 flex justify-between items-center">
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="flex items-center gap-2"
-                >
-                    <Filter size={18} />
-                    Filters
-                </Button>
+            <div className="mb-6 flex justify-end">
                 <Button
                     variant="primary"
                     size="sm"
@@ -203,7 +193,6 @@ export default function PhotoGallery({ project, photos, phases, milestones, insp
             </div>
 
             {/* Filters */}
-            {showFilters && (
                 <AdminContentCard padding="md" className="mb-6">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
@@ -291,7 +280,6 @@ export default function PhotoGallery({ project, photos, phases, milestones, insp
                         </Button>
                     </div>
                 </AdminContentCard>
-            )}
 
             <AdminContentCard padding="lg">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">

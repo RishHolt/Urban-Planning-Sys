@@ -18,11 +18,11 @@ class RedirectByRole
         $user = $request->user();
 
         if ($user) {
-            $role = $user->role ?? 'citizen';
+            $role = $user->role ?? 'user';
 
             // Redirect admin and staff to admin page
             // Exclude admin routes, logout, profile, and home route
-            if (in_array($role, ['admin', 'staff'])) {
+            if (in_array($role, ['admin', 'staff', 'super_admin'])) {
                 if (! $request->routeIs('admin.*') &&
                     ! $request->routeIs('logout') &&
                     ! $request->routeIs('profile.*') &&
@@ -33,7 +33,7 @@ class RedirectByRole
 
             // Redirect regular users (citizens) to user page
             // Exclude user routes, applications routes (for users), logout, profile, and home route
-            if ($role === 'citizen') {
+            if ($role === 'user') {
                 if (! $request->routeIs('user.*') &&
                     ! $request->routeIs('applications.*') &&
                     ! $request->routeIs('logout') &&

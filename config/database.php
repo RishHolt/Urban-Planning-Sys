@@ -16,7 +16,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'mysql'),
+    'default' => env('DB_CONNECTION', 'zcs_db'),
 
     /*
     |--------------------------------------------------------------------------
@@ -114,7 +114,7 @@ return [
         ],
 
         'zcs_db' => [
-            'driver' => 'mysql',
+            'driver' => env('ZCS_DB_DRIVER', 'mysql'),
             'url' => env('ZCS_DB_URL'),
             'host' => env('ZCS_DB_HOST', env('DB_HOST', '127.0.0.1')),
             'port' => env('ZCS_DB_PORT', env('DB_PORT', '3306')),
@@ -124,106 +124,6 @@ return [
             'unix_socket' => env('ZCS_DB_SOCKET', env('DB_SOCKET', '')),
             'charset' => env('ZCS_DB_CHARSET', env('DB_CHARSET', 'utf8mb4')),
             'collation' => env('ZCS_DB_COLLATION', env('DB_COLLATION', 'utf8mb4_unicode_ci')),
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'strict' => true,
-            'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
-        ],
-
-        'user_db' => [
-            'driver' => 'mysql',
-            'url' => env('USER_DB_URL'),
-            'host' => env('USER_DB_HOST', env('DB_HOST', '127.0.0.1')),
-            'port' => env('USER_DB_PORT', env('DB_PORT', '3306')),
-            'database' => env('USER_DB_DATABASE', 'user_db'),
-            'username' => env('USER_DB_USERNAME', env('DB_USERNAME', 'root')),
-            'password' => env('USER_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'unix_socket' => env('USER_DB_SOCKET', env('DB_SOCKET', '')),
-            'charset' => env('USER_DB_CHARSET', env('DB_CHARSET', 'utf8mb4')),
-            'collation' => env('USER_DB_COLLATION', env('DB_COLLATION', 'utf8mb4_unicode_ci')),
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'strict' => true,
-            'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
-        ],
-
-        'hbr_db' => [
-            'driver' => 'mysql',
-            'url' => env('HBR_DB_URL'),
-            'host' => env('HBR_DB_HOST', env('DB_HOST', '127.0.0.1')),
-            'port' => env('HBR_DB_PORT', env('DB_PORT', '3306')),
-            'database' => env('HBR_DB_DATABASE', 'hbr_db'),
-            'username' => env('HBR_DB_USERNAME', env('DB_USERNAME', 'root')),
-            'password' => env('HBR_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'unix_socket' => env('HBR_DB_SOCKET', env('DB_SOCKET', '')),
-            'charset' => env('HBR_DB_CHARSET', env('DB_CHARSET', 'utf8mb4')),
-            'collation' => env('HBR_DB_COLLATION', env('DB_COLLATION', 'utf8mb4_unicode_ci')),
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'strict' => true,
-            'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
-        ],
-
-        'sbr_db' => [
-            'driver' => 'mysql',
-            'url' => env('SBR_DB_URL'),
-            'host' => env('SBR_DB_HOST', env('DB_HOST', '127.0.0.1')),
-            'port' => env('SBR_DB_PORT', env('DB_PORT', '3306')),
-            'database' => env('SBR_DB_DATABASE', 'sbr_db'),
-            'username' => env('SBR_DB_USERNAME', env('DB_USERNAME', 'root')),
-            'password' => env('SBR_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'unix_socket' => env('SBR_DB_SOCKET', env('DB_SOCKET', '')),
-            'charset' => env('SBR_DB_CHARSET', env('DB_CHARSET', 'utf8mb4')),
-            'collation' => env('SBR_DB_COLLATION', env('DB_COLLATION', 'utf8mb4_unicode_ci')),
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'strict' => true,
-            'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
-        ],
-
-        'omt_db' => [
-            'driver' => 'mysql',
-            'url' => env('OMT_DB_URL'),
-            'host' => env('OMT_DB_HOST', env('DB_HOST', '127.0.0.1')),
-            'port' => env('OMT_DB_PORT', env('DB_PORT', '3306')),
-            'database' => env('OMT_DB_DATABASE', 'omt_db'),
-            'username' => env('OMT_DB_USERNAME', env('DB_USERNAME', 'root')),
-            'password' => env('OMT_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'unix_socket' => env('OMT_DB_SOCKET', env('DB_SOCKET', '')),
-            'charset' => env('OMT_DB_CHARSET', env('DB_CHARSET', 'utf8mb4')),
-            'collation' => env('OMT_DB_COLLATION', env('DB_COLLATION', 'utf8mb4_unicode_ci')),
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'strict' => true,
-            'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
-        ],
-
-        'ipc_db' => [
-            'driver' => 'mysql',
-            'url' => env('IPC_DB_URL'),
-            'host' => env('IPC_DB_HOST', env('DB_HOST', '127.0.0.1')),
-            'port' => env('IPC_DB_PORT', env('DB_PORT', '3306')),
-            'database' => env('IPC_DB_DATABASE', 'ipc_db'),
-            'username' => env('IPC_DB_USERNAME', env('DB_USERNAME', 'root')),
-            'password' => env('IPC_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'unix_socket' => env('IPC_DB_SOCKET', env('DB_SOCKET', '')),
-            'charset' => env('IPC_DB_CHARSET', env('DB_CHARSET', 'utf8mb4')),
-            'collation' => env('IPC_DB_COLLATION', env('DB_COLLATION', 'utf8mb4_unicode_ci')),
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,

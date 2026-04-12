@@ -85,7 +85,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // Register API token middleware
         $middleware->alias([
             'api.token' => \App\Http\Middleware\VerifyApiToken::class,
-            'module' => \App\Http\Middleware\CheckModuleAccess::class,
         ]);
 
         // Fix 419 error for prerequisite verification and entry/exit events

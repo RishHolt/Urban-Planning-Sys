@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Models\AuditLog;
-use App\Models\Role;
 use App\Models\User;
 use App\Services\UserManagementService;
 use Illuminate\Http\RedirectResponse;
@@ -25,7 +24,7 @@ class UserManagementController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = User::with('roles.modules', 'profile');
+        $query = User::with('profile');
 
         // Search functionality
         if ($request->has('search') && $request->search) {
@@ -39,26 +38,17 @@ class UserManagementController extends Controller
             });
         }
 
-        // Filter by role
+        // Filter by type (Citizens vs Staff)
+        $type = $request->get('type', 'citizen');
+        if ($type === 'citizen') {
+            $query->where('role', 'user');
+        } elseif ($type === 'staff') {
+            $query->whereIn('role', ['staff', 'admin', 'super_admin', 'official']); // Including official if it exists
+        }
+
+        // Filter by role (within the type)
         if ($request->has('role') && $request->role) {
             $query->where('role', $request->role);
-        }
-
-        // Filter by dynamic role
-        if ($request->has('role_id') && $request->role_id) {
-            $query->whereHas('roles', function ($roleQuery) use ($request) {
-                $roleQuery->where('roles.id', $request->role_id);
-            });
-        }
-
-        // Filter by module access
-        if ($request->has('module_code') && $request->module_code) {
-            $query->where(function ($q) use ($request) {
-                $q->whereIn('role', ['super_admin', 'admin', 'staff'])
-                    ->orWhereHas('roles.modules', function ($moduleQuery) use ($request) {
-                        $moduleQuery->where('code', $request->module_code);
-                    });
-            });
         }
 
         // Filter by status
@@ -69,17 +59,13 @@ class UserManagementController extends Controller
         $users = $query->orderBy('created_at', 'desc')
             ->paginate(15);
 
-        $roles = Role::orderBy('name')->get();
-
         return Inertia::render('Admin/UserManagement/UsersIndex', [
             'users' => $users,
-            'roles' => $roles,
             'filters' => [
                 'search' => $request->search,
                 'role' => $request->role,
-                'role_id' => $request->role_id,
-                'module_code' => $request->module_code,
                 'status' => $request->status,
+                'type' => $type,
             ],
         ]);
     }
@@ -89,11 +75,7 @@ class UserManagementController extends Controller
      */
     public function create(): Response
     {
-        $roles = Role::orderBy('name')->get();
-
-        return Inertia::render('Admin/UserManagement/UserCreate', [
-            'roles' => $roles,
-        ]);
+        return Inertia::render('Admin/UserManagement/UserCreate');
     }
 
     /**
@@ -102,11 +84,8 @@ class UserManagementController extends Controller
     public function store(StoreUserRequest $request): RedirectResponse
     {
         $data = $request->validated();
-        $roleIds = $data['role_ids'] ?? [];
 
-        unset($data['role_ids']);
-
-        $user = $this->userService->createUser($data, $roleIds);
+        $user = $this->userService->createUser($data);
 
         // Log to system logs
         AuditLog::create([
@@ -117,7 +96,6 @@ class UserManagementController extends Controller
             'changes' => [
                 'email' => $user->email,
                 'role' => $user->role,
-                'role_ids' => $roleIds,
                 'is_active' => $user->is_active,
             ],
             'ip_address' => $request->ip(),
@@ -133,7 +111,7 @@ class UserManagementController extends Controller
      */
     public function show(string $id): Response
     {
-        $user = User::with(['roles.modules', 'profile'])->findOrFail($id);
+        $user = User::with('profile')->findOrFail($id);
 
         return Inertia::render('Admin/UserManagement/UserShow', [
             'user' => $user,
@@ -145,12 +123,10 @@ class UserManagementController extends Controller
      */
     public function edit(string $id): Response
     {
-        $user = User::with('roles')->findOrFail($id);
-        $roles = Role::orderBy('name')->get();
+        $user = User::with('profile')->findOrFail($id);
 
         return Inertia::render('Admin/UserManagement/UserEdit', [
             'user' => $user,
-            'roles' => $roles,
         ]);
     }
 
@@ -159,20 +135,16 @@ class UserManagementController extends Controller
      */
     public function update(UpdateUserRequest $request, string $id): RedirectResponse
     {
-        $user = User::with('roles')->findOrFail($id);
+        $user = User::findOrFail($id);
         $oldData = [
             'email' => $user->email,
             'role' => $user->role,
             'is_active' => $user->is_active,
-            'role_ids' => $user->roles->pluck('id')->toArray(),
         ];
 
         $data = $request->validated();
-        $roleIds = $data['role_ids'] ?? [];
 
-        unset($data['role_ids']);
-
-        $this->userService->updateUser($user, $data, $roleIds);
+        $this->userService->updateUser($user, $data);
 
         $user->refresh();
 
@@ -188,7 +160,6 @@ class UserManagementController extends Controller
                     'email' => $user->email,
                     'role' => $user->role,
                     'is_active' => $user->is_active,
-                    'role_ids' => $roleIds,
                 ],
             ],
             'ip_address' => $request->ip(),
@@ -204,12 +175,11 @@ class UserManagementController extends Controller
      */
     public function destroy(string $id): RedirectResponse
     {
-        $user = User::with('roles')->findOrFail($id);
+        $user = User::findOrFail($id);
         $userData = [
             'email' => $user->email,
             'role' => $user->role,
             'is_active' => $user->is_active,
-            'role_ids' => $user->roles->pluck('id')->toArray(),
         ];
 
         $user->delete();

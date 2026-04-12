@@ -23,56 +23,67 @@ class InspectionController extends Controller
     ) {}
 
     /**
+     * Whether the user can manage inspections (assign, list all).
+     */
+    private function userCanManageInspections(?User $user): bool
+    {
+        return $user && in_array($user->role, ['admin', 'staff', 'super_admin'], true);
+    }
+
+    /**
      * Display a listing of inspections for the inspector.
      */
     public function index(Request $request): Response
     {
+        $user = Auth::user();
+        $canManage = $this->userCanManageInspections($user);
+
         $query = Inspection::with(['clearanceApplication', 'checklistItems', 'photos', 'documents']);
 
-        // Filter by inspector if not admin/staff
-        if (! in_array(Auth::user()->role, ['admin', 'staff'])) {
+        if (! $canManage) {
             $query->where('inspector_id', Auth::id());
         }
 
-        // Filter by status
-        if ($request->has('status')) {
+        if ($request->filled('status')) {
             $query->where('inspection_status', $request->status);
         }
 
         $inspections = $query->orderBy('scheduled_date', 'asc')->get();
 
-        // Get inspectors list and applications ready for inspection (for admin/staff)
         $inspectors = [];
         $applications = [];
-        if (in_array(Auth::user()->role, ['admin', 'staff'])) {
-            $inspectors = User::with('profile')
-                ->where(function ($query) {
-                    $query->where('role', 'inspector')
-                        ->orWhere('role', 'admin');
-                })
+        if ($canManage) {
+            $inspectors = User::query()
+                ->where('is_active', true)
+                ->whereIn('role', ['admin', 'staff', 'super_admin'])
+                ->with('profile')
+                ->orderBy('email')
                 ->get()
-                ->map(function ($user) {
-                    $fullName = $user->profile
-                        ? trim(($user->profile->first_name ?? '').' '.($user->profile->middle_name ?? '').' '.($user->profile->last_name ?? '').' '.($user->profile->suffix ?? ''))
-                        : null;
+                ->map(function (User $u) {
+                    $profile = $u->profile;
+                    $fullName = $profile
+                        ? trim(implode(' ', array_filter([
+                            $profile->first_name,
+                            $profile->middle_name,
+                            $profile->last_name,
+                            $profile->suffix,
+                        ])))
+                        : '';
 
                     return [
-                        'id' => $user->id,
-                        'name' => $fullName ?: $user->email,
-                        'email' => $user->email,
+                        'id' => $u->id,
+                        'name' => $fullName !== '' ? $fullName : $u->email,
+                        'email' => $u->email,
                     ];
                 })
                 ->values();
 
-            // Get applications that are ready for inspection
-            // Priority: 'for_inspection' status (explicitly marked for inspection by admin)
-            // Also include 'under_review' status (may be ready to move to inspection phase)
             $applications = \App\Models\ZoningApplication::whereIn('status', ['for_inspection', 'under_review'])
-                ->whereDoesntHave('inspection') // Don't show applications that already have an inspection scheduled
+                ->whereDoesntHave('inspection')
                 ->select('id', 'reference_no', 'application_number', 'lot_address', 'lot_owner', 'applicant_name', 'status')
-                ->orderByRaw("CASE WHEN status = 'for_inspection' THEN 0 ELSE 1 END") // Prioritize 'for_inspection' status
+                ->orderByRaw("CASE WHEN status = 'for_inspection' THEN 0 ELSE 1 END")
                 ->orderBy('created_at', 'desc')
-                ->limit(100) // Limit to prevent too many options
+                ->limit(100)
                 ->get()
                 ->map(function ($app) {
                     return [
@@ -81,7 +92,6 @@ class InspectionController extends Controller
                         'lot_address' => $app->lot_address ?? 'N/A',
                         'lot_owner' => $app->lot_owner ?? $app->applicant_name ?? 'N/A',
                         'status' => $app->status,
-                        // Create a short display label
                         'display_label' => ($app->reference_no ?? $app->application_number ?? 'N/A').' - '.($app->lot_owner ?? $app->applicant_name ?? 'N/A'),
                     ];
                 });
@@ -121,8 +131,8 @@ class InspectionController extends Controller
         $validated = $request->validated();
 
         $this->inspectionService->scheduleInspection(
-            $validated['application_id'],
-            $validated['inspector_id'],
+            (int) $validated['application_id'],
+            (int) $validated['inspector_id'],
             $validated['scheduled_date'],
             $validated['notes'] ?? null
         );
@@ -158,7 +168,7 @@ class InspectionController extends Controller
      */
     public function updateChecklistItem(Request $request, string $inspectionId, string $itemId): JsonResponse
     {
-        $inspection = Inspection::findOrFail($inspectionId);
+        Inspection::findOrFail($inspectionId);
 
         $validated = $request->validate([
             'compliance_status' => ['required', 'in:compliant,non_compliant,not_applicable,pending'],
@@ -203,7 +213,7 @@ class InspectionController extends Controller
         $inspection = Inspection::findOrFail($id);
 
         $validated = $request->validate([
-            'photo' => ['required', 'image', 'max:5120'], // 5MB max
+            'photo' => ['required', 'image', 'max:5120'],
             'photo_description' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -229,7 +239,7 @@ class InspectionController extends Controller
         $inspection = Inspection::findOrFail($id);
 
         $validated = $request->validate([
-            'document' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,doc,docx'], // 10MB max
+            'document' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,doc,docx'],
             'document_type' => ['required', 'string'],
             'description' => ['nullable', 'string', 'max:500'],
         ]);
@@ -268,7 +278,12 @@ class InspectionController extends Controller
         if ($inspection->inspector) {
             $profile = $inspection->inspector->profile;
             if ($profile) {
-                $inspectorName = trim(($profile->first_name ?? '').' '.($profile->middle_name ?? '').' '.($profile->last_name ?? '').' '.($profile->suffix ?? '')) ?: $inspection->inspector->email;
+                $inspectorName = trim(implode(' ', array_filter([
+                    $profile->first_name,
+                    $profile->middle_name,
+                    $profile->last_name,
+                    $profile->suffix,
+                ]))) ?: $inspection->inspector->email;
             } else {
                 $inspectorName = $inspection->inspector->email;
             }
@@ -310,7 +325,7 @@ class InspectionController extends Controller
      */
     public function review(Request $request, string $id): RedirectResponse
     {
-        if (! in_array(Auth::user()->role, ['admin', 'staff'])) {
+        if (! $this->userCanManageInspections(Auth::user())) {
             abort(403);
         }
 

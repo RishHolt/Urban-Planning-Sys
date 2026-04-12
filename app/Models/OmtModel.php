@@ -11,5 +11,5 @@ abstract class OmtModel extends Model
      *
      * @var string|null
      */
-    protected $connection = 'omt_db';
+    protected $connection = 'zcs_db';
 }

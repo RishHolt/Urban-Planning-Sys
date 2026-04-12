@@ -23,7 +23,6 @@ interface ApplicationsIndexProps {
 }
 
 export default function ApplicationsIndex({ applications, filters: initialFilters }: ApplicationsIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         search: initialFilters.search || '',
         status: initialFilters.status || '',
@@ -35,7 +34,7 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
     });
 
     const handleSearch = (): void => {
-        get('/admin/zoning/applications', {
+        router.get('/admin/zoning/applications', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -64,18 +63,20 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
         window.location.href = `/admin/zoning/applications/export?${params.toString()}`;
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Zoning Classification Applications"
             description="Review and manage zoning classification and reclassification applications"
         >
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue={data.search}
                 onSearchChange={(value) => setData('search', value)}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder="Search by application number, applicant name, or company name..."
                 actionButtons={
                     <Button

@@ -1,52 +1,32 @@
 import { getCookie } from '../lib/utils';
 
-// Global CSRF token cache (updated by Inertia on each page load)
-let cachedCsrfToken: string | null = null;
-
 /**
- * Set the CSRF token (called from components that have access to Inertia props)
- */
-export function setCsrfToken(token: string): void {
-    cachedCsrfToken = token;
-}
-
-/**
- * Get the CSRF token from multiple sources in order of reliability
- * In Inertia SPAs, the shared prop is most reliable as it's fresh on each request
+ * Get a fresh CSRF token value from the XSRF-TOKEN cookie.
+ * Always reads fresh — never cached — so it stays valid after Inertia navigations.
+ * Send this value using the X-XSRF-TOKEN header (Laravel decrypts cookie-based tokens via that header).
  */
 export function getCsrfToken(): string {
-    // 1. Try cached token from Inertia shared props (most reliable in SPAs)
-    if (cachedCsrfToken) {
-        return cachedCsrfToken;
-    }
-
-    // 2. Try XSRF-TOKEN cookie (Laravel updates this automatically on each request)
     const cookieToken = getCookie('XSRF-TOKEN');
     if (cookieToken) {
-        // Decode the cookie value (Laravel URL-encodes it)
         try {
-            const decoded = decodeURIComponent(cookieToken);
-            // Cache it for future use
-            cachedCsrfToken = decoded;
-            return decoded;
-        } catch (e) {
-            // If decoding fails, return as-is
-            cachedCsrfToken = cookieToken;
+            return decodeURIComponent(cookieToken);
+        } catch {
             return cookieToken;
         }
     }
 
-    // 3. Fallback to meta tag (may be stale in SPAs after navigation)
+    // Fallback: raw session token from meta tag (correct for X-CSRF-TOKEN header)
     const metaToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
-    if (metaToken && metaToken.trim()) {
-        cachedCsrfToken = metaToken.trim();
+    if (metaToken?.trim()) {
         return metaToken.trim();
     }
 
-    // If no token found, log a warning (but don't throw - let the server handle it)
     console.warn('CSRF token not found. Make sure you are on a page with a valid Laravel session.');
     return '';
 }
+
+/** @deprecated No-op kept for compatibility — token is now always read fresh from cookie */
+export function setCsrfToken(_token: string): void {}
 
 export interface DocumentItem {
     title: string;
@@ -121,220 +101,56 @@ export const services: Service[] = [
         darkDescriptionColor: 'dark:text-gray-300',
         whoCanApply: [
             {
-                title: 'Registered Property Owners',
-                description: 'Individual landowners or entities (Corporations, Partnerships, Cooperatives) whose name is on the TCT/OCT',
+                title: 'Individual Applicant',
+                description: 'Personal applicant or lone lot owner applying for their own property',
                 documents: [
-                    {
-                        title: 'Proof of Ownership',
-                        description: 'Scanned Certified True Copy of the TCT/OCT',
-                    },
-                    {
-                        title: 'Tax Declaration',
-                        description: 'Latest Tax Declaration for the property',
-                    },
-                    {
-                        title: 'Tax Clearance',
-                        description: 'Latest Real Property Tax Receipt',
-                    },
-                    {
-                        title: 'Barangay Clearance',
-                        description: 'Scanned copy of the clearance for construction',
-                    },
+                    { title: 'Proof of Ownership', description: 'Certified True Copy of the TCT/OCT' },
+                    { title: 'Tax Declaration', description: 'Latest Tax Declaration (Certified by City Assessor)' },
+                    { title: 'Tax Clearance', description: 'Latest Real Property Tax Receipt' },
+                    { title: 'Barangay Clearance', description: 'Clearance for construction/development' },
                 ],
             },
             {
-                title: 'Developers',
-                description: 'Real estate firms or individuals with a Joint Venture Agreement (JVA) or Memorandum of Agreement (MOA) with the landowner',
+                title: 'Corporation / Business Entity',
+                description: 'Registered business organizations, corporations, partnerships, or cooperatives',
                 documents: [
-                    {
-                        title: 'Proof of Ownership',
-                        description: 'Scanned Certified True Copy of the TCT/OCT (from landowner)',
-                    },
-                    {
-                        title: 'Joint Venture Agreement / Memorandum of Agreement',
-                        description: 'JVA or MOA with the landowner',
-                    },
-                    {
-                        title: 'Tax Declaration',
-                        description: 'Latest Tax Declaration for the property',
-                    },
-                    {
-                        title: 'Tax Clearance',
-                        description: 'Latest Real Property Tax Receipt',
-                    },
-                    {
-                        title: 'Authorization',
-                        description: 'Notarized SPA or Secretary\'s Certificate',
-                    },
-                    {
-                        title: 'Barangay Clearance',
-                        description: 'Scanned copy of the clearance for construction',
-                    },
+                    { title: 'Proof of Ownership', description: 'Certified True Copy of the TCT/OCT' },
+                    { title: 'Business Registration', description: 'SEC Certificate of Incorporation / DTI Business Name' },
+                    { title: 'Corporate Authorization', description: 'Secretary\'s Certificate or Board Resolution' },
+                    { title: 'Tax Documents', description: 'Latest Tax Declaration and Tax Clearance' },
                 ],
             },
             {
-                title: 'Authorized Representatives',
-                description: 'Architects, Engineers, or Consultants with a Notarized Special Power of Attorney (SPA) or Authorization Letter',
+                title: 'Authorized Representative',
+                description: 'Individual applying on behalf of a lot owner or a corporation',
                 documents: [
-                    {
-                        title: 'Proof of Ownership',
-                        description: 'Scanned Certified True Copy of the TCT/OCT (from landowner)',
-                    },
-                    {
-                        title: 'Notarized Special Power of Attorney / Authorization Letter',
-                        description: 'Notarized SPA or Authorization Letter from the property owner',
-                    },
-                    {
-                        title: 'Tax Declaration',
-                        description: 'Latest Tax Declaration for the property',
-                    },
-                    {
-                        title: 'Tax Clearance',
-                        description: 'Latest Real Property Tax Receipt',
-                    },
-                    {
-                        title: 'Barangay Clearance',
-                        description: 'Scanned copy of the clearance for construction',
-                    },
-                ],
-            },
-            {
-                title: 'Lessees (Tenants)',
-                description: 'Business owners or individuals with a valid Contract of Lease and Affidavit of Consent from the landowner',
-                documents: [
-                    {
-                        title: 'Contract of Lease',
-                        description: 'Valid Contract of Lease with the landowner',
-                    },
-                    {
-                        title: 'Affidavit of Consent',
-                        description: 'Affidavit of Consent from the landowner',
-                    },
-                    {
-                        title: 'Tax Declaration',
-                        description: 'Latest Tax Declaration for the property',
-                    },
-                    {
-                        title: 'Tax Clearance',
-                        description: 'Latest Real Property Tax Receipt',
-                    },
-                    {
-                        title: 'Barangay Clearance',
-                        description: 'Scanned copy of the clearance for construction',
-                    },
-                ],
-            },
-            {
-                title: 'Other Legal Claimants',
-                description: 'Heirs (with Deed of Extrajudicial Settlement of Estate) or Buyers (with Deed of Absolute Sale)',
-                documents: [
-                    {
-                        title: 'Deed of Extrajudicial Settlement of Estate',
-                        description: 'For heirs: Deed of Extrajudicial Settlement of Estate',
-                    },
-                    {
-                        title: 'Deed of Absolute Sale',
-                        description: 'For buyers: Deed of Absolute Sale',
-                    },
-                    {
-                        title: 'Tax Declaration',
-                        description: 'Latest Tax Declaration for the property',
-                    },
-                    {
-                        title: 'Tax Clearance',
-                        description: 'Latest Real Property Tax Receipt',
-                    },
-                    {
-                        title: 'Barangay Clearance',
-                        description: 'Scanned copy of the clearance for construction',
-                    },
+                    { title: 'Authorization', description: 'Notarized Special Power of Attorney (SPA) or Authorization Letter' },
+                    { title: 'Valid IDs', description: 'IDs of both the applicant and the representative' },
+                    { title: 'Ownership Documents', description: 'Standard TCT/Tax documents from the property owner' },
                 ],
             },
         ],
         documents: [
             {
                 id: 'legal-ownership',
-                title: 'Legal Ownership Documents',
-                subtitle: 'Required documents for proof of ownership',
+                title: 'Primary Requirements',
+                subtitle: 'Essential documents for all applicants',
                 items: [
-                    {
-                        title: 'Proof of Ownership',
-                        description: 'Scanned Certified True Copy of the TCT/OCT',
-                    },
-                    {
-                        title: 'Tax Declaration',
-                        description: 'Latest Tax Declaration for the property',
-                    },
-                    {
-                        title: 'Tax Clearance',
-                        description: 'Latest Real Property Tax Receipt',
-                    },
-                    {
-                        title: 'Authorization',
-                        description: 'Notarized SPA or Secretary\'s Certificate (if the applicant isn\'t the owner)',
-                    },
-                    {
-                        title: 'Barangay Clearance',
-                        description: 'Scanned copy of the clearance for construction',
-                    },
+                    { title: 'Certified True Copy of TCT/OCT', description: 'Proof of legal ownership' },
+                    { title: 'Latest Tax Declaration', description: 'Certified by the City Assessor' },
+                    { title: 'Latest Tax Clearance', description: 'Real Property Tax Receipt' },
+                    { title: 'Barangay Clearance', description: 'From the barangay where project is located' },
                 ],
             },
             {
                 id: 'zoning-requirements',
-                title: 'Zoning Requirements',
-                subtitle: 'Zoning Clearance (ZCS) Requirements',
+                title: 'Site & Project Documents',
+                subtitle: 'Technical requirements for zoning evaluation',
                 items: [
-                    {
-                        title: 'Vicinity Map',
-                        description: 'Showing the project in relation to landmarks',
-                    },
-                    {
-                        title: 'Site Development Plan (Basic)',
-                        description: 'Showing the "footprint" of the building, setbacks (distance from edges), and parking slots',
-                    },
-                    {
-                        title: 'Affidavit of Undertaking',
-                        description: 'Only if there are specific zoning conditions like "Non-objection from neighbors"',
-                    },
-                    {
-                        title: 'Lot Plans',
-                        description: 'Detailed lot plans showing property boundaries',
-                    },
-                ],
-            },
-            {
-                id: 'subdivision-building-review',
-                title: 'Subdivision & Building Review Requirements',
-                subtitle: 'Required plans and documents for building review',
-                items: [
-                    {
-                        title: 'Architectural Plans',
-                        description: 'Signed and Sealed digital copies of Perspectives, Floor Plans, Sections, and Elevations',
-                    },
-                    {
-                        title: 'Structural Plans',
-                        description: 'Foundation, Columns, Beams',
-                    },
-                    {
-                        title: 'Structural Analysis & Design',
-                        description: 'Required for 2-storeys and above',
-                    },
-                    {
-                        title: 'Boring/Soil Test',
-                        description: 'Required for 3-storeys and above',
-                    },
-                    {
-                        title: 'Sanitary/Plumbing Plans',
-                        description: 'Layout and Septic Tank details',
-                    },
-                    {
-                        title: 'Electrical Plans',
-                        description: 'Load Schedule and Wiring Diagrams',
-                    },
-                    {
-                        title: 'Engineering Reports',
-                        description: 'Bill of Materials (Cost Estimate) and Technical Specifications',
-                    },
+                    { title: 'Vicinity Map', description: 'Showing location relative to landmarks' },
+                    { title: 'Site Development Plan', description: 'Signed and sealed lot/site plan' },
+                    { title: 'Building Plans', description: 'Architectural/Structural/Electrical/Sanitary plans' },
+                    { title: 'Bill of Materials', description: 'Project cost estimate' },
                 ],
             },
         ],
@@ -805,27 +621,12 @@ export async function createZone(data: {
     geometry?: GeoJSON.Polygon | GeoJSON.MultiPolygon | null;
     is_active?: boolean;
 }): Promise<Zone> {
-    const csrfToken = getCsrfToken();
-    if (!csrfToken) {
-        throw new Error('CSRF token not available. Please refresh the page and try again.');
-    }
-
     const headers: HeadersInit = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRF-TOKEN': csrfToken,
+        'X-XSRF-TOKEN': getCsrfToken(),
     };
-
-    // Also send X-XSRF-TOKEN header with decoded cookie value (Laravel checks both)
-    const xsrfCookie = getCookie('XSRF-TOKEN');
-    if (xsrfCookie) {
-        try {
-            headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfCookie);
-        } catch (e) {
-            headers['X-XSRF-TOKEN'] = xsrfCookie;
-        }
-    }
 
     const response = await fetch('/admin/zoning/zones', {
         method: 'POST',
@@ -863,27 +664,12 @@ export async function updateZone(
         is_active?: boolean;
     }
 ): Promise<Zone> {
-    const csrfToken = getCsrfToken();
-    if (!csrfToken) {
-        throw new Error('CSRF token not available. Please refresh the page and try again.');
-    }
-
     const headers: HeadersInit = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRF-TOKEN': csrfToken,
+        'X-XSRF-TOKEN': getCsrfToken(),
     };
-
-    // Also send X-XSRF-TOKEN header with decoded cookie value (Laravel checks both)
-    const xsrfCookie = getCookie('XSRF-TOKEN');
-    if (xsrfCookie) {
-        try {
-            headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfCookie);
-        } catch (e) {
-            headers['X-XSRF-TOKEN'] = xsrfCookie;
-        }
-    }
 
     const response = await fetch(`/admin/zoning/zones/${id}`, {
         method: 'PATCH',
@@ -943,7 +729,7 @@ export async function importZonesGeoJson(file: File): Promise<{
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
         body: formData,
     });
@@ -973,7 +759,7 @@ export async function importMunicipalityGeoJson(file: File): Promise<{
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
         body: formData,
     });
@@ -1033,7 +819,7 @@ export async function createZoningClassification(data: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
         body: JSON.stringify(data),
     });
@@ -1074,7 +860,7 @@ export async function updateZoningClassification(
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
         body: JSON.stringify(data),
     });
@@ -1104,7 +890,7 @@ export async function deleteZoningClassification(id: string): Promise<void> {
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
     });
 
@@ -1112,6 +898,108 @@ export async function deleteZoningClassification(id: string): Promise<void> {
         const error = await response.json();
         throw new Error(error.message || 'Failed to delete classification');
     }
+}
+
+/**
+ * Compliance Rule types and API functions
+ */
+
+export interface ComplianceRule {
+    id: string;
+    classification_code: string;
+    name: string;
+    allowed_uses: string[];
+    front_setback: number;
+    rear_setback: number;
+    side_setback: number;
+    floor_area_ratio: number;
+    max_height: number;
+    max_storeys: number;
+    open_space_requirement: number;
+    min_lot_area: number;
+    is_active: boolean;
+}
+
+export async function createComplianceRule(data: Omit<ComplianceRule, 'id'>): Promise<ComplianceRule> {
+    const response = await fetch('/admin/zoning/compliance-rules', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to create compliance rule' }));
+        const errorMessage = errorData.message || 'Failed to create compliance rule';
+        if (errorData.errors) {
+            const details = Object.values(errorData.errors).flat().join(', ');
+            throw new Error(`${errorMessage}: ${details}`);
+        }
+        throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    return result.rule;
+}
+
+export async function updateComplianceRule(id: string, data: Partial<Omit<ComplianceRule, 'id'>>): Promise<ComplianceRule> {
+    const response = await fetch(`/admin/zoning/compliance-rules/${id}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to update compliance rule' }));
+        const errorMessage = errorData.message || 'Failed to update compliance rule';
+        if (errorData.errors) {
+            const details = Object.values(errorData.errors).flat().join(', ');
+            throw new Error(`${errorMessage}: ${details}`);
+        }
+        throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    return result.rule;
+}
+
+export async function deleteComplianceRule(id: string): Promise<void> {
+    const response = await fetch(`/admin/zoning/compliance-rules/${id}`, {
+        method: 'DELETE',
+        headers: {
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+        },
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete compliance rule');
+    }
+}
+
+export async function seedComplianceRulesFromConfig(): Promise<{ message: string }> {
+    const response = await fetch('/admin/zoning/compliance-rules/seed-from-config', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+        },
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to seed compliance rules');
+    }
+
+    return response.json();
 }
 
 /**
@@ -1123,7 +1011,7 @@ export async function deleteZone(id: string): Promise<void> {
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
     });
 
@@ -1189,7 +1077,7 @@ export async function createMunicipalBoundary(data: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
         body: JSON.stringify(data),
     });
@@ -1225,7 +1113,7 @@ export async function createBarangayBoundary(data: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
         body: JSON.stringify(data),
     });
@@ -1261,7 +1149,7 @@ export async function updateBarangayBoundary(id: string, data: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
         body: JSON.stringify(data),
     });
@@ -1283,6 +1171,25 @@ export async function updateBarangayBoundary(id: string, data: {
 }
 
 /**
+ * Delete the municipal boundary
+ */
+export async function deleteMunicipalBoundary(): Promise<void> {
+    const response = await fetch('/admin/zoning/classifications/boundaries/municipal', {
+        method: 'DELETE',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-XSRF-TOKEN': getCsrfToken(),
+        },
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete municipal boundary');
+    }
+}
+
+/**
  * Delete a barangay boundary
  */
 export async function deleteBarangayBoundary(id: string): Promise<void> {
@@ -1291,7 +1198,7 @@ export async function deleteBarangayBoundary(id: string): Promise<void> {
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
     });
 
@@ -1310,7 +1217,7 @@ export async function deleteAllBarangayBoundaries(): Promise<{ success: boolean;
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
     });
 
@@ -1338,7 +1245,7 @@ export async function importBarangayBoundaries(file: File): Promise<{
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-XSRF-TOKEN': getCsrfToken(),
         },
         body: formData,
     });

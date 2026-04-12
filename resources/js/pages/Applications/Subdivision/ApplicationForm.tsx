@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useForm, router, Link } from '@inertiajs/react';
 import Header from '../../../components/Header';
-import Footer from '../../../components/Footer';
 import Button from '../../../components/Button';
 import StepProgress from '../../../components/StepProgress';
 import Input from '../../../components/Input';
+import Select from '../../../components/Select';
 import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle } from 'lucide-react';
 
 const STEPS = [
@@ -125,22 +125,16 @@ export default function ApplicationForm() {
                             placeholder="Enter zoning clearance number"
                         />
 
-                        <div>
-                            <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                                Applicant Type *
-                            </label>
-                            <select
-                                value={data.applicant_type}
-                                onChange={(e) => setData('applicant_type', e.target.value as 'developer' | 'authorized_rep')}
-                                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                            >
-                                <option value="developer">Developer</option>
-                                <option value="authorized_rep">Authorized Representative</option>
-                            </select>
-                            {(localErrors.applicant_type || errors.applicant_type) && (
-                                <p className="mt-1 text-red-500 text-sm">{localErrors.applicant_type || errors.applicant_type}</p>
-                            )}
-                        </div>
+                        <Select
+                            label="Applicant Type *"
+                            value={data.applicant_type}
+                            onChange={(e) => setData('applicant_type', e.target.value as 'developer' | 'authorized_rep')}
+                            error={localErrors.applicant_type || errors.applicant_type}
+                            required
+                        >
+                            <option value="developer">Developer</option>
+                            <option value="authorized_rep">Authorized Representative</option>
+                        </Select>
 
                         <Input
                             label="Contact Number *"
@@ -415,7 +409,6 @@ export default function ApplicationForm() {
                 </div>
             </div>
 
-            <Footer />
         </div>
     );
 }

@@ -40,7 +40,6 @@ interface ProjectsIndexProps {
 }
 
 export default function ProjectsIndex({ projects, filters: initialFilters = {} }: ProjectsIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         search: initialFilters.search || '',
         project_type: initialFilters.project_type || '',
@@ -49,7 +48,7 @@ export default function ProjectsIndex({ projects, filters: initialFilters = {} }
     });
 
     const handleSearch = (): void => {
-        get('/admin/infrastructure/projects', {
+        router.get('/admin/infrastructure/projects', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -97,6 +96,8 @@ export default function ProjectsIndex({ projects, filters: initialFilters = {} }
         return labels[type] || type;
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Infrastructure Projects"
@@ -127,12 +128,12 @@ export default function ProjectsIndex({ projects, filters: initialFilters = {} }
             </div>
 
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue={data.search}
                 onSearchChange={(value) => setData('search', value)}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder="Search by project code, name, or location..."
                 filterContent={
                     <>

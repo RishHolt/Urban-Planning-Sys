@@ -30,8 +30,8 @@ class StoreZoningApplicationRequest extends FormRequest
             'contact_number' => ['required', 'string', 'max:20'],
             'contact_email' => ['nullable', 'email', 'max:255'],
 
-            'tax_dec_ref_no' => ['required', 'string', 'max:50'],
-            'barangay_permit_ref_no' => ['required', 'string', 'max:50'],
+            'tax_declaration_no' => ['required', 'string', 'max:50'],
+            'barangay_permit_ref_no' => ['nullable', 'string', 'max:50'],
 
             'pin_lat' => ['nullable', 'numeric'],
             'pin_lng' => ['nullable', 'numeric'],
@@ -46,8 +46,8 @@ class StoreZoningApplicationRequest extends FormRequest
             'lot_owner_contact_number' => ['nullable', 'string', 'max:20'],
             'lot_owner_contact_email' => ['nullable', 'email', 'max:255'],
 
-            'lot_area_total' => ['required', 'numeric', 'min:0'],
-            'lot_area_used' => ['nullable', 'numeric', 'min:0'],
+            'lot_area_total' => ['required', 'numeric', 'min:0', 'max:9999999999.99'],
+            'lot_area_used' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
 
             'is_subdivision' => ['required', 'boolean'],
             'subdivision_name' => ['required_if:is_subdivision,true', 'nullable', 'string', 'max:255'],
@@ -61,10 +61,19 @@ class StoreZoningApplicationRequest extends FormRequest
             'building_type' => ['required', 'string', 'max:255'],
 
             'project_description' => ['required', 'string', 'max:2000'],
-            'number_of_storeys' => ['nullable', 'integer', 'min:0'],
-            'floor_area_sqm' => ['nullable', 'numeric', 'min:0'],
+            'number_of_storeys' => ['nullable', 'integer', 'min:0', 'max:1000'],
+            'floor_area_sqm' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             'number_of_units' => ['nullable', 'integer', 'min:0'],
             'purpose' => ['required', 'string', 'max:1000'],
+
+            // Missing New Fields
+            'tct_no' => ['nullable', 'string', 'max:255'],
+            'project_cost' => ['nullable', 'numeric', 'min:0'],
+            'building_footprint_sqm' => ['nullable', 'numeric', 'min:0'],
+            'front_setback_m' => ['nullable', 'numeric', 'min:0'],
+            'rear_setback_m' => ['nullable', 'numeric', 'min:0'],
+            'side_setback_left_m' => ['nullable', 'numeric', 'min:0'],
+            'side_setback_right_m' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

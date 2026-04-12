@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\IssueClearanceRequest;
 use App\Models\ApplicationHistory;
-use App\Models\ZoningApplication;
 use App\Models\IssuedClearance;
+use App\Models\ZoningApplication;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -158,7 +158,7 @@ class IssuedClearanceController extends Controller
             'updated_at' => now(),
         ]);
 
-        return redirect()->route('clearances.show', $clearance->id)
+        return redirect()->route('admin.zoning.clearances.show', $clearance->id)
             ->with('success', 'Clearance issued successfully. Clearance Number: '.$clearanceNo);
     }
 
@@ -172,10 +172,10 @@ class IssuedClearanceController extends Controller
 
         // Generate QR code for verification
         $verificationUrl = url("/clearances/{$clearance->id}/verify");
-        
+
         $renderer = new \BaconQrCode\Renderer\ImageRenderer(
             new \BaconQrCode\Renderer\RendererStyle\RendererStyle(100),
-            new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+            new \BaconQrCode\Renderer\Image\SvgImageBackEnd
         );
         $writer = new \BaconQrCode\Writer($renderer);
         $qrCode = base64_encode($writer->writeString($verificationUrl));
@@ -193,7 +193,7 @@ class IssuedClearanceController extends Controller
 
         $pdf->setPaper('a4', 'portrait');
 
-        $filename = 'Zoning_Clearance_' . $clearance->clearance_no . '.pdf';
+        $filename = 'Zoning_Clearance_'.$clearance->clearance_no.'.pdf';
 
         return $pdf->download($filename);
     }
@@ -208,10 +208,10 @@ class IssuedClearanceController extends Controller
 
         // Generate QR code for verification
         $verificationUrl = url("/clearances/{$clearance->id}/verify");
-        
+
         $renderer = new \BaconQrCode\Renderer\ImageRenderer(
             new \BaconQrCode\Renderer\RendererStyle\RendererStyle(100),
-            new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+            new \BaconQrCode\Renderer\Image\SvgImageBackEnd
         );
         $writer = new \BaconQrCode\Writer($renderer);
         $qrCode = base64_encode($writer->writeString($verificationUrl));
@@ -229,6 +229,6 @@ class IssuedClearanceController extends Controller
 
         $pdf->setPaper('a4', 'portrait');
 
-        return $pdf->stream('Zoning_Clearance_' . $clearance->clearance_no . '.pdf');
+        return $pdf->stream('Zoning_Clearance_'.$clearance->clearance_no.'.pdf');
     }
 }

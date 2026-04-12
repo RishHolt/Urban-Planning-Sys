@@ -12,11 +12,15 @@ interface FeeAssessmentStepProps {
 interface FeeBreakdown {
     type: string;
     classification: string;
-    base_fee: number;
-    variable_fee: number;
-    variable_unit?: string;
-    variable_rate?: number;
-    quantity?: number;
+    verification_fee: number;
+    inspection_fee: number;
+    processing_fee: number;
+    processing_rate: number;
+    floor_area_sqm: number;
+    // Subdivision-only fields
+    lots_planned?: number;
+    subdivision_base?: number;
+    lot_fee?: number;
     total: number;
 }
 
@@ -27,7 +31,6 @@ export default function FeeAssessmentStep({ data, setData, errors }: FeeAssessme
 
     useEffect(() => {
         const fetchAssessment = async () => {
-            // Don't fetch if we don't have at least zone_id
             if (!data.zone_id) {
                 setError('Please select a zone first to calculate fees.');
                 setLoading(false);
@@ -37,7 +40,6 @@ export default function FeeAssessmentStep({ data, setData, errors }: FeeAssessme
             setLoading(true);
             setError(null);
             try {
-                // Prepare payload with only necessary fields
                 const payload = {
                     zone_id: data.zone_id,
                     is_subdivision: data.is_subdivision || false,
@@ -47,33 +49,28 @@ export default function FeeAssessmentStep({ data, setData, errors }: FeeAssessme
                 };
 
                 const response = await axios.post('/zoning-applications/assess-fees', payload);
-                
+
                 if (response.data.error) {
                     setError(response.data.message || 'Failed to calculate fees. Please try again.');
                     return;
                 }
 
                 setAssessment(response.data);
-                // Save fee to form data just in case, though backend recalculates it
                 if (response.data.amount !== undefined) {
                     setData('assessed_fee', response.data.amount);
                 }
             } catch (err: any) {
                 console.error('Fee assessment failed:', err);
-                
-                // Extract error message from response if available
-                const errorMessage = err.response?.data?.message 
-                    || err.response?.data?.error 
-                    || err.message 
+                const errorMessage = err.response?.data?.message
+                    || err.response?.data?.error
+                    || err.message
                     || 'Failed to calculate fees. Please try again or contact support.';
-                
                 setError(errorMessage);
             } finally {
                 setLoading(false);
             }
         };
 
-        // Only fetch when zone_id is available
         if (data.zone_id) {
             fetchAssessment();
         } else {
@@ -82,12 +79,8 @@ export default function FeeAssessmentStep({ data, setData, errors }: FeeAssessme
         }
     }, [data.zone_id, data.is_subdivision, data.total_lots_planned, data.floor_area_sqm, data.project_type]);
 
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-PH', {
-            style: 'currency',
-            currency: 'PHP',
-        }).format(amount);
-    };
+    const formatCurrency = (amount: number) =>
+        new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 
     if (loading) {
         return (
@@ -130,35 +123,56 @@ export default function FeeAssessmentStep({ data, setData, errors }: FeeAssessme
 
             {assessment && (
                 <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                    {/* Header */}
                     <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                         <span className="font-medium text-gray-700">Project Type</span>
                         <span className="font-bold text-gray-900">{assessment.breakdown.type}</span>
                     </div>
 
-                    <div className="p-6 space-y-4">
+                    <div className="p-6 space-y-3">
+                        {/* Classification */}
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
                             <span className="text-gray-600">Zoning Classification</span>
-                            <span className="font-medium text-gray-900">{assessment.breakdown.classification || 'N/A'}</span>
+                            <span className="font-medium text-gray-900">{assessment.breakdown.classification}</span>
                         </div>
 
+                        {/* Verification Fee */}
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                            <span className="text-gray-600">Base Fee</span>
-                            <span className="font-medium text-gray-900">{formatCurrency(assessment.breakdown.base_fee)}</span>
+                            <span className="text-gray-600">Zoning & Land Use Verification Fee</span>
+                            <span className="font-medium text-gray-900">{formatCurrency(assessment.breakdown.verification_fee ?? 0)}</span>
                         </div>
 
-                        {assessment.breakdown.variable_fee > 0 && (
+                        {/* Inspection Fee */}
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span className="text-gray-600">Inspection Fee</span>
+                            <span className="font-medium text-gray-900">{formatCurrency(assessment.breakdown.inspection_fee ?? 0)}</span>
+                        </div>
+
+                        {/* Processing Fee */}
+                        {assessment.breakdown.type === 'Subdivision Project' ? (
                             <div className="py-2 border-b border-gray-100">
                                 <div className="flex justify-between items-center mb-1">
-                                    <span className="text-gray-600">Variable Fee</span>
-                                    <span className="font-medium text-gray-900">{formatCurrency(assessment.breakdown.variable_fee)}</span>
+                                    <span className="text-gray-600">Processing Fee (Subdivision)</span>
+                                    <span className="font-medium text-gray-900">{formatCurrency(assessment.breakdown.processing_fee ?? 0)}</span>
                                 </div>
                                 <div className="text-xs text-gray-500 text-right">
-                                    {assessment.breakdown.quantity} {assessment.breakdown.variable_unit} × {formatCurrency(assessment.breakdown.variable_rate || 0)}
+                                    Base ₱1,000 + {assessment.breakdown.lots_planned ?? 0} lots × {formatCurrency(assessment.breakdown.processing_rate ?? 0)}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="py-2 border-b border-gray-100">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-gray-600">Processing Fee (per sqm floor area)</span>
+                                    <span className="font-medium text-gray-900">{formatCurrency(assessment.breakdown.processing_fee ?? 0)}</span>
+                                </div>
+                                <div className="text-xs text-gray-500 text-right">
+                                    {assessment.breakdown.floor_area_sqm ?? 0} sqm × {formatCurrency(assessment.breakdown.processing_rate ?? 0)}
                                 </div>
                             </div>
                         )}
 
-                        <div className="flex justify-between items-center pt-4 mt-2">
+                        {/* Total */}
+                        <div className="flex justify-between items-center pt-4 mt-2 border-t-2 border-gray-200">
                             <span className="text-lg font-bold text-gray-900">Total Fee</span>
                             <span className="text-2xl font-bold text-blue-600">{formatCurrency(assessment.amount)}</span>
                         </div>
@@ -167,7 +181,7 @@ export default function FeeAssessmentStep({ data, setData, errors }: FeeAssessme
             )}
 
             <div className="text-sm text-gray-500 italic">
-                * Fees are subject to final verification by the Zoning Administrator. Additional fees may apply during processing.
+                * Fees are based on the Caloocan City Revenue Code. Subject to final verification by the Zoning Administrator. Additional fees may apply during processing.
             </div>
         </div>
     );

@@ -356,6 +356,44 @@ class ZoningClassificationController extends Controller
     /**
      * Delete a barangay boundary.
      */
+    public function deleteMunicipalBoundary(): JsonResponse
+    {
+        $deleted = Zone::municipal()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => $deleted
+                ? 'Municipal boundary deleted successfully.'
+                : 'No municipal boundary found to delete.',
+        ]);
+    }
+
+    /**
+     * Update a barangay boundary's geometry (and optionally label).
+     */
+    public function updateBarangayBoundary(Request $request, string $id): JsonResponse
+    {
+        $zone = Zone::barangay()->findOrFail($id);
+
+        $validated = $request->validate([
+            'geometry' => ['required', 'array'],
+            'label' => ['sometimes', 'string', 'max:255'],
+        ]);
+
+        $zone->update([
+            'geometry' => $validated['geometry'],
+            'label' => $validated['label'] ?? $zone->label,
+        ]);
+
+        $zone->load('classification');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Barangay boundary updated successfully.',
+            'boundary' => ZoneFormatter::format($zone),
+        ]);
+    }
+
     public function deleteBarangayBoundary(string $id): JsonResponse
     {
         $zone = Zone::barangay()->findOrFail($id);

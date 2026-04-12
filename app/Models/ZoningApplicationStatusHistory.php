@@ -53,4 +53,12 @@ class ZoningApplicationStatusHistory extends ZcsModel
     {
         return $this->belongsTo(ZoningApplication::class);
     }
+
+    /**
+     * Get the user who recorded this status change.
+     */
+    public function changedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'changed_by');
+    }
 }

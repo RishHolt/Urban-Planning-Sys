@@ -9,9 +9,10 @@ interface VerifyOtpModalProps {
     onClose: () => void;
     email: string;
     type: 'registration' | 'login';
+    initialOtpCode?: string | null;
 }
 
-export default function VerifyOtpModal({ isOpen, onClose, email, type }: VerifyOtpModalProps) {
+export default function VerifyOtpModal({ isOpen, onClose, email, type, initialOtpCode }: VerifyOtpModalProps) {
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [resendCooldown, setResendCooldown] = useState(0);
 
@@ -74,19 +75,19 @@ export default function VerifyOtpModal({ isOpen, onClose, email, type }: VerifyO
     };
 
     const { flash } = usePage().props as any;
+    const [devOtpCode, setDevOtpCode] = useState<string | null>(initialOtpCode ?? null);
 
-    // Log OTP code when received from resend
+    // Update when initialOtpCode prop changes (e.g. modal re-opened)
+    useEffect(() => {
+        setDevOtpCode(initialOtpCode ?? null);
+    }, [initialOtpCode]);
+
+    // Show OTP code when received from resend (dev mode)
     useEffect(() => {
         if (flash?.otp_code) {
-            console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-            console.log('%c🔐 OTP CODE RESENT', 'color: #4CAF50; font-weight: bold; font-size: 16px;');
-            console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-            console.log(`%cEmail: ${email}`, 'color: #2196F3; font-size: 14px;');
-            console.log(`%cCode: ${flash.otp_code}`, 'color: #FF9800; font-weight: bold; font-size: 18px;');
-            console.log(`%cType: ${type}`, 'color: #2196F3; font-size: 14px;');
-            console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
+            setDevOtpCode(flash.otp_code);
         }
-    }, [flash?.otp_code, email, type]);
+    }, [flash?.otp_code]);
 
     const handleResend = () => {
         if (resendCooldown > 0) {
@@ -140,6 +141,12 @@ export default function VerifyOtpModal({ isOpen, onClose, email, type }: VerifyO
                         <p className="mt-1 font-semibold text-primary dark:text-white">
                             {email}
                         </p>
+                        {devOtpCode && (
+                            <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+                                <p className="text-yellow-700 dark:text-yellow-400 text-xs font-medium">Dev mode — OTP code:</p>
+                                <p className="text-yellow-800 dark:text-yellow-300 font-mono font-bold text-lg tracking-widest">{devOtpCode}</p>
+                            </div>
+                        )}
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">

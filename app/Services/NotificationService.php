@@ -9,7 +9,7 @@ class NotificationService
     /**
      * Create a notification for a user.
      */
-    public static function create(int $userId, string $type, string $title, string $message, ?string $resourceType = null, ?int $resourceId = null): Notification
+    public static function create(int|string $userId, string $type, string $title, string $message, ?string $resourceType = null, ?int $resourceId = null): Notification
     {
         return Notification::create([
             'user_id' => $userId,

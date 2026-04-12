@@ -1,7 +1,6 @@
 import { useForm, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import Header from '../../../components/Header';
-import Footer from '../../../components/Footer';
 import Button from '../../../components/Button';
 import StepProgress from '../../../components/StepProgress';
 import { ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
@@ -503,7 +502,6 @@ export default function ApplicationForm() {
                 </div>
             </div>
 
-            <Footer />
         </div>
     );
 }

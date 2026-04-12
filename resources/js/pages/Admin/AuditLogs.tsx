@@ -40,7 +40,6 @@ interface AuditLogsProps {
 }
 
 export default function AuditLogs({ logs, filters: initialFilters }: AuditLogsProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         search: initialFilters.search || '',
         actionType: initialFilters.actionType || '',
@@ -51,7 +50,7 @@ export default function AuditLogs({ logs, filters: initialFilters }: AuditLogsPr
     });
 
     const handleSearch = (): void => {
-        get('/admin/audit-logs', {
+        router.get('/admin/audit-logs', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -69,18 +68,20 @@ export default function AuditLogs({ logs, filters: initialFilters }: AuditLogsPr
         router.get('/admin/audit-logs');
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="System Logs"
             description="View system activity and security logs"
         >
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue={data.search}
                 onSearchChange={(value) => setData('search', value)}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder="Search by action, resource type, user ID..."
                                 filterContent={
                     <>
@@ -99,9 +100,6 @@ export default function AuditLogs({ logs, filters: initialFilters }: AuditLogsPr
                                 <option value="user_updated">User Updated</option>
                                 <option value="user_deleted">User Deleted</option>
                                 <option value="user_status_toggled">User Status Toggled</option>
-                                <option value="role_created">Role Created</option>
-                                <option value="role_updated">Role Updated</option>
-                                <option value="role_deleted">Role Deleted</option>
                                 <option value="created">Created</option>
                                 <option value="updated">Updated</option>
                                 <option value="deleted">Deleted</option>
@@ -118,7 +116,6 @@ export default function AuditLogs({ logs, filters: initialFilters }: AuditLogsPr
                             >
                                 <option value="">All Resources</option>
                                 <option value="user">User</option>
-                                <option value="role">Role</option>
                                 <option value="zoning_application">Zoning Application</option>
                                 <option value="zone">Zone</option>
                                 <option value="beneficiary_application">Beneficiary Application</option>

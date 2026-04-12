@@ -21,6 +21,7 @@ class DocumentResource extends JsonResource
             'fileType' => $this->file_type ?? $this->type,
             'documentType' => $this->document_type ?? null,
             'fileSize' => $this->file_size,
+            'mimeType' => $this->mime_type,
             'status' => $this->status ?? 'pending',
             'version' => $this->version ?? 1,
             'isCurrent' => (bool) ($this->is_current ?? true),
@@ -28,6 +29,7 @@ class DocumentResource extends JsonResource
             'reviewedBy' => $this->reviewed_by ?? null,
             'reviewedAt' => isset($this->reviewed_at) ? $this->reviewed_at->format('Y-m-d H:i:s') : null,
             'uploadedAt' => (isset($this->uploaded_at) ? $this->uploaded_at : $this->created_at)?->format('Y-m-d H:i:s'),
+            'url' => $this->file_path ? \Storage::disk('public')->url($this->file_path) : null,
             'versions' => DocumentResource::collection($this->whenLoaded('versions')),
         ];
     }

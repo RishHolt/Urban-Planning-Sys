@@ -32,14 +32,13 @@ interface AwardsIndexProps {
 }
 
 export default function AwardsIndex({ awards, filters: initialFilters }: AwardsIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         search: initialFilters.search || '',
         status: initialFilters.status || '',
     });
 
     const handleSearch = (): void => {
-        get('/admin/housing/awards', {
+        router.get('/admin/housing/awards', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -98,18 +97,20 @@ export default function AwardsIndex({ awards, filters: initialFilters }: AwardsI
         );
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Housing Awards"
             description="Manage housing unit awards to beneficiaries"
         >
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue={data.search}
                 onSearchChange={(value) => setData('search', value)}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder="Search by award number, beneficiary name, unit number..."
                 filterContent={
                     <div>

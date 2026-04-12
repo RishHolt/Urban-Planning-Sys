@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { router, usePage } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import AdminHeader from '../../../components/AdminHeader';
 import Sidebar from '../../../components/Sidebar';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { useLeafletDraw } from '../../../hooks/useLeafletDraw';
-import { getZones, getZone, createZone, updateZone, deleteZone, getZoningClassifications, exportZonesGeoJson, importZonesGeoJson, importMunicipalityGeoJson, getMunicipalBoundary, createMunicipalBoundary, getBarangayBoundaries, createBarangayBoundary, updateBarangayBoundary, setCsrfToken, type Zone, type ZoningClassification } from '../../../data/services';
-import type { SharedData } from '../../../types';
+import { useLeafletGeoman } from '../../../hooks/useLeafletGeoman';
+import { getZones, getZone, createZone, updateZone, deleteZone, getZoningClassifications, exportZonesGeoJson, importZonesGeoJson, importMunicipalityGeoJson, importBarangayBoundaries, getMunicipalBoundary, createMunicipalBoundary, deleteMunicipalBoundary, getBarangayBoundaries, createBarangayBoundary, updateBarangayBoundary, deleteBarangayBoundary, type Zone, type ZoningClassification } from '../../../data/services';
 import { generatePolygonColor, leafletToGeoJSON, geoJSONToLeaflet, calculatePolygonArea, hslToRgba } from '../../../lib/mapUtils';
 import { checkZoneOverlap } from '../../../lib/zoneOverlapDetection';
 import { showSuccess, showError, showConfirm } from '../../../lib/swal';
@@ -34,18 +33,6 @@ if (typeof window !== 'undefined' && !(L.Icon.Default.prototype as any)._iconUrl
     (L.Icon.Default.prototype as any)._iconUrlFixed = true;
 }
 
-// Suppress leaflet-draw deprecation warnings about _flat
-if (typeof window !== 'undefined') {
-    const originalWarn = console.warn;
-    console.warn = function (...args: unknown[]) {
-        const message = args[0];
-        if (typeof message === 'string' && message.includes('Deprecated use of _flat')) {
-            // Suppress this specific warning from leaflet-draw
-            return;
-        }
-        originalWarn.apply(console, args);
-    };
-}
 
 // Map component that uses the draw hook
 function MapWithDraw({
@@ -66,6 +53,7 @@ function MapWithDraw({
     onSelectZone,
     onSelectBarangay,
     onEditCancel,
+    registerSaveEdit,
     mapFocusKey,
     shouldShowPopup,
 }: {
@@ -86,6 +74,7 @@ function MapWithDraw({
     onSelectZone: (zone: Zone, startEdit?: boolean) => void;
     onSelectBarangay?: (barangay: Zone) => void;
     onEditCancel?: () => void;
+    registerSaveEdit?: (saveFn: (() => void) | null) => void;
     mapFocusKey: number;
     shouldShowPopup: boolean;
 }) {
@@ -97,6 +86,7 @@ function MapWithDraw({
     const renderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const originalGeometryRef = useRef<GeoJSON.Polygon | GeoJSON.MultiPolygon | null>(null);
     const editWasSavedRef = useRef(false);
+    const zoneClickedRef = useRef(false); // Tracks zone-layer clicks to prevent barangay auto-selection
 
     // Helper function to ensure polygon rings are closed
     const ensureClosedPolygon = (geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): GeoJSON.Polygon | GeoJSON.MultiPolygon => {
@@ -149,17 +139,14 @@ function MapWithDraw({
     // Get the color for the selected classification or zone
     const drawColor = selectedClassification?.color || selectedZone?.color || generatePolygonColor(selectedClassification?.code || selectedZone?.code || 'UNKNOWN');
 
-    const { featureGroup, drawControl } = useLeafletDraw({
-        enabled: !!selectedClassification || isEditing,
+    const { featureGroup } = useLeafletGeoman({
+        enabled: !!selectedClassification || isEditing || isDrawing,
         drawColor,
         onDrawCreated: (layer) => {
-            if ((isDrawing || !!selectedClassification) && selectedClassification) {
-                // Remove layer immediately (handled in hook, but double-check)
+            if (isDrawing || !!selectedClassification) {
+                // Remove layer immediately (managed by parent state)
                 if (map && map.hasLayer(layer)) {
                     map.removeLayer(layer);
-                }
-                if (featureGroup && featureGroup.hasLayer(layer)) {
-                    featureGroup.removeLayer(layer);
                 }
                 onPolygonCreated(layer);
             }
@@ -169,6 +156,9 @@ function MapWithDraw({
         },
         onDrawStart,
         onDrawStop,
+        onDrawEdited: (layers) => {
+            onPolygonEdited(layers);
+        }
     });
 
     // Helper function to check if a zone's geometry intersects with viewport bounds
@@ -354,10 +344,11 @@ function MapWithDraw({
                 // Make boundaries interactive when in boundary editing mode
                 // In zoning mode, make barangays non-interactive so they don't block zone clicks
                 // Barangay selection will be handled via map click handler
-                const isInteractive = !isBoundary || (isBoundary && (
+                const isCurrentEditZone = isEditing && selectedZone && zone.id === selectedZone.id;
+                const isInteractive = (isCurrentEditZone || (!isDrawing && !isEditing)) && (!isBoundary || (isBoundary && (
                     (isMunicipality && editMode === 'municipal') ||
                     (isBarangay && editMode === 'barangay')
-                ));
+                )));
 
                 const layer = geoJSONToLeaflet(zone.geometry, {
                     color: layerColor,
@@ -417,47 +408,75 @@ function MapWithDraw({
                         className: 'zone-popup-custom'
                     }).setContent(popupContent);
 
-                    // Store barangay boundaries for map-level click detection in zoning mode
-                    // We don't add click handlers directly to avoid blocking zone clicks
-
-                    // Add popup and edit button for zoning zones (not boundaries)
-                    if (!isBoundary) {
+                    // In boundary edit modes, clicking a boundary selects it for editing
+                    if (isBoundary && (
+                        (isMunicipality && editMode === 'municipal') ||
+                        (isBarangay && editMode === 'barangay')
+                    )) {
+                        const addBoundaryClickHandler = (l: L.Layer) => {
+                            if (l instanceof L.Polygon) {
+                                l.on('click', () => onSelectZone(zone, false));
+                            }
+                        };
                         if (layer instanceof L.LayerGroup) {
-                            layer.eachLayer((sublayer) => {
-                                if (sublayer instanceof L.Polygon) {
-                                    sublayer.bindPopup(popup);
-                                    sublayer.on('popupopen', (e) => {
-                                        const popup = e.popup;
-                                        const container = popup.getElement();
-                                        if (container) {
-                                            const btn = container.querySelector('.map-edit-zone-btn');
-                                            if (btn) {
-                                                btn.addEventListener('click', (e) => {
-                                                    e.preventDefault();
-                                                    onSelectZone(zone, true); // Pass true to trigger edit mode
-                                                    sublayer.closePopup();
-                                                });
-                                            }
+                            layer.eachLayer(addBoundaryClickHandler);
+                        } else {
+                            addBoundaryClickHandler(layer);
+                        }
+                    }
+
+                    // Add popup and edit button for land use zones (not boundaries)
+                    if (!isBoundary) {
+                        const setupLandUseZone = (polyLayer: L.Polygon) => {
+                            // Stop propagation so the map-level click handler doesn't fire and accidentally select a barangay
+                            polyLayer.on('click', (e: L.LeafletMouseEvent) => {
+                                L.DomEvent.stopPropagation(e);
+                            });
+                            
+                            // Double-click to select the underlying barangay (bypassing the click block)
+                            polyLayer.on('dblclick', (e: L.LeafletMouseEvent) => {
+                                if (editMode !== 'zoning' || !onSelectBarangay || isDrawing || isEditing) return;
+                                
+                                const clickPoint = point([e.latlng.lng, e.latlng.lat]);
+                                for (const barangay of barangayBoundaries) {
+                                    if (!barangay.geometry) continue;
+                                    try {
+                                        const closedGeometry = ensureClosedPolygon(barangay.geometry);
+                                        const featureObj = closedGeometry.type === 'Polygon'
+                                            ? feature(closedGeometry)
+                                            : feature(closedGeometry);
+                                        if (booleanPointInPolygon(clickPoint, featureObj as any)) {
+                                            onSelectBarangay(barangay);
+                                            break;
                                         }
-                                    });
+                                    } catch (err) {}
                                 }
                             });
-                        } else if (layer instanceof L.Polygon) {
-                            layer.bindPopup(popup);
-                            layer.on('popupopen', (e) => {
-                                const popup = e.popup;
-                                const container = popup.getElement();
-                                if (container) {
-                                    const btn = container.querySelector('.map-edit-zone-btn');
+
+                            polyLayer.bindPopup(popup);
+                            polyLayer.on('popupopen', (e) => {
+                                const popupContainer = e.popup.getElement();
+                                if (popupContainer) {
+                                    const btn = popupContainer.querySelector('.map-edit-zone-btn');
                                     if (btn) {
-                                        btn.addEventListener('click', (e) => {
-                                            e.preventDefault();
-                                            onSelectZone(zone, true); // Pass true to trigger edit mode
-                                            layer.closePopup();
+                                        btn.addEventListener('click', (ev) => {
+                                            ev.preventDefault();
+                                            onSelectZone(zone, true);
+                                            polyLayer.closePopup();
                                         });
                                     }
                                 }
                             });
+                        };
+
+                        if (layer instanceof L.LayerGroup) {
+                            layer.eachLayer((sublayer) => {
+                                if (sublayer instanceof L.Polygon) {
+                                    setupLandUseZone(sublayer);
+                                }
+                            });
+                        } else if (layer instanceof L.Polygon) {
+                            setupLandUseZone(layer);
                         }
                     }
                 }
@@ -472,20 +491,10 @@ function MapWithDraw({
             if (isEditing && selectedZone && featureGroup) {
                 const layer = polygonLayersRef.current.get(selectedZone.id);
                 if (layer) {
-                    // Remove layer from featureGroup first if it exists
-                    if (layer instanceof L.LayerGroup) {
-                        layer.eachLayer((sublayer) => {
-                            if (featureGroup.hasLayer(sublayer)) {
-                                featureGroup.removeLayer(sublayer);
-                            }
-                        });
-                    } else {
-                        if (featureGroup.hasLayer(layer)) {
-                            featureGroup.removeLayer(layer);
-                        }
-                    }
+                    // Clear all stale layers from featureGroup — only the selected zone should be editable
+                    featureGroup.clearLayers();
 
-                    // Re-add layer to featureGroup for editing
+                    // Add only the selected zone's layer
                     if (layer instanceof L.LayerGroup) {
                         layer.eachLayer((sublayer) => {
                             featureGroup.addLayer(sublayer);
@@ -494,23 +503,13 @@ function MapWithDraw({
                         featureGroup.addLayer(layer);
                     }
 
-                    // Re-enable edit mode
+                    // Enable edit mode ONLY on featureGroup sublayers (not global)
                     setTimeout(() => {
-                        if (drawControl) {
-                            const container = drawControl.getContainer();
-                            if (container) {
-                                const editButton = container.querySelector('.leaflet-draw-edit-edit, a[title*="Edit"], button[title*="Edit"]') as HTMLElement;
-                                if (editButton) {
-                                    editButton.click();
-                                } else {
-                                    const drawControlAny = drawControl as any;
-                                    const editToolbar = drawControlAny._toolbars?.edit;
-                                    if (editToolbar && typeof editToolbar.reinit === 'function') {
-                                        editToolbar.reinit();
-                                    }
-                                }
+                        featureGroup.eachLayer((l: any) => {
+                            if (l.pm) {
+                                l.pm.enable();
                             }
-                        }
+                        });
                     }, 200); // Delay to ensure layers are fully rendered
                 }
             }
@@ -519,6 +518,22 @@ function MapWithDraw({
         // Initial render
         renderZones();
         reEnableEditMode();
+
+        // Register save function so parent can trigger save from its Save button
+        if (registerSaveEdit && isEditing && featureGroup) {
+            registerSaveEdit(() => {
+                // Disable per-layer edit mode on featureGroup sublayers
+                featureGroup.eachLayer((l: any) => {
+                    if (l.pm) l.pm.disable();
+                });
+                // Collect edited layers and trigger onPolygonEdited
+                const layers = new L.LayerGroup();
+                featureGroup.eachLayer((l) => layers.addLayer(l));
+                onPolygonEdited(layers);
+            });
+        } else if (registerSaveEdit && !isEditing) {
+            registerSaveEdit(null);
+        }
 
         // Listen to map move/zoom events for viewport-based rendering
         const handleMapMove = () => {
@@ -541,7 +556,7 @@ function MapWithDraw({
                 return;
             }
 
-            // Small delay to let zone click handlers fire first
+            // Small delay to let any popup open before checking
             setTimeout(() => {
                 // Check if click point is within any barangay boundary
                 const clickPoint = point([e.latlng.lng, e.latlng.lat]);
@@ -555,7 +570,7 @@ function MapWithDraw({
                             ? feature(closedGeometry)
                             : feature(closedGeometry);
                         
-                        if (booleanPointInPolygon(clickPoint, featureObj)) {
+                        if (booleanPointInPolygon(clickPoint, featureObj as any)) {
                             // Check if click was on a zone (not a barangay boundary)
                             let clickedOnZone = false;
                             for (const zone of zones) {
@@ -570,7 +585,7 @@ function MapWithDraw({
                                         ? feature(closedZoneGeometry)
                                         : feature(closedZoneGeometry);
                                     
-                                    if (booleanPointInPolygon(clickPoint, zoneFeature)) {
+                                    if (booleanPointInPolygon(clickPoint, zoneFeature as any)) {
                                         clickedOnZone = true;
                                         break;
                                     }
@@ -611,7 +626,7 @@ function MapWithDraw({
             polygonLayersRef.current.clear();
             layerToZoneIdRef.current.clear();
         };
-        }, [map, zones, municipalityBoundary, barangayBoundaries, editMode, selectedZone, selectedClassification, drawColor, onSelectZone, onSelectBarangay, shouldShowPopup, selectedBarangay, isEditing, featureGroup, drawControl]);
+        }, [map, zones, municipalityBoundary, barangayBoundaries, editMode, selectedZone, selectedClassification, drawColor, onSelectZone, onSelectBarangay, shouldShowPopup, selectedBarangay, isEditing, featureGroup]);
 
     // Separate effect for selected barangay highlight - independent of classification
     useEffect(() => {
@@ -730,6 +745,52 @@ function MapWithDraw({
         };
     }, [map, selectedBarangay, editMode]);
 
+    // Highlight selected boundary layer (municipal / barangay)
+    const prevSelectedBoundaryRef = useRef<{ id: string; isMunicipal: boolean } | null>(null);
+    useEffect(() => {
+        const applyStyle = (id: string, isMunicipal: boolean, selected: boolean) => {
+            const layer = polygonLayersRef.current.get(id);
+            if (!layer) return;
+            const applyToPolygon = (l: L.Layer) => {
+                if (!(l instanceof L.Polygon)) return;
+                if (selected) {
+                    l.setStyle({ color: '#2563eb', weight: 4, opacity: 1, dashArray: undefined });
+                } else {
+                    l.setStyle({
+                        color: isMunicipal ? '#000000' : '#808080',
+                        weight: 3,
+                        opacity: 0.8,
+                        dashArray: '5, 10',
+                    });
+                }
+            };
+            if (layer instanceof L.LayerGroup) {
+                layer.eachLayer(applyToPolygon);
+            } else {
+                applyToPolygon(layer);
+            }
+        };
+
+        const isMunicipal = selectedZone?.boundary_type === 'municipal';
+        const isBarangay = selectedZone?.boundary_type === 'barangay';
+        const inBoundaryMode = editMode === 'municipal' || editMode === 'barangay';
+        const isBoundary = isMunicipal || isBarangay;
+
+        // Always reset previous highlight first
+        const prev = prevSelectedBoundaryRef.current;
+        if (prev && prev.id !== selectedZone?.id) {
+            applyStyle(prev.id, prev.isMunicipal, false);
+        }
+
+        // Only highlight if in the matching boundary edit mode
+        if (selectedZone && isBoundary && inBoundaryMode) {
+            applyStyle(selectedZone.id, isMunicipal, true);
+            prevSelectedBoundaryRef.current = { id: selectedZone.id, isMunicipal };
+        } else {
+            prevSelectedBoundaryRef.current = null;
+        }
+    }, [selectedZone, editMode]);
+
     // Pan to selected zone
     useEffect(() => {
         if (!map || !selectedZone) {
@@ -771,178 +832,20 @@ function MapWithDraw({
         }
     }, [map, selectedZone, mapFocusKey, shouldShowPopup]);
 
-    // Handle editing
+    // Store original geometry when entering edit mode
     useEffect(() => {
         if (!map || !featureGroup || !isEditing || !selectedZone) {
             return;
         }
 
-        // Add selected zone's geometry to featureGroup for editing
-        if (selectedZone.geometry) {
-            const layer = polygonLayersRef.current.get(selectedZone.id);
-            if (layer) {
-                // Remove layer from featureGroup first if it exists (to ensure clean state)
-                if (layer instanceof L.LayerGroup) {
-                    layer.eachLayer((sublayer) => {
-                        if (featureGroup.hasLayer(sublayer)) {
-                            featureGroup.removeLayer(sublayer);
-                        }
-                    });
-                } else {
-                    if (featureGroup.hasLayer(layer)) {
-                        featureGroup.removeLayer(layer);
-                    }
-                }
-
-                // Add layer to featureGroup for editing
-                if (layer instanceof L.LayerGroup) {
-                    layer.eachLayer((sublayer) => {
-                        featureGroup.addLayer(sublayer);
-                    });
-                } else {
-                    featureGroup.addLayer(layer);
-                }
-
-                // Force Leaflet Draw to enable edit mode by programmatically clicking the edit button
-                // Leaflet Draw automatically enables edit mode when layers are in featureGroup,
-                // but we need to click the edit button to activate the editing handles
-                setTimeout(() => {
-                    if (drawControl) {
-                        // Try clicking the edit button programmatically
-                        const container = drawControl.getContainer();
-                        if (container) {
-                            // Leaflet Draw uses different class names for edit buttons
-                            // Try multiple selectors to find the edit button
-                            const editButton = container.querySelector('.leaflet-draw-edit-edit, a[title*="Edit"], button[title*="Edit"]') as HTMLElement;
-                            if (editButton) {
-                                editButton.click();
-                            } else {
-                                // Try accessing the edit handler directly through the draw control
-                                const drawControlAny = drawControl as any;
-                                const editToolbar = drawControlAny._toolbars?.edit;
-                                if (editToolbar && typeof editToolbar.reinit === 'function') {
-                                    editToolbar.reinit();
-                                }
-                            }
-                        }
-                    }
-                }, 100);
-            }
-        }
-
-        // Store original geometry when entering edit mode
         if (selectedZone.geometry) {
             originalGeometryRef.current = selectedZone.geometry;
         }
 
-        const handleDrawEdited = (e: L.DrawEvents.Edited) => {
-            // Save was clicked - process the edited geometry
-            try {
-                editWasSavedRef.current = true;
-                
-                // Get layers from the event
-                let layersToProcess = e.layers;
-                
-                // Check if layers are empty
-                let layerCount = 0;
-                e.layers.eachLayer(() => {
-                    layerCount++;
-                });
-                
-                // If event layers are empty, try to get from featureGroup or stored layer reference
-                if (layerCount === 0 && selectedZone) {
-                    console.warn('handleDrawEdited: Event layers empty, trying fallback');
-                    
-                    // Try featureGroup first
-                    if (featureGroup) {
-                        const tempGroup = new L.LayerGroup();
-                        featureGroup.eachLayer((layer) => {
-                            tempGroup.addLayer(layer);
-                        });
-                        const fgCount = tempGroup.getLayers().length;
-                        if (fgCount > 0) {
-                            layersToProcess = tempGroup;
-                            console.log('handleDrawEdited: Using layers from featureGroup, count:', fgCount);
-                        } else {
-                            // Try stored layer reference as last resort
-                            const storedLayer = polygonLayersRef.current.get(selectedZone.id);
-                            if (storedLayer) {
-                                const fallbackGroup = new L.LayerGroup();
-                                if (storedLayer instanceof L.LayerGroup) {
-                                    storedLayer.eachLayer((sublayer) => {
-                                        fallbackGroup.addLayer(sublayer);
-                                    });
-                                } else {
-                                    fallbackGroup.addLayer(storedLayer);
-                                }
-                                layersToProcess = fallbackGroup;
-                                console.log('handleDrawEdited: Using stored layer reference, count:', fallbackGroup.getLayers().length);
-                            } else {
-                                console.error('handleDrawEdited: No layers found in event, featureGroup, or stored reference');
-                            }
-                        }
-                    }
-                } else {
-                    console.log('handleDrawEdited: Using layers from event, count:', layerCount);
-                }
-                
-                // Call the async handler - errors will be caught in handlePolygonEdited
-                onPolygonEdited(layersToProcess).catch((error) => {
-                    console.error('handleDrawEdited: Error in onPolygonEdited:', error);
-                    editWasSavedRef.current = false;
-                });
-                originalGeometryRef.current = null; // Clear stored geometry after save
-            } catch (error) {
-                console.error('handleDrawEdited: Error processing edited layers:', error);
-                editWasSavedRef.current = false;
-            }
-        };
-
-        const handleDrawDeleted = (e: L.DrawEvents.Deleted) => {
-            onPolygonDeleted(e.layers);
-        };
-
-        // Listen for when edit toolbar is disabled (either save or cancel clicked)
-        const handleEditDisable = () => {
-            // Small delay to check if EDITED event fired
-            setTimeout(() => {
-                if (!editWasSavedRef.current && originalGeometryRef.current) {
-                    // Cancel was clicked - Leaflet Draw already reverted the geometry
-                    // We just need to exit edit mode
-                    if (onEditCancel) {
-                        onEditCancel();
-                    }
-                }
-                // Reset flag and clear stored geometry
-                editWasSavedRef.current = false;
-                originalGeometryRef.current = null;
-            }, 100);
-        };
-
-        map.on(L.Draw.Event.EDITED as any, handleDrawEdited as any);
-        map.on(L.Draw.Event.DELETED as any, handleDrawDeleted as any);
-
-        // Listen for edit toolbar disable event (when save or cancel is clicked)
-        if (drawControl) {
-            const drawControlAny = drawControl as any;
-            const editToolbar = drawControlAny._toolbars?.edit;
-            if (editToolbar) {
-                editToolbar.on('disable', handleEditDisable);
-            }
-        }
-
         return () => {
-            map.off(L.Draw.Event.EDITED as any, handleDrawEdited as any);
-            map.off(L.Draw.Event.DELETED as any, handleDrawDeleted as any);
-            if (drawControl) {
-                const drawControlAny = drawControl as any;
-                const editToolbar = drawControlAny._toolbars?.edit;
-                if (editToolbar) {
-                    editToolbar.off('disable', handleEditDisable);
-                }
-            }
+            originalGeometryRef.current = null;
         };
-    }, [map, featureGroup, isEditing, selectedZone, onPolygonEdited, drawControl]);
+    }, [map, featureGroup, isEditing, selectedZone]);
 
     // Fit map to municipality boundary when it loads
     useEffect(() => {
@@ -1019,14 +922,6 @@ function MapWithDraw({
 }
 
 export default function ZoningMap() {
-    // Get CSRF token from Inertia shared props and cache it
-    const page = usePage<SharedData>();
-    useEffect(() => {
-        if (page.props.csrf_token) {
-            setCsrfToken(page.props.csrf_token);
-        }
-    }, [page.props.csrf_token]);
-
     const [sidebarOpen, setSidebarOpen] = useState(() => {
         if (typeof window !== 'undefined') {
             return window.innerWidth >= 1024;
@@ -1044,6 +939,7 @@ export default function ZoningMap() {
     const [saving, setSaving] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const saveEditFnRef = useRef<(() => void) | null>(null);
     const [showZoneDetailsPanel, setShowZoneDetailsPanel] = useState(false);
     const [mapFocusKey, setMapFocusKey] = useState(0);
     const [shouldShowPopup, setShouldShowPopup] = useState(false);
@@ -1052,6 +948,11 @@ export default function ZoningMap() {
     const [selectedBarangay, setSelectedBarangay] = useState<Zone | null>(null);
     const [editMode, setEditMode] = useState<'zoning' | 'municipal' | 'barangay'>('zoning');
     const [mapCenter, setMapCenter] = useState<[number, number]>([14.5995, 120.9842]); // Default to Manila
+    const [barangayNameDialog, setBarangayNameDialog] = useState<{
+        open: boolean;
+        geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon | null;
+        name: string;
+    }>({ open: false, geometry: null, name: '' });
     const mapZoom = 18;
 
     // Load zones and classifications on mount
@@ -1242,17 +1143,9 @@ export default function ZoningMap() {
                     setIsDrawing(false);
                     return;
                 } else if (editMode === 'barangay') {
-                    // For barangay, we need a label - prompt user or use default
-                    const label = prompt('Enter barangay name:') || `Barangay ${Date.now()}`;
-                    const boundary = await createBarangayBoundary({
-                        geometry: finalGeometry,
-                        label,
-                    });
-                    setBarangayBoundaries((prev) => [...prev, boundary as Zone]);
-                    await loadAllZonesForMap();
-                    await loadBarangayBoundaries();
-                    showSuccess(`Barangay boundary "${label}" saved successfully`);
-                    setIsDrawing(false);
+                    // Show custom dialog instead of native prompt
+                    setSaving(false);
+                    setBarangayNameDialog({ open: true, geometry: finalGeometry, name: '' });
                     return;
                 }
 
@@ -1295,6 +1188,16 @@ export default function ZoningMap() {
                         const existingFeature = feature(existingZone.geometry);
 
                         try {
+                            if (booleanWithin(currentFeature, existingFeature)) {
+                                // New zone is completely inside the existing zone
+                                // We punch a hole in the existing zone and keep the new zone intact
+                                const existingHoled = difference(featureCollection([existingFeature, currentFeature] as any));
+                                if (existingHoled && existingHoled.geometry) {
+                                    await updateZone(existingZone.id, { geometry: existingHoled.geometry });
+                                }
+                                continue;
+                            }
+
                             const diff = difference(featureCollection([currentFeature, existingFeature] as any));
                             if (diff) {
                                 finalGeometry = diff.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
@@ -1467,6 +1370,16 @@ export default function ZoningMap() {
                         const existingFeature = feature(existingZone.geometry);
 
                         try {
+                            if (booleanWithin(currentFeature, existingFeature)) {
+                                // Edited zone is completely inside the existing zone
+                                // We punch a hole in the existing zone and keep the edited zone intact
+                                const existingHoled = difference(featureCollection([existingFeature, currentFeature] as any));
+                                if (existingHoled && existingHoled.geometry) {
+                                    await updateZone(existingZone.id, { geometry: existingHoled.geometry });
+                                }
+                                continue;
+                            }
+
                             const diff = difference(featureCollection([currentFeature, existingFeature] as any));
                             if (diff) {
                                 finalGeometry = diff.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
@@ -1539,9 +1452,74 @@ export default function ZoningMap() {
         if (!selectedZone || !selectedZone.geometry) {
             return;
         }
-        setShowZoneDetailsPanel(false); // Close the panel
+        setShowZoneDetailsPanel(false);
         setIsEditing(true);
         setIsDrawing(false);
+    };
+
+    // Boundary-mode draw: activate geoman draw tool with no zone required
+    const handleDrawBoundary = () => {
+        setIsDrawing(true);
+        setIsEditing(false);
+        setSelectedZone(null);
+    };
+
+    // Boundary-mode edit: select the boundary and enable geoman edit mode
+    const handleEditBoundary = (zone: Zone) => {
+        if (!zone.geometry) return;
+        setSelectedZone(zone);
+        setIsEditing(true);
+        setIsDrawing(false);
+    };
+
+    const handleDeleteBoundary = async (zone: Zone) => {
+        const label = zone.label || (zone.boundary_type === 'municipal' ? 'Municipal Boundary' : 'Barangay Boundary');
+        const confirmed = await showConfirm(
+            `Are you sure you want to delete "${label}"? This action cannot be undone.`,
+            'Delete Boundary',
+            'Yes, delete it',
+            'Cancel',
+            '#ef4444',
+            'warning'
+        );
+        if (!confirmed) return;
+
+        try {
+            if (zone.boundary_type === 'municipal') {
+                await deleteMunicipalBoundary();
+                setMunicipalityBoundary(null);
+            } else {
+                await deleteBarangayBoundary(zone.id);
+                setBarangayBoundaries((prev) => prev.filter((b) => b.id !== zone.id));
+            }
+            setSelectedZone(null);
+            await loadAllZonesForMap();
+            showSuccess(`${label} deleted successfully`);
+        } catch (error) {
+            showError('Failed to delete boundary');
+            console.error(error);
+        }
+    };
+
+    const handleBarangayNameConfirm = async () => {
+        const { geometry, name } = barangayNameDialog;
+        if (!geometry) return;
+        const label = name.trim() || `Barangay ${Date.now()}`;
+        setSaving(true);
+        try {
+            const boundary = await createBarangayBoundary({ geometry, label });
+            setBarangayBoundaries((prev) => [...prev, boundary as Zone]);
+            await loadAllZonesForMap();
+            await loadBarangayBoundaries();
+            showSuccess(`Barangay boundary "${label}" saved successfully`);
+            setIsDrawing(false);
+        } catch (error) {
+            showError('Failed to save barangay boundary');
+            console.error(error);
+        } finally {
+            setSaving(false);
+            setBarangayNameDialog({ open: false, geometry: null, name: '' });
+        }
     };
 
     const handleDeleteZone = async () => {
@@ -1649,6 +1627,36 @@ export default function ZoningMap() {
         });
     };
 
+    const handleBarangayImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const confirmed = await showConfirm(
+            'This will import barangay boundaries from the selected GeoJSON file. Existing barangays with the same name will be updated. Continue?',
+            'Import Barangay Boundaries',
+            'Yes, import',
+            'Cancel'
+        );
+
+        if (!confirmed) {
+            e.target.value = '';
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const result = await importBarangayBoundaries(file);
+            showSuccess(result.message || 'Barangay boundaries imported successfully.');
+            await loadBarangayBoundaries();
+            await loadAllZonesForMap();
+        } catch (error: any) {
+            showError(error?.message || 'Failed to import barangay boundaries');
+        } finally {
+            setLoading(false);
+            e.target.value = '';
+        }
+    };
+
     // Get zones/boundaries to display based on edit mode
     const getDisplayItems = () => {
         if (editMode === 'municipal') {
@@ -1729,7 +1737,7 @@ export default function ZoningMap() {
                                         }}
                                         className="bg-white dark:bg-dark-surface px-3 py-2 border border-gray-300 focus:border-transparent dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary w-full text-gray-900 dark:text-white text-sm"
                                     >
-                                        <option value="zoning">Zoning Zones</option>
+                                        <option value="zoning">Land Use Zones</option>
                                         <option value="municipal">Municipal Boundary</option>
                                         <option value="barangay">Barangay Boundaries</option>
                                     </select>
@@ -1791,24 +1799,97 @@ export default function ZoningMap() {
                                     </div>
                                 )}
 
-                                {/* Mode Info */}
+                                {/* Mode Info + Actions */}
                                 {editMode === 'municipal' && (
-                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800 rounded-lg">
-                                        <p className="text-blue-800 dark:text-blue-200 text-sm">
-                                            <strong>Municipal Boundary Mode</strong><br />
-                                            {municipalityBoundary
-                                                ? 'Click the boundary on the map to edit it, or use the draw tool to create a new one.'
-                                                : 'Use the draw tool on the map to create the municipal boundary.'}
-                                        </p>
+                                    <div className="space-y-2">
+                                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                            <p className="text-blue-800 dark:text-blue-200 text-sm">
+                                                <strong>Municipal Boundary Mode</strong><br />
+                                                {municipalityBoundary
+                                                    ? 'Click the boundary on the map to select it, then edit or delete. Or draw a new one to replace it.'
+                                                    : 'Draw the municipal boundary on the map.'}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="primary"
+                                            className="flex justify-center items-center gap-2 w-full"
+                                            onClick={handleDrawBoundary}
+                                            disabled={isDrawing || isEditing}
+                                        >
+                                            <Plus size={14} />
+                                            {municipalityBoundary ? 'Replace Boundary' : 'Draw Boundary'}
+                                        </Button>
+                                        {municipalityBoundary && (
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="flex-1"
+                                                    onClick={() => handleEditBoundary(municipalityBoundary)}
+                                                    disabled={isDrawing || isEditing}
+                                                >
+                                                    Edit Shape
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="danger"
+                                                    className="flex-1"
+                                                    onClick={() => handleDeleteBoundary(municipalityBoundary)}
+                                                    disabled={isDrawing || isEditing}
+                                                >
+                                                    Delete
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
                                 {editMode === 'barangay' && (
-                                    <div className="bg-purple-50 dark:bg-purple-900/20 p-3 border border-purple-200 dark:border-purple-800 rounded-lg">
-                                        <p className="text-purple-800 dark:text-purple-200 text-sm">
-                                            <strong>Barangay Boundaries Mode</strong><br />
-                                            Click a barangay boundary on the map to edit it, or use the draw tool to create a new one.
-                                        </p>
+                                    <div className="space-y-2">
+                                        <div className="bg-purple-50 dark:bg-purple-900/20 p-3 border border-purple-200 dark:border-purple-800 rounded-lg">
+                                            <p className="text-purple-800 dark:text-purple-200 text-sm">
+                                                <strong>Barangay Boundaries Mode</strong><br />
+                                                Click a barangay on the map to select it, then edit or delete. Or draw a new barangay boundary.
+                                            </p>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="primary"
+                                            className="flex justify-center items-center gap-2 w-full"
+                                            onClick={handleDrawBoundary}
+                                            disabled={isDrawing || isEditing}
+                                        >
+                                            <Plus size={14} />
+                                            Draw New Barangay
+                                        </Button>
+                                        {selectedZone && selectedZone.boundary_type === 'barangay' && (
+                                            <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                                                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 truncate">
+                                                    Selected: {selectedZone.label || 'Unnamed Barangay'}
+                                                </p>
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="flex-1"
+                                                        onClick={() => handleEditBoundary(selectedZone)}
+                                                        disabled={isDrawing || isEditing}
+                                                    >
+                                                        Edit Shape
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="danger"
+                                                        className="flex-1"
+                                                        onClick={() => handleDeleteBoundary(selectedZone)}
+                                                        disabled={isDrawing || isEditing}
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -1860,7 +1941,7 @@ export default function ZoningMap() {
                                     />
                                     <Input
                                         type="text"
-                                        placeholder={editMode === 'zoning' ? 'Search zones...' : editMode === 'barangay' ? 'Search barangays...' : 'Search...'}
+                                        placeholder={editMode === 'zoning' ? 'Search land use zones...' : editMode === 'barangay' ? 'Search barangays...' : 'Search...'}
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="pl-10"
@@ -1884,12 +1965,19 @@ export default function ZoningMap() {
                                             accept=".json,.geojson,application/json,application/geo+json"
                                             onChange={handleMunicipalityImport}
                                         />
+                                        <input
+                                            type="file"
+                                            id="barangay-import"
+                                            className="hidden"
+                                            accept=".json,.geojson,application/json,application/geo+json"
+                                            onChange={handleBarangayImport}
+                                        />
                                         <Button
                                             size="sm"
                                             variant="outline"
                                             className="flex justify-center items-center gap-2 w-full"
-                                            onClick={() => document.getElementById('municipality-import')?.click()}
-                                            title="Import Municipality Boundary"
+                                            onClick={() => document.getElementById(editMode === 'barangay' ? 'barangay-import' : 'municipality-import')?.click()}
+                                            title={editMode === 'barangay' ? 'Import Barangay Boundaries' : 'Import Municipality Boundary'}
                                         >
                                             <Shield size={16} />
                                             Import
@@ -1907,8 +1995,8 @@ export default function ZoningMap() {
                                 ) : filteredZones.length === 0 ? (
                                     <div className="py-8 text-gray-500 dark:text-gray-400 text-center">
                                         {searchQuery 
-                                            ? (editMode === 'zoning' ? 'No zones found' : editMode === 'barangay' ? 'No barangays found' : 'No items found')
-                                            : (editMode === 'zoning' ? 'No zones yet. Create one to get started.' : editMode === 'barangay' ? 'No barangays yet. Add one to get started.' : 'No items yet.')
+                                            ? (editMode === 'zoning' ? 'No land use zones found' : editMode === 'barangay' ? 'No barangays found' : 'No items found')
+                                            : (editMode === 'zoning' ? 'No land use zones yet. Create one to get started.' : editMode === 'barangay' ? 'No barangays yet. Add one to get started.' : 'No items yet.')
                                         }
                                     </div>
                                 ) : (
@@ -1919,17 +2007,21 @@ export default function ZoningMap() {
                                             isSelected={selectedZone?.id === zone.id}
                                             onSelect={(z) => {
                                                 setSelectedZone(z);
-                                                setMapFocusKey(Date.now()); // Force map focus even if same zone
-                                                setShouldShowPopup(false); // Don't show popup on card click
-                                                setShowZoneDetailsPanel(false); // Map focus (hover) only
+                                                setMapFocusKey(Date.now());
+                                                setShouldShowPopup(false);
+                                                setShowZoneDetailsPanel(false);
                                                 setIsDrawing(false);
                                                 setIsEditing(false);
                                             }}
                                             onEdit={(z) => {
-                                                setSelectedZone(z);
-                                                setShowZoneDetailsPanel(true); // Open the details panel (modal) for editing
-                                                setIsDrawing(false);
-                                                setIsEditing(false);
+                                                if (editMode === 'municipal' || editMode === 'barangay') {
+                                                    handleEditBoundary(z);
+                                                } else {
+                                                    setSelectedZone(z);
+                                                    setShowZoneDetailsPanel(true);
+                                                    setIsDrawing(false);
+                                                    setIsEditing(false);
+                                                }
                                             }}
                                         />
                                     ))
@@ -1990,15 +2082,29 @@ export default function ZoningMap() {
                             <div className="top-4 right-4 z-[100] absolute bg-white dark:bg-dark-surface shadow-lg p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
                                 <div className="flex items-center gap-2">
                                     <span className="font-medium text-gray-900 dark:text-white text-sm">
-                                        Editing mode active
+                                        {editMode === 'municipal' ? 'Editing municipal boundary' :
+                                         editMode === 'barangay' ? `Editing ${selectedZone?.label || 'barangay'}` :
+                                         'Editing land use zone boundary'}
                                     </span>
+                                    <Button
+                                        size="sm"
+                                        onClick={() => {
+                                            if (saveEditFnRef.current) {
+                                                saveEditFnRef.current();
+                                            }
+                                        }}
+                                    >
+                                        Save
+                                    </Button>
                                     <Button
                                         size="sm"
                                         variant="outline"
                                         onClick={() => {
                                             setIsEditing(false);
-                                            setShowZoneDetailsPanel(true); // Show panel again after canceling edit
-                                            loadAllZonesForMap(); // Reload to reset
+                                            if (editMode === 'zoning') {
+                                                setShowZoneDetailsPanel(true);
+                                            }
+                                            loadAllZonesForMap();
                                         }}
                                     >
                                         Cancel
@@ -2046,16 +2152,19 @@ export default function ZoningMap() {
                                     setSelectedZone(z);
                                     setMapFocusKey(Date.now());
                                     setIsDrawing(false);
-                                    if (startEdit) {
-                                        // Edit button clicked - open modal for editing
+                                    setIsEditing(false);
+
+                                    const isBoundary = z.boundary_type === 'municipal' || z.boundary_type === 'barangay';
+                                    if (isBoundary) {
+                                        // Clicking a boundary in boundary mode just selects it — sidebar shows actions
+                                        setShouldShowPopup(false);
+                                        setShowZoneDetailsPanel(false);
+                                    } else if (startEdit) {
                                         setShouldShowPopup(false);
                                         setShowZoneDetailsPanel(true);
-                                        setIsEditing(false);
                                     } else {
-                                        // Clicking on map polygon shows popup and info panel
                                         setShouldShowPopup(true);
                                         setShowZoneDetailsPanel(true);
-                                        setIsEditing(false);
                                     }
                                 }}
                                 onSelectBarangay={(barangay) => {
@@ -2069,6 +2178,7 @@ export default function ZoningMap() {
                                     setIsEditing(false);
                                     setShowZoneDetailsPanel(true); // Show panel again after canceling edit
                                 }}
+                                registerSaveEdit={(fn) => { saveEditFnRef.current = fn; }}
                             />
                         </MapContainer>
                     </div>
@@ -2076,6 +2186,52 @@ export default function ZoningMap() {
             </main>
 
             {/* Create Zone Modal */}
+
+            {/* Barangay Name Dialog */}
+            {barangayNameDialog.open && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                            Name this Barangay
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                            Enter the name for the barangay boundary you just drew.
+                        </p>
+                        <input
+                            type="text"
+                            autoFocus
+                            value={barangayNameDialog.name}
+                            onChange={(e) =>
+                                setBarangayNameDialog((prev) => ({ ...prev, name: e.target.value }))
+                            }
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleBarangayNameConfirm();
+                                if (e.key === 'Escape')
+                                    setBarangayNameDialog({ open: false, geometry: null, name: '' });
+                            }}
+                            placeholder="e.g. Barangay 1"
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() =>
+                                    setBarangayNameDialog({ open: false, geometry: null, name: '' })
+                                }
+                                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBarangayNameConfirm}
+                                disabled={saving}
+                                className="px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                            >
+                                {saving ? 'Saving…' : 'Save Boundary'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

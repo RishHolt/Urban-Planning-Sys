@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useForm, router, Link } from '@inertiajs/react';
 import Header from '../../../components/Header';
-import Footer from '../../../components/Footer';
 import Button from '../../../components/Button';
 import StepProgress from '../../../components/StepProgress';
 import Input from '../../../components/Input';
+import Select from '../../../components/Select';
 import PropertyLocation from '../../../components/Applications/PropertyLocation';
 import { Zone } from '../../../lib/zoneDetection';
 import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
@@ -170,7 +170,23 @@ export default function ApplicationForm() {
         }
 
         setLocalErrors(stepErrors);
-        return Object.keys(stepErrors).length === 0;
+        const hasErrors = Object.keys(stepErrors).length > 0;
+        
+        if (hasErrors) {
+            setTimeout(() => {
+                const firstErrorId = Object.keys(stepErrors)[0];
+                const errorElement = document.getElementById(firstErrorId) || document.querySelector(`[name="${firstErrorId}"]`);
+                if (errorElement) {
+                    errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    errorElement.focus?.();
+                } else {
+                    import('@/lib/swal').then(({ showError }) => showError(stepErrors[firstErrorId]));
+                }
+            }, 50);
+            return false;
+        }
+        
+        return true;
     };
 
     const nextStep = () => {
@@ -528,22 +544,16 @@ export default function ApplicationForm() {
                             </p>
                         </div>
 
-                        <div>
-                            <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                                Applicant Type *
-                            </label>
-                            <select
-                                value={data.applicant_type}
-                                onChange={(e) => setData('applicant_type', e.target.value as 'developer' | 'authorized_rep')}
-                                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                            >
-                                <option value="developer">Developer</option>
-                                <option value="authorized_rep">Authorized Representative</option>
-                            </select>
-                            {(localErrors.applicant_type || errors.applicant_type) && (
-                                <p className="mt-1 text-red-500 text-sm">{localErrors.applicant_type || errors.applicant_type}</p>
-                            )}
-                        </div>
+                        <Select
+                            label="Applicant Type *"
+                            value={data.applicant_type}
+                            onChange={(e) => setData('applicant_type', e.target.value as 'developer' | 'authorized_rep')}
+                            error={localErrors.applicant_type || errors.applicant_type}
+                            required
+                        >
+                            <option value="developer">Developer</option>
+                            <option value="authorized_rep">Authorized Representative</option>
+                        </Select>
 
                         <Input
                             label="Contact Number *"
@@ -667,26 +677,20 @@ export default function ApplicationForm() {
                             </p>
                         </div>
 
-                        <div>
-                            <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                                Building Type *
-                            </label>
-                            <select
-                                value={data.building_type}
-                                onChange={(e) => setData('building_type', e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-surface text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-                            >
-                                <option value="">Select building type</option>
-                                <option value="residential">Residential</option>
-                                <option value="commercial">Commercial</option>
-                                <option value="industrial">Industrial</option>
-                                <option value="mixed_use">Mixed Use</option>
-                                <option value="institutional">Institutional</option>
-                            </select>
-                            {(localErrors.building_type || errors.building_type) && (
-                                <p className="mt-1 text-red-500 text-sm">{localErrors.building_type || errors.building_type}</p>
-                            )}
-                        </div>
+                        <Select
+                            label="Building Type *"
+                            value={data.building_type}
+                            onChange={(e) => setData('building_type', e.target.value)}
+                            error={localErrors.building_type || errors.building_type}
+                            required
+                        >
+                            <option value="">Select building type</option>
+                            <option value="residential">Residential</option>
+                            <option value="commercial">Commercial</option>
+                            <option value="industrial">Industrial</option>
+                            <option value="mixed_use">Mixed Use</option>
+                            <option value="institutional">Institutional</option>
+                        </Select>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Input
@@ -785,7 +789,7 @@ export default function ApplicationForm() {
                 );
 
             case 6:
-                const locationFromClearance = data.pin_lat && data.pin_lng && data.zoning_clearance_no;
+                const locationFromClearance = !!(data.pin_lat && data.pin_lng && data.zoning_clearance_no);
 
                 return (
                     <div className="space-y-6">
@@ -824,9 +828,9 @@ export default function ApplicationForm() {
                                 }
                             }}
                             errors={{
-                                pin_lat: localErrors.pin_lat || errors.pin_lat,
-                                pin_lng: errors.pin_lng,
-                                lot_address: localErrors.project_address || errors.project_address,
+                                pin_lat: localErrors.pin_lat || errors.pin_lat || '',
+                                pin_lng: errors.pin_lng || '',
+                                lot_address: localErrors.project_address || errors.project_address || '',
                             }}
                         />
                     </div>
@@ -1010,7 +1014,6 @@ export default function ApplicationForm() {
                 </div>
             </div>
 
-            <Footer />
         </div>
     );
 }

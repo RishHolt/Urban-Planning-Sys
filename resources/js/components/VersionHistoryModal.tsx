@@ -1,4 +1,4 @@
-import { X, Eye, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { X, Eye, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
 
 interface Version {
     id: number;
@@ -102,7 +102,7 @@ export default function VersionHistoryModal({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm"
         >
             <div
                 className="relative bg-white dark:bg-dark-surface rounded-lg shadow-xl max-w-4xl max-h-[90vh] w-full mx-4 overflow-hidden flex flex-col"
@@ -179,14 +179,36 @@ export default function VersionHistoryModal({
                                     </div>
                                 )}
 
-                                {version.url && onViewVersion && (
+                                {version.url && (
                                     <div className="flex items-center gap-2">
+                                        {onViewVersion && (
+                                            <button
+                                                onClick={() => onViewVersion(version.url!, version.fileName, version.mimeType || undefined)}
+                                                className="flex items-center gap-2 px-3 py-1.5 text-sm text-primary hover:text-primary/80 bg-primary/10 dark:bg-primary/20 rounded-lg hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                                            >
+                                                <Eye size={16} />
+                                                View
+                                            </button>
+                                        )}
                                         <button
-                                            onClick={() => onViewVersion(version.url!, version.fileName, version.mimeType || undefined)}
-                                            className="flex items-center gap-2 px-3 py-1.5 text-sm text-primary hover:text-primary/80 bg-primary/10 dark:bg-primary/20 rounded-lg hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                                            onClick={() => {
+                                                if (typeof window !== 'undefined') {
+                                                    // Extract applicationId from the current URL if not provided, 
+                                                    // but better to pass it. For now, we'll assume it's in the versions data or we use the url directly.
+                                                    // Since we don't have applicationId here easily without changing many props, 
+                                                    // we'll use the version.url which we already fixed to be absolute.
+                                                    const link = document.createElement('a');
+                                                    link.href = version.url!;
+                                                    link.download = version.fileName;
+                                                    document.body.appendChild(link);
+                                                    link.click();
+                                                    document.body.removeChild(link);
+                                                }
+                                            }}
+                                            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                                         >
-                                            <Eye size={16} />
-                                            View
+                                            <Download size={16} />
+                                            Download
                                         </button>
                                     </div>
                                 )}

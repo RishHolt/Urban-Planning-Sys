@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ComplianceRule;
 use App\Models\Zone;
 
 class ComplianceCheckerService
@@ -61,15 +62,81 @@ class ComplianceCheckerService
         $landUseViolations = $this->checkLandUseCompatibility($applicationData, $rules);
         $violations = array_merge($violations, $landUseViolations['violations']);
 
-        // Calculate compliance score (0-100)
-        $totalChecks = 6;
-        $failedChecks = count($violations);
-        $score = max(0, (($totalChecks - $failedChecks) / $totalChecks) * 100);
+        // Weighted compliance scoring
+        // Each check category has a weight reflecting its real-world importance
+        $weights = [
+            'land_use' => 25, // Wrong land use = fundamentally non-compliant
+            'storeys' => 15, // Structural safety concern
+            'height' => 10, // Related to storeys but separate metric
+            'setbacks' => 20, // Fire safety, access, neighbor rights
+            'far' => 15, // Density control
+            'open_space' => 10, // Environmental / livability
+            'lot_area' => 5, // Usually a prerequisite
+        ];
+
+        $deductions = 0;
+
+        // Deduct for land use violations
+        if (! empty($landUseViolations['violations'])) {
+            $deductions += $weights['land_use'];
+        }
+
+        // Deduct for storey/height violations with severity scaling
+        if (! empty($heightViolations['violations'])) {
+            foreach ($heightViolations['violations'] as $v) {
+                if (str_contains($v, 'CRITICAL')) {
+                    // Extreme excess — full weight for storeys + height
+                    $deductions += $weights['storeys'] + $weights['height'];
+                    break;
+                } elseif (str_contains($v, 'storeys')) {
+                    $deductions += $weights['storeys'];
+                } elseif (str_contains($v, 'height')) {
+                    $deductions += $weights['height'];
+                }
+            }
+        }
+
+        // Deduct for setback violations — scale by how many axes fail
+        if (! empty($setbackViolations['violations'])) {
+            $setbackCount = count($setbackViolations['violations']);
+            $perAxis = $weights['setbacks'] / 3; // front, rear, side
+            $deductions += min($weights['setbacks'], $setbackCount * $perAxis);
+        }
+
+        // Deduct for FAR violation
+        if (! empty($farViolations['violations'])) {
+            $deductions += $weights['far'];
+        }
+
+        // Deduct for open space violation
+        if (! empty($openSpaceViolations['violations'])) {
+            $deductions += $weights['open_space'];
+        }
+
+        // Deduct for lot area violation
+        if (! empty($lotAreaViolations['violations'])) {
+            $deductions += $weights['lot_area'];
+        }
+
+        // Partial deductions for warnings (half weight)
+        $warningDeduction = count($warnings) * 1.5;
+        $deductions += min(10, $warningDeduction); // Cap warning penalty at 10
+
+        $score = max(0, 100 - $deductions);
+
+        // Determine status: 85+ compliant, 60-84 needs review, <60 non-compliant
+        $status = 'non_compliant';
+        if ($score >= 85 && empty($violations)) {
+            $status = 'compliant';
+        } elseif ($score >= 60) {
+            $status = 'needs_review';
+        }
 
         return [
             'violations' => $violations,
             'warnings' => $warnings,
-            'compliant' => empty($violations),
+            'compliant' => $status === 'compliant',
+            'status' => $status,
             'score' => round($score, 2),
             'classification' => $classificationCode,
             'zone_name' => $zone->classification->name,
@@ -78,9 +145,26 @@ class ComplianceCheckerService
 
     /**
      * Get rules for a specific classification code.
+     * Checks the database first, then falls back to config file.
      */
     protected function getRulesForClassification(string $classificationCode): array
     {
+        $classificationCode = strtoupper(trim($classificationCode));
+        $normalizedCode = str_replace('-', '', $classificationCode);
+
+        // Try database first (exact match, then normalized)
+        $dbRule = ComplianceRule::where('is_active', true)
+            ->where(function ($q) use ($classificationCode, $normalizedCode) {
+                $q->where('classification_code', $classificationCode)
+                    ->orWhere('classification_code', $normalizedCode);
+            })
+            ->first();
+
+        if ($dbRule) {
+            return $dbRule->toRulesArray();
+        }
+
+        // Fall back to config file
         $rules = config('zoning-compliance.rules', []);
         $default = config('zoning-compliance.default', [
             'setbacks' => [
@@ -95,20 +179,14 @@ class ComplianceCheckerService
             'min_lot_area' => 100.0,
         ]);
 
-        $classificationCode = strtoupper(trim($classificationCode));
-        
-        // Try exact match first
         if (isset($rules[$classificationCode])) {
             return $rules[$classificationCode];
         }
 
-        // Try with different formats (e.g., "I-1" vs "I1")
-        $normalizedCode = str_replace('-', '', $classificationCode);
         if (isset($rules[$normalizedCode])) {
             return $rules[$normalizedCode];
         }
 
-        // Return default with required fields
         return array_merge($default, [
             'name' => 'Unknown Zone',
             'allowed_uses' => [],
@@ -135,8 +213,8 @@ class ComplianceCheckerService
         if (isset($data['front_setback_m'])) {
             if ($data['front_setback_m'] < $requiredSetbacks['front']) {
                 $violations[] = "Front setback ({$data['front_setback_m']}m) is less than required ({$requiredSetbacks['front']}m)";
-            } elseif ($data['front_setback_m'] < $requiredSetbacks['front'] * 1.1) {
-                $warnings[] = "Front setback is close to minimum requirement. Consider increasing to {$requiredSetbacks['front']}m";
+            } elseif ($data['front_setback_m'] <= $requiredSetbacks['front'] * 1.05) {
+                $warnings[] = "Front setback ({$data['front_setback_m']}m) meets the minimum but consider adding a buffer beyond {$requiredSetbacks['front']}m";
             }
         }
 
@@ -147,10 +225,19 @@ class ComplianceCheckerService
             }
         }
 
-        // Check side setback
-        if (isset($data['side_setback_m'])) {
-            if ($data['side_setback_m'] < $requiredSetbacks['side']) {
-                $violations[] = "Side setback ({$data['side_setback_m']}m) is less than required ({$requiredSetbacks['side']}m)";
+        // Check side setbacks (supports left/right split or a single side_setback_m value)
+        $sideLeft = $data['side_setback_left_m'] ?? $data['side_setback_m'] ?? null;
+        $sideRight = $data['side_setback_right_m'] ?? null;
+
+        if (isset($sideLeft)) {
+            if ($sideLeft < $requiredSetbacks['side']) {
+                $violations[] = "Left side setback ({$sideLeft}m) is less than required ({$requiredSetbacks['side']}m)";
+            }
+        }
+
+        if (isset($sideRight)) {
+            if ($sideRight < $requiredSetbacks['side']) {
+                $violations[] = "Right side setback ({$sideRight}m) is less than required ({$requiredSetbacks['side']}m)";
             }
         }
 
@@ -195,9 +282,18 @@ class ComplianceCheckerService
 
         // Check storeys
         if (isset($rules['max_storeys']) && isset($data['number_of_storeys'])) {
-            if ($data['number_of_storeys'] > $rules['max_storeys']) {
-                $violations[] = "Number of storeys ({$data['number_of_storeys']}) exceeds maximum allowed ({$rules['max_storeys']})";
-            } elseif ($data['number_of_storeys'] >= $rules['max_storeys'] - 1) {
+            $storeys = (int) $data['number_of_storeys'];
+            $maxStoreys = (int) $rules['max_storeys'];
+
+            if ($storeys > $maxStoreys) {
+                $ratio = $maxStoreys > 0 ? $storeys / $maxStoreys : $storeys;
+
+                if ($ratio >= 3) {
+                    $violations[] = "CRITICAL: Number of storeys ({$storeys}) drastically exceeds maximum allowed ({$maxStoreys}) — exceeds limit by ".round(($ratio - 1) * 100).'%';
+                } else {
+                    $violations[] = "Number of storeys ({$storeys}) exceeds maximum allowed ({$maxStoreys})";
+                }
+            } elseif ($storeys >= $maxStoreys - 1) {
                 $warnings[] = 'Number of storeys is close to maximum. Verify height compliance';
             }
         }
@@ -227,15 +323,18 @@ class ComplianceCheckerService
         }
 
         $requiredOpenSpace = $rules['open_space_requirement'];
-        $requiredArea = $data['lot_area_total'] * $requiredOpenSpace;
+        $requiredArea = round($data['lot_area_total'] * $requiredOpenSpace, 2);
 
         // Calculate open space (lot area - building footprint)
         $buildingFootprint = $data['building_footprint_sqm'] ?? ($data['floor_area_sqm'] ?? 0);
         $openSpace = max(0, $data['lot_area_total'] - $buildingFootprint);
         $openSpacePercentage = $data['lot_area_total'] > 0 ? ($openSpace / $data['lot_area_total']) : 0;
 
+        $actualPct = round($openSpacePercentage * 100, 1);
+        $requiredPct = round($requiredOpenSpace * 100, 1);
+
         if ($openSpacePercentage < $requiredOpenSpace) {
-            $violations[] = "Open space ({$openSpacePercentage}) is less than required ({$requiredOpenSpace}). Required: {$requiredArea} sqm";
+            $violations[] = "Open space ({$actualPct}%) is less than required ({$requiredPct}%). You need at least {$requiredArea} sqm of open space — reduce the building footprint.";
         } elseif ($openSpacePercentage < $requiredOpenSpace * 1.1) {
             $warnings[] = 'Open space is close to minimum requirement. Consider reducing building footprint';
         }
@@ -269,6 +368,34 @@ class ComplianceCheckerService
      *
      * @return array{violations: array, warnings: array}
      */
+    /**
+     * Maps a specific zoning classification code to its generic base use.
+     */
+    protected function getGenericUseFromClassification(string $classificationCode): string
+    {
+        $code = strtoupper(trim($classificationCode));
+        if (str_starts_with($code, 'R')) {
+            return 'residential';
+        }
+        if (str_starts_with($code, 'C')) {
+            return 'commercial';
+        }
+        if (str_starts_with($code, 'I')) {
+            return 'industrial';
+        }
+        if (str_starts_with($code, 'A')) {
+            return 'agricultural';
+        }
+        if (str_starts_with($code, 'INS')) {
+            return 'institutional';
+        }
+        if ($code === 'MU') {
+            return 'mixed_use';
+        }
+
+        return $code; // fallback precisely if generic is sent
+    }
+
     protected function checkLandUseCompatibility(array $data, array $rules): array
     {
         $violations = [];
@@ -277,8 +404,12 @@ class ComplianceCheckerService
             return ['violations' => [], 'warnings' => []];
         }
 
-        if (! in_array($data['land_use_type'], $rules['allowed_uses'])) {
-            $violations[] = "Land use type '{$data['land_use_type']}' is not allowed in this zone. Allowed uses: ".implode(', ', $rules['allowed_uses']);
+        $proposedClassification = $data['land_use_type'];
+        $genericUse = $this->getGenericUseFromClassification($proposedClassification);
+
+        // Check if either the generic use OR the exact classification code is allowed
+        if (! in_array($genericUse, $rules['allowed_uses']) && ! in_array($proposedClassification, $rules['allowed_uses'])) {
+            $violations[] = "Land use type '{$proposedClassification}' is not allowed in this zone. Allowed uses: ".implode(', ', $rules['allowed_uses']);
         }
 
         return ['violations' => $violations, 'warnings' => []];

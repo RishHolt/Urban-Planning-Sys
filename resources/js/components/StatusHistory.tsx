@@ -1,177 +1,125 @@
-import { CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, FileText, PlusCircle, Edit, FileUp, MessageSquare } from 'lucide-react';
 
-export interface StatusHistoryItem {
-    id: number;
-    statusFrom: string | null;
-    statusTo: string;
-    changedBy: number;
-    notes: string | null;
-    createdAt: string;
+export interface TimelineItem {
+    id: number | string;
+    status: string;
+    eventType: 'created' | 'updated' | 'status_change' | 'document_upload' | 'document_action' | 'document_request';
+    remarks: string;
+    metadata?: any;
+    performerName: string;
+    updatedAt: string;
 }
 
-interface StatusHistoryProps {
-    history: StatusHistoryItem[];
+interface ApplicationTimelineProps {
+    items: TimelineItem[];
     className?: string;
 }
 
-export default function StatusHistory({ history, className = '' }: StatusHistoryProps) {
-    const formatStatusName = (status: string | null): string => {
-        if (!status) return 'N/A';
-        const statusLabels: Record<string, string> = {
-            'pending': 'Pending',
-            'in_review': 'In Review',
-            'approved': 'Approved',
-            'rejected': 'Rejected',
-        };
-        return statusLabels[status] || status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
-    };
-
-    const getStatusLabel = (status: string, notes: string | null): string => {
-        // Check if notes indicate a document action
-        if (notes) {
-            const lowerNotes = notes.toLowerCase();
-            // Pattern: "Document 'Document Name' approved" or "Document 'Document Name' approved: notes"
-            // Pattern: "Document 'Document Name' rejected: notes"
-            // Pattern: "Document 'Document Name' uploaded" or "Document 'Document Name' uploaded (Version X)"
-            const documentMatch = notes.match(/^Document\s+'([^']+)'\s+(approved|rejected|uploaded)/i);
-
-            if (documentMatch) {
-                const action = documentMatch[2].toLowerCase();
-                if (action === 'approved') {
-                    return 'Approved';
-                }
-                if (action === 'rejected') {
-                    return 'Rejected';
-                }
-                if (action === 'uploaded') {
-                    return 'Pending';
-                }
-            }
-
-            // Fallback: check if it starts with "document" and contains approved/rejected/uploaded
-            if (lowerNotes.startsWith("document")) {
-                if (lowerNotes.includes("approved")) {
-                    return 'Approved';
-                }
-                if (lowerNotes.includes("rejected")) {
-                    return 'Rejected';
-                }
-                if (lowerNotes.includes("uploaded")) {
-                    return 'Pending';
-                }
-            }
-        }
-
-        // Map status to readable labels
-        const statusLabels: Record<string, string> = {
-            'pending': 'Pending',
-            'in_review': 'In Review',
-            'approved': 'Approved',
-            'rejected': 'Rejected',
-        };
-
-        return statusLabels[status] || status;
-    };
-
-    const getStatusIcon = (status: string, notes: string | null) => {
-        // Check if notes indicate a document action
-        if (notes) {
-            const lowerNotes = notes.toLowerCase();
-            if (lowerNotes.startsWith("document")) {
-                // For uploaded documents, use upload icon if available, otherwise file icon
-                if (lowerNotes.includes("uploaded")) {
-                    return <FileText size={16} className="text-yellow-500" />;
-                }
-                return <FileText size={16} className="text-gray-500 dark:text-gray-400" />;
-            }
-        }
-
-        switch (status) {
-            case 'approved':
-                return <CheckCircle size={16} className="text-green-500" />;
-            case 'rejected':
-                return <XCircle size={16} className="text-red-500" />;
-            case 'in_review':
-                return <Clock size={16} className="text-blue-500" />;
+export default function ApplicationTimeline({ items, className = '' }: ApplicationTimelineProps) {
+    const getEventDetails = (item: TimelineItem) => {
+        switch (item.eventType) {
+            case 'created':
+                return {
+                    label: 'Application Created',
+                    icon: <PlusCircle size={16} className="text-green-500" />,
+                    color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                };
+            case 'updated':
+                return {
+                    label: 'Application Updated',
+                    icon: <Edit size={16} className="text-blue-500" />,
+                    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200'
+                };
+            case 'document_upload':
+                return {
+                    label: 'Document Uploaded',
+                    icon: <FileUp size={16} className="text-purple-500" />,
+                    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-200'
+                };
+            case 'document_action':
+                const isApproved = item.metadata?.action === 'approved';
+                return {
+                    label: isApproved ? 'Document Approved' : 'Document Rejected',
+                    icon: isApproved ? <CheckCircle size={16} className="text-green-500" /> : <XCircle size={16} className="text-red-500" />,
+                    color: isApproved 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200'
+                };
+            case 'document_request':
+                return {
+                    label: 'Documents Requested',
+                    icon: <MessageSquare size={16} className="text-orange-500" />,
+                    color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-200'
+                };
+            case 'status_change':
+                const status = item.status.toLowerCase();
+                const isFinal = status === 'approved';
+                const isDenied = status === 'rejected' || status === 'denied';
+                return {
+                    label: 'Status Changed',
+                    icon: isFinal ? <CheckCircle size={16} className="text-green-600" /> : (isDenied ? <XCircle size={16} className="text-red-600" /> : <Clock size={16} className="text-blue-600" />),
+                    color: isFinal 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                        : (isDenied ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200')
+                };
             default:
-                return <Clock size={16} className="text-yellow-500" />;
+                return {
+                    label: 'System Event',
+                    icon: <Clock size={16} className="text-gray-500" />,
+                    color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                };
         }
     };
 
-    const getStatusBadgeColor = (status: string, notes: string | null): string => {
-        // Check if notes indicate a document action
-        if (notes) {
-            const lowerNotes = notes.toLowerCase();
-            if (lowerNotes.startsWith("document")) {
-                if (lowerNotes.includes("approved")) {
-                    return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200';
-                }
-                if (lowerNotes.includes("rejected")) {
-                    return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200';
-                }
-                if (lowerNotes.includes("uploaded")) {
-                    return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200';
-                }
-            }
-        }
-
-        switch (status) {
-            case 'approved':
-                return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200';
-            case 'rejected':
-                return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200';
-            case 'in_review':
-                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200';
-            default:
-                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200';
-        }
-    };
-
-    if (history.length === 0) {
-        return null;
+    if (!items || items.length === 0) {
+        return (
+            <div className={`p-8 text-center bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 ${className}`}>
+                <Clock className="mx-auto mb-3 text-gray-300" size={32} />
+                <p className="text-gray-500 dark:text-gray-400">No activity recorded yet.</p>
+            </div>
+        );
     }
 
     return (
-        <section className={`bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg ${className}`}>
-            <h2 className="mb-4 font-semibold text-gray-900 dark:text-white text-xl">
-                Status History
-            </h2>
-            <div className="space-y-3">
-                {history.map((item, index) => {
-                    const statusLabel = getStatusLabel(item.statusTo, item.notes);
-                    const statusIcon = getStatusIcon(item.statusTo, item.notes);
-                    const badgeColor = getStatusBadgeColor(item.statusTo, item.notes);
+        <section className={`bg-white dark:bg-dark-surface p-2 ${className}`}>
+            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent dark:before:via-gray-700">
+                {items.map((item) => {
+                    const { label, icon, color } = getEventDetails(item);
 
                     return (
-                        <div key={item.id} className="flex gap-3">
-                            <div className="flex flex-col items-center">
-                                <div className={`w-2 h-2 rounded-full ${index === 0 ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
-                                    }`} />
-                                {index < history.length - 1 && (
-                                    <div className="w-0.5 h-full bg-gray-300 dark:bg-gray-600 mt-1" />
-                                )}
+                        <div key={String(item.id)} className="relative flex items-start gap-6 group">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-dark-surface border-2 border-gray-200 dark:border-gray-700 group-hover:border-primary transition-colors z-10 shrink-0 shadow-sm">
+                                {icon}
                             </div>
-                            <div className="flex-1 pb-3">
-                                <div className="flex items-center gap-2 mb-1">
-                                    {statusIcon}
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${badgeColor}`}>
-                                        {statusLabel}
-                                    </span>
+                            <div className="flex-1 pt-0.5">
+                                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${color}`}>
+                                            {label}
+                                        </span>
+                                        <span className="text-xs font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+                                            <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                                            {item.performerName}
+                                        </span>
+                                    </div>
+                                    <time className="text-[10px] font-medium text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/50 px-2 py-0.5 rounded">
+                                        {new Date(item.updatedAt).toLocaleString(undefined, {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </time>
                                 </div>
-                                {/* Show changes for status updates */}
-                                {item.statusFrom && item.statusFrom !== item.statusTo && !item.notes?.toLowerCase().includes('document') && (
-                                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-1">
-                                        <span className="font-medium">Changes:</span> {formatStatusName(item.statusFrom)} → {formatStatusName(item.statusTo)}
-                                    </p>
+                                
+                                {item.remarks && (
+                                    <div className="relative">
+                                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-lg border border-gray-100 dark:border-gray-700/50">
+                                            {item.remarks}
+                                        </p>
+                                    </div>
                                 )}
-                                {item.notes && (
-                                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-1">
-                                        {item.notes}
-                                    </p>
-                                )}
-                                <p className="text-gray-500 dark:text-gray-500 text-xs">
-                                    {new Date(item.createdAt).toLocaleString()}
-                                </p>
                             </div>
                         </div>
                     );

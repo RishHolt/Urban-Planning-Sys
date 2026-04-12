@@ -27,13 +27,12 @@ interface AllocationsIndexProps {
 }
 
 export default function AllocationsIndex({ allocations, filters: initialFilters = {} }: AllocationsIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         status: initialFilters.status || '',
     });
 
     const handleSearch = (): void => {
-        get('/admin/housing/allocations', {
+        router.get('/admin/housing/allocations', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -100,18 +99,20 @@ export default function AllocationsIndex({ allocations, filters: initialFilters 
         });
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Allocations"
             description="Manage housing unit allocations"
         >
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue=""
                 onSearchChange={() => {}}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder=""
                 hideSearch={true}
                 filterContent={

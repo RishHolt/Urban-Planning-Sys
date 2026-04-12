@@ -3,7 +3,7 @@ import { useState } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import AdminContentCard from '../../../components/AdminContentCard';
 import Button from '../../../components/Button';
-import { FileText, Download, Filter, Calendar, TrendingUp, DollarSign, Building2 } from 'lucide-react';
+import { FileText, Download, Calendar, TrendingUp, DollarSign, Building2 } from 'lucide-react';
 
 interface ReportsProps {
     projectStatusReport?: {
@@ -40,7 +40,6 @@ interface ReportsProps {
 }
 
 export default function Reports({ projectStatusReport, budgetReport, progressReport, filters: initialFilters = {} }: ReportsProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         date_from: initialFilters.date_from || '',
         date_to: initialFilters.date_to || '',
@@ -71,20 +70,8 @@ export default function Reports({ projectStatusReport, budgetReport, progressRep
             title="Infrastructure Reports"
             description="Generate and view project reports and analytics"
         >
-            <div className="mb-6 flex justify-between items-center">
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="flex items-center gap-2"
-                >
-                    <Filter size={18} />
-                    Filters
-                </Button>
-            </div>
 
             {/* Filters */}
-            {showFilters && (
                 <AdminContentCard padding="md" className="mb-6">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>

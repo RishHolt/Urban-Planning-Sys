@@ -11,5 +11,5 @@ abstract class SbrModel extends Model
      *
      * @var string|null
      */
-    protected $connection = 'sbr_db';
+    protected $connection = 'zcs_db';
 }

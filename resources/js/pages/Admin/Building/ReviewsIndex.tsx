@@ -31,14 +31,13 @@ interface ReviewsIndexProps {
 }
 
 export default function ReviewsIndex({ reviews, filters: initialFilters = {} }: ReviewsIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         search: initialFilters.search || '',
         status: initialFilters.status || '',
     });
 
     const handleSearch = (): void => {
-        get('/admin/building/reviews', {
+        router.get('/admin/building/reviews', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -68,18 +67,20 @@ export default function ReviewsIndex({ reviews, filters: initialFilters = {} }: 
         );
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Building Reviews"
             description="Review and manage building plan reviews from Permit & Licensing"
         >
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue={data.search}
                 onSearchChange={(value) => setData('search', value)}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder="Search by reference number, permit number, or applicant..."
                 actionButtons={
                     <Button

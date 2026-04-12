@@ -2,7 +2,7 @@ import { useEffect, useState, memo, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { validateCoordinates } from '../lib/validation';
-import { geoJSONToLeaflet, generatePolygonColor, hslToRgba } from '../lib/mapUtils';
+import { geoJSONToLeaflet, generatePolygonColor } from '../lib/mapUtils';
 import { Zone } from '../lib/zoneDetection';
 
 // Fix for default marker icon in React-Leaflet - only run once
@@ -27,7 +27,7 @@ const LocationMarker = memo(function LocationMarker({ position, onLocationSelect
         position || null
     );
 
-    const map = useMapEvents({
+    useMapEvents({
         click(e) {
             if (readOnly) {
                 return; // Don't allow clicking when read-only
@@ -55,54 +55,38 @@ const LocationMarker = memo(function LocationMarker({ position, onLocationSelect
     return <Marker position={markerPosition} />;
 });
 
-interface MapComponentProps {
+export interface MapComponentProps {
     center: [number, number];
     latitude?: number;
     longitude?: number;
     onLocationSelect: (lat: number, lng: number) => void;
-    zoom?: number;
+    mapBounds?: [[number, number], [number, number]];
     zones?: Zone[];
     readOnly?: boolean;
 }
 
 // Component to update map center and zoom when prop changes
-function MapCenterUpdater({ center, zoom }: { center: [number, number]; zoom?: number }) {
+function MapCenterUpdater({ center, mapBounds }: { center: [number, number]; mapBounds?: [[number, number], [number, number]] }) {
     const map = useMap();
-    const previousCenterRef = useRef<[number, number] | null>(null);
-    const previousZoomRef = useRef<number | undefined>(undefined);
-    const isInitialRender = useRef(true);
+    // Serialize to stable strings so useEffect fires only on real value changes
+    const boundsKey = mapBounds ? `${mapBounds[0][0]},${mapBounds[0][1]},${mapBounds[1][0]},${mapBounds[1][1]}` : '';
+    const centerKey = `${center[0]},${center[1]}`;
 
+    // Handle mapBounds changes (barangay selection)
     useEffect(() => {
-        if (!map || !center) return;
+        if (!map || !mapBounds) return;
+        map.flyToBounds(mapBounds, {
+            padding: [50, 50],
+            duration: 1,
+            easeLinearity: 0.25,
+        });
+    }, [map, boundsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-        const centerChanged = !previousCenterRef.current ||
-            previousCenterRef.current[0] !== center[0] ||
-            previousCenterRef.current[1] !== center[1];
-
-        const zoomChanged = zoom !== previousZoomRef.current;
-
-        // On initial render, set both center and zoom
-        if (isInitialRender.current) {
-            const initialZoom = zoom !== undefined ? zoom : 13;
-            map.setView(center, initialZoom);
-            isInitialRender.current = false;
-            previousCenterRef.current = center;
-            previousZoomRef.current = zoom;
-            return;
-        }
-
-        // If zoom explicitly changed, use flyTo with new zoom
-        if (zoomChanged && zoom !== undefined) {
-            map.flyTo(center, zoom, { duration: 0.5 });
-            previousCenterRef.current = center;
-            previousZoomRef.current = zoom;
-        }
-        // If only center changed (user clicked to pin), just pan without zoom
-        else if (centerChanged) {
-            map.panTo(center, { animate: true, duration: 0.3 });
-            previousCenterRef.current = center;
-        }
-    }, [map, center, zoom]);
+    // Handle center changes (pin moved, no bounds)
+    useEffect(() => {
+        if (!map || mapBounds) return;
+        map.setView(center, map.getZoom(), { animate: true });
+    }, [map, centerKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return null;
 }
@@ -170,12 +154,12 @@ function ZoneLayers({ zones }: { zones?: Zone[] }) {
     return null;
 }
 
-export default memo(function MapComponent({
+export default function MapComponent({
     center,
     latitude,
     longitude,
     onLocationSelect,
-    zoom = 13,
+    mapBounds,
     zones,
     readOnly = false,
 }: MapComponentProps) {
@@ -186,7 +170,7 @@ export default memo(function MapComponent({
     return (
         <MapContainer
             center={center}
-            zoom={zoom}
+            zoom={13}
             style={{ height: '400px', width: '100%' }}
             className="z-0"
             zoomControl={!readOnly}
@@ -212,7 +196,7 @@ export default memo(function MapComponent({
                 updateWhenIdle={true}
                 keepBuffer={2}
             />
-            <MapCenterUpdater center={center} zoom={zoom} />
+            <MapCenterUpdater center={center} mapBounds={mapBounds} />
             {zones && zones.length > 0 && <ZoneLayers zones={zones} />}
             <LocationMarker
                 position={latitude && longitude ? [latitude, longitude] : undefined}
@@ -221,4 +205,4 @@ export default memo(function MapComponent({
             />
         </MapContainer>
     );
-});
+}

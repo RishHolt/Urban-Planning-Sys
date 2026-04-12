@@ -1,6 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import Header from '../../components/Header';
-import Footer from '../../components/Footer';
 import Button from '../../components/Button';
 import ApplicationsTable, { BaseApplication, PaginatedData, ApplicationStatus } from '../../components/ApplicationsTable';
 import { Plus, ArrowLeft } from 'lucide-react';
@@ -40,6 +39,16 @@ export default function ApplicationsIndex({ applications }: ApplicationsIndexPro
                         </div>
                     )}
 
+                    <div className="mb-4">
+                        <Link
+                            href="/"
+                            className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                        >
+                            <ArrowLeft size={16} className="mr-1" />
+                            Back to Home
+                        </Link>
+                    </div>
+
                     <div className="flex justify-between items-center mb-8">
                         <div>
                             <h1 className="mb-2 font-bold text-gray-900 dark:text-white text-3xl">
@@ -74,7 +83,6 @@ export default function ApplicationsIndex({ applications }: ApplicationsIndexPro
                     />
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

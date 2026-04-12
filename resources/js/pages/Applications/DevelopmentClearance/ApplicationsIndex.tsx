@@ -1,6 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import Header from '../../../components/Header';
-import Footer from '../../../components/Footer';
 import Button from '../../../components/Button';
 import ApplicationsTable, { BaseApplication, PaginatedData } from '../../../components/ApplicationsTable';
 import { Plus, ArrowLeft } from 'lucide-react';
@@ -80,7 +79,6 @@ export default function ApplicationsIndex({ applications }: ApplicationsIndexPro
                     />
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

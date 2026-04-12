@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { usePage, Link, useForm } from '@inertiajs/react';
 import Header from '../components/Header';
-import Footer from '../components/Footer';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import type { SharedData, User, Profile } from '../types';
@@ -457,7 +456,6 @@ export default function Profile() {
                 </div>
             </div>
 
-            <Footer />
         </div>
     );
 }

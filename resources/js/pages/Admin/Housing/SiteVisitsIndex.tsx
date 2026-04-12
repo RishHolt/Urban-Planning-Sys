@@ -30,7 +30,6 @@ interface SiteVisitsIndexProps {
 
 export default function SiteVisitsIndex({ siteVisits, filters: initialFilters = {} }: SiteVisitsIndexProps) {
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
-    const [showFilters, setShowFilters] = useState(false);
     const [showCompleteModal, setShowCompleteModal] = useState<string | null>(null);
     const { data, setData, get } = useForm({
         status: initialFilters.status || '',
@@ -44,7 +43,7 @@ export default function SiteVisitsIndex({ siteVisits, filters: initialFilters = 
     });
 
     const handleSearch = (): void => {
-        get('/admin/housing/site-visits', {
+        router.get('/admin/housing/site-visits', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -138,6 +137,8 @@ export default function SiteVisitsIndex({ siteVisits, filters: initialFilters = 
         });
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Site Visits"
@@ -156,12 +157,12 @@ export default function SiteVisitsIndex({ siteVisits, filters: initialFilters = 
             )}
 
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue=""
                 onSearchChange={() => {}}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder=""
                 hideSearch={true}
                 filterContent={

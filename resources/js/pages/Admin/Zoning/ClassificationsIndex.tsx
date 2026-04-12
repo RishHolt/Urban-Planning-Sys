@@ -147,7 +147,6 @@ export default function ClassificationsIndex({
     zoningCounts = {},
     filters: initialFilters = {} 
 }: ClassificationsIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [editingClassification, setEditingClassification] = useState<Classification | null>(null);
     const [showBoundary, setShowBoundary] = useState(true);
@@ -174,7 +173,7 @@ export default function ClassificationsIndex({
     };
 
     const handleSearch = (): void => {
-        get('/admin/zoning/classifications', {
+        router.get('/admin/zoning/classifications', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -241,6 +240,8 @@ export default function ClassificationsIndex({
         );
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <>
             <AdminLayout
@@ -251,12 +252,12 @@ export default function ClassificationsIndex({
                     {/* Classifications Tab */}
                     <TabPanel tabId="classifications">
                         <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                     searchValue={data.search}
                     onSearchChange={(value) => setData('search', value)}
                     onSearch={handleSearch}
                     onReset={handleReset}
-                    showFilters={showFilters}
-                    onToggleFilters={() => setShowFilters(!showFilters)}
                     searchPlaceholder="Search by code, name, or description..."
                     actionButtons={
                         <>
@@ -520,6 +521,7 @@ export default function ClassificationsIndex({
                         <ZoningBoundariesPanel 
                             classifications={classifications.data}
                             zoningCounts={zoningCounts}
+                            onEditClassification={handleEdit}
                         />
                     </TabPanel>
                 </BoundaryManagementTabs>

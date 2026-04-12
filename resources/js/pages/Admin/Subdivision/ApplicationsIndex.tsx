@@ -32,7 +32,6 @@ interface ApplicationsIndexProps {
 }
 
 export default function ApplicationsIndex({ applications, filters: initialFilters = {} }: ApplicationsIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         search: initialFilters.search || '',
         status: initialFilters.status || '',
@@ -40,7 +39,7 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
     });
 
     const handleSearch = (): void => {
-        get('/admin/subdivision/applications', {
+        router.get('/admin/subdivision/applications', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -74,18 +73,20 @@ export default function ApplicationsIndex({ applications, filters: initialFilter
         );
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Subdivision Applications"
             description="Review and manage all subdivision development applications"
         >
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue={data.search}
                 onSearchChange={(value) => setData('search', value)}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder="Search by reference number, subdivision name, or developer..."
                 actionButtons={
                     <Button

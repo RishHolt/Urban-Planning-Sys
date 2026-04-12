@@ -1,25 +1,26 @@
 import { useState, useEffect } from 'react';
-import { useForm, usePage } from '@inertiajs/react';
+import { useForm, usePage, Link } from '@inertiajs/react';
 import Header from '../components/Header';
-import Footer from '../components/Footer';
 import Button from '../components/Button';
-import Input from '../components/Input';
-import { Mail, Lock, ArrowLeft } from 'lucide-react';
-import { Link } from '@inertiajs/react';
+import { ArrowLeft } from 'lucide-react';
+import { PageProps } from '../types';
 
-interface VerifyOtpProps {
+type VerifyOtpProps = {
     email?: string;
     type?: string;
-}
+    otp_code?: string;
+};
 
 export default function VerifyOtp() {
-    const { email: pageEmail, type: pageType } = usePage<VerifyOtpProps>().props;
-    const [otp, setOtp] = useState(['', '', '', '', '', '']);
+    const { email: pageEmail, type: pageType, otp_code } = usePage<PageProps<VerifyOtpProps>>().props;
+    const [otp, setOtp] = useState(() =>
+        otp_code ? otp_code.split('') : ['', '', '', '', '', '']
+    );
     const [resendCooldown, setResendCooldown] = useState(0);
 
     const { data, setData, post, processing, errors } = useForm({
         email: pageEmail || '',
-        code: '',
+        code: otp_code || '',
         type: pageType || 'registration',
     });
 
@@ -100,7 +101,7 @@ export default function VerifyOtp() {
                         </Link>
                     </div>
                 </div>
-                <Footer />
+
             </div>
         );
     }
@@ -125,6 +126,12 @@ export default function VerifyOtp() {
                         <p className="font-semibold text-primary dark:text-white text-center">
                             {data.email}
                         </p>
+                        {otp_code && (
+                            <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg text-center">
+                                <p className="text-yellow-700 dark:text-yellow-400 text-xs font-medium">Dev mode — OTP code:</p>
+                                <p className="text-yellow-800 dark:text-yellow-300 font-mono font-bold text-lg tracking-widest">{otp_code}</p>
+                            </div>
+                        )}
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -182,7 +189,7 @@ export default function VerifyOtp() {
                 </div>
             </div>
 
-            <Footer />
+
         </div>
     );
 }

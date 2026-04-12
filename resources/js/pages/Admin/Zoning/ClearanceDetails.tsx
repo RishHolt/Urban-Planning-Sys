@@ -68,7 +68,7 @@ export default function ClearanceDetails({ clearance }: ClearanceDetailsProps) {
             title="Clearance Details"
             description="View issued zoning clearance certificate"
             backButton={{
-                href: '/clearances',
+                href: '/admin/zoning/clearances',
                 label: 'Back to Clearances',
             }}
         >
@@ -191,7 +191,7 @@ export default function ClearanceDetails({ clearance }: ClearanceDetailsProps) {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => window.open(`/clearances/${clearance.id}/view`, '_blank')}
+                                onClick={() => window.open(`/admin/zoning/clearances/${clearance.id}/view`, '_blank')}
                             >
                                 <FileText size={16} className="mr-2" />
                                 View PDF
@@ -199,12 +199,12 @@ export default function ClearanceDetails({ clearance }: ClearanceDetailsProps) {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => window.location.href = `/clearances/${clearance.id}/download`}
+                                onClick={() => window.location.href = `/admin/zoning/clearances/${clearance.id}/download`}
                             >
                                 <Download size={16} className="mr-2" />
                                 Download PDF
                             </Button>
-                            <Link href="/clearances">
+                            <Link href="/admin/zoning/clearances">
                                 <Button variant="secondary" size="sm">
                                     <ArrowLeft size={16} className="mr-2" />
                                     Back to Clearances

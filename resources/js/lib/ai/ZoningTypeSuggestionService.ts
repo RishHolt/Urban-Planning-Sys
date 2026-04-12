@@ -15,28 +15,15 @@ interface FeatureVector {
     categoricalFeatures: number[];
 }
 
-// Lazy load TensorFlow.js to avoid initial bundle size
-let tfModule: typeof import('@tensorflow/tfjs') | null = null;
-let tfLoadPromise: Promise<typeof import('@tensorflow/tfjs')> | null = null;
+// TensorFlow.js is disabled — using rule-based suggestions only
+// To re-enable: restore the lazy import and remove the throw in loadTensorFlow
+const tfModule: typeof import('@tensorflow/tfjs') | null = null; // always null while disabled
 
 /**
- * Lazy load TensorFlow.js
+ * TensorFlow is currently disabled. Throws to trigger rule-based fallback.
  */
 async function loadTensorFlow(): Promise<typeof import('@tensorflow/tfjs')> {
-    if (tfModule) {
-        return tfModule;
-    }
-
-    if (tfLoadPromise) {
-        return tfLoadPromise;
-    }
-
-    tfLoadPromise = import('@tensorflow/tfjs').then((module) => {
-        tfModule = module;
-        return module;
-    });
-
-    return tfLoadPromise;
+    throw new Error('TensorFlow.js is disabled');
 }
 
 /**
@@ -543,8 +530,8 @@ export class ZoningTypeSuggestionService {
             // Enhanced analysis based on project details
             if (additionalData) {
                 // Validate data first - ignore invalid inputs
-                const isValidLotArea = additionalData.lotAreaTotal > 0 && 
-                    additionalData.lotAreaUsed <= additionalData.lotAreaTotal;
+                const isValidLotArea = (additionalData.lotAreaTotal ?? 0) > 0 &&
+                    (additionalData.lotAreaUsed ?? 0) <= (additionalData.lotAreaTotal ?? 0);
                 const isValidFloorArea = additionalData.floorAreaSqm && 
                     additionalData.floorAreaSqm > 0 && 
                     additionalData.floorAreaSqm < 1000000; // Reasonable max
@@ -557,7 +544,7 @@ export class ZoningTypeSuggestionService {
 
                 // Analyze lot area - larger lots might indicate different zones
                 if (isValidLotArea) {
-                    const lotAreaScore = this.analyzeLotArea(additionalData.lotAreaTotal, zoneCode);
+                    const lotAreaScore = this.analyzeLotArea(additionalData.lotAreaTotal!, zoneCode);
                     score += lotAreaScore;
                 }
 
@@ -942,10 +929,10 @@ export class ZoningTypeSuggestionService {
 
         // Add project detail-based reasoning
         if (additionalData) {
-            if (additionalData.lotAreaTotal > 0) {
-                if (zoneCode.startsWith('I') && additionalData.lotAreaTotal >= 1000) {
+            if ((additionalData.lotAreaTotal ?? 0) > 0) {
+                if (zoneCode.startsWith('I') && (additionalData.lotAreaTotal ?? 0) >= 1000) {
                     reasons.push(`Large lot area (${additionalData.lotAreaTotal} sqm) suitable for industrial use`);
-                } else if (zoneCode.startsWith('R') && additionalData.lotAreaTotal < 500) {
+                } else if (zoneCode.startsWith('R') && (additionalData.lotAreaTotal ?? 0) < 500) {
                     reasons.push(`Lot size (${additionalData.lotAreaTotal} sqm) typical for residential zones`);
                 }
             }

@@ -2,6 +2,8 @@ import { useState, lazy, Suspense, memo, useCallback, useMemo } from 'react';
 import { MapPin, Loader2 } from 'lucide-react';
 import { validateCoordinates, validateBoundary } from '../lib/validation';
 
+import type { MapComponentProps } from './MapComponent';
+
 // Lazy load the map component to avoid SSR issues
 const MapComponent = lazy(() => {
     if (typeof window !== 'undefined') {
@@ -10,9 +12,9 @@ const MapComponent = lazy(() => {
             import('leaflet'),
             import('react-leaflet'),
             import('./MapComponent'),
-        ]).then(([, , mapComponent]) => mapComponent);
+        ]).then(([, , mapComponent]) => mapComponent as { default: React.ComponentType<MapComponentProps> });
     }
-    return Promise.resolve({ default: () => null });
+    return Promise.resolve({ default: (_props: MapComponentProps) => null });
 });
 
 import { Zone } from '../lib/zoneDetection';
@@ -24,8 +26,7 @@ interface MapPickerProps {
     boundary?: { minLat: number; maxLat: number; minLng: number; maxLng: number };
     error?: string;
     className?: string;
-    center?: [number, number];
-    zoom?: number;
+    mapBounds?: [[number, number], [number, number]];
     zones?: Zone[];
     readOnly?: boolean;
 }
@@ -37,8 +38,7 @@ function MapPicker({
     boundary,
     error,
     className = '',
-    center: propCenter,
-    zoom,
+    mapBounds,
     zones,
     readOnly = false,
 }: MapPickerProps) {
@@ -48,17 +48,20 @@ function MapPicker({
     const defaultCenter: [number, number] = useMemo(() => [14.5995, 120.9842], []); // Manila, Philippines
     const center: [number, number] = useMemo(
         () => {
-            // Prioritize propCenter (street/municipality center) over existing pin
-            // This allows street selection to update map view even when pin exists
-            if (propCenter) {
-                return propCenter;
+            // Priority 1: If we have mapBounds, calculate its center for initial view
+            if (mapBounds) {
+                return [
+                    (mapBounds[0][0] + mapBounds[1][0]) / 2,
+                    (mapBounds[0][1] + mapBounds[1][1]) / 2,
+                ];
             }
+            // Priority 2: Existing pin
             if (latitude && longitude) {
                 return [latitude, longitude];
             }
             return defaultCenter;
         },
-        [latitude, longitude, propCenter, defaultCenter]
+        [latitude, longitude, mapBounds, defaultCenter]
     );
 
     const handleLocationSelect = useCallback((lat: number, lng: number) => {
@@ -103,7 +106,7 @@ function MapPicker({
                         latitude={latitude}
                         longitude={longitude}
                         onLocationSelect={readOnly ? () => {} : handleLocationSelect}
-                        zoom={zoom}
+                        mapBounds={mapBounds}
                         zones={zones}
                         readOnly={readOnly}
                     />

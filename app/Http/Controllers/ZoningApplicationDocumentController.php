@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ApplicationHistory;
 use App\Models\ZoningApplication;
 use App\Models\ZoningApplicationDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\DB;
-use App\Models\ApplicationHistory;
 
 class ZoningApplicationDocumentController extends Controller
 {
@@ -18,9 +17,9 @@ class ZoningApplicationDocumentController extends Controller
     public function store(Request $request, string $id)
     {
         $application = ZoningApplication::findOrFail($id);
-        
+
         // Authorization check - only applicant or admin
-        if (strval($application->user_id) !== strval(Auth::id()) && !in_array(Auth::user()->role, ['admin', 'staff'])) {
+        if (strval($application->user_id) !== strval(Auth::id()) && ! in_array(Auth::user()->role, ['admin', 'staff'])) {
             abort(403);
         }
 
@@ -44,7 +43,7 @@ class ZoningApplicationDocumentController extends Controller
         if ($existingDoc) {
             $version = $existingDoc->version + 1;
             $parentId = $existingDoc->parent_document_id ?? $existingDoc->id;
-            
+
             // Mark existing as not current
             $existingDoc->update(['is_current' => false]);
         }
@@ -69,11 +68,17 @@ class ZoningApplicationDocumentController extends Controller
             $existingDoc->update(['replaced_by' => $document->id, 'replaced_at' => now()]);
         }
 
-        // Log to history
+        // Log to unified audit history
         ApplicationHistory::create([
             'application_id' => $application->id,
+            'event_type' => 'document_upload',
             'status' => $application->status,
             'remarks' => "Document '{$documentType}' uploaded (Version {$version})",
+            'metadata' => [
+                'document_id' => $document->id,
+                'document_type' => $documentType,
+                'version' => $version,
+            ],
             'updated_by' => Auth::id(),
             'updated_at' => now(),
         ]);
@@ -86,7 +91,7 @@ class ZoningApplicationDocumentController extends Controller
      */
     public function updateStatus(Request $request, string $applicationId, string $documentId)
     {
-        if (!in_array(Auth::user()->role, ['admin', 'staff'])) {
+        if (! in_array(Auth::user()->role, ['admin', 'staff'])) {
             abort(403);
         }
 
@@ -96,7 +101,7 @@ class ZoningApplicationDocumentController extends Controller
         ]);
 
         $document = ZoningApplicationDocument::findOrFail($documentId);
-        
+
         $document->update([
             'status' => $request->status,
             'notes' => $request->notes,
@@ -104,11 +109,18 @@ class ZoningApplicationDocumentController extends Controller
             'reviewed_at' => now(),
         ]);
 
-        // Log to history
+        // Log to unified audit history
         ApplicationHistory::create([
             'application_id' => $document->zoning_application_id,
+            'event_type' => 'document_action',
             'status' => $document->zoningApplication->status,
-            'remarks' => "Document '{$document->document_type}' {$request->status}" . ($request->notes ? ": {$request->notes}" : ""),
+            'remarks' => "Document '{$document->document_type}' {$request->status}".($request->notes ? ": {$request->notes}" : ''),
+            'metadata' => [
+                'document_id' => $document->id,
+                'document_type' => $document->document_type,
+                'action' => $request->status,
+                'notes' => $request->notes,
+            ],
             'updated_by' => Auth::id(),
             'updated_at' => now(),
         ]);
@@ -122,13 +134,13 @@ class ZoningApplicationDocumentController extends Controller
     public function download(string $applicationId, string $documentId)
     {
         $document = ZoningApplicationDocument::findOrFail($documentId);
-        
+
         // Authorization check
-        if (strval($document->zoningApplication->user_id) !== strval(Auth::id()) && !in_array(Auth::user()->role, ['admin', 'staff'])) {
+        if (strval($document->zoningApplication->user_id) !== strval(Auth::id()) && ! in_array(Auth::user()->role, ['admin', 'staff'])) {
             abort(403);
         }
 
-        if (!Storage::disk('public')->exists($document->file_path)) {
+        if (! Storage::disk('public')->exists($document->file_path)) {
             abort(404);
         }
 

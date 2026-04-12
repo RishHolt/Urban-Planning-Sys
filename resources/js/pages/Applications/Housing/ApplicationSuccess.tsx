@@ -1,6 +1,5 @@
 import { Link } from '@inertiajs/react';
 import Header from '../../../components/Header';
-import Footer from '../../../components/Footer';
 import Button from '../../../components/Button';
 import { CheckCircle, ArrowLeft, FileText } from 'lucide-react';
 
@@ -48,7 +47,6 @@ export default function ApplicationSuccess({ applicationNumber }: ApplicationSuc
                     </div>
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

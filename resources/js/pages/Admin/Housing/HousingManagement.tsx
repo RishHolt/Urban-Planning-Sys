@@ -71,7 +71,6 @@ export default function HousingManagement({
     const [activeTab, setActiveTab] = useState<'applications' | 'beneficiaries'>(
         (initialFilters.view as 'applications' | 'beneficiaries') || 'applications'
     );
-    const [showFilters, setShowFilters] = useState(false);
     const [showRanked, setShowRanked] = useState(false);
 
     // Applications form
@@ -243,6 +242,8 @@ export default function HousingManagement({
         meta: { current_page: 1, last_page: 1, per_page: 15, total: 0 },
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Housing Management"
@@ -316,12 +317,12 @@ export default function HousingManagement({
                     </div>
 
                     <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                         searchValue={appData.search}
                         onSearchChange={(value) => setAppData('search', value)}
                         onSearch={handleApplicationsSearch}
                         onReset={handleApplicationsReset}
-                        showFilters={showFilters}
-                        onToggleFilters={() => setShowFilters(!showFilters)}
                         searchPlaceholder="Search by application number, beneficiary name, or beneficiary number..."
                         filterContent={
                             <>
@@ -540,12 +541,12 @@ export default function HousingManagement({
             {activeTab === 'beneficiaries' && (
                 <>
                     <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                         searchValue={benData.search}
                         onSearchChange={(value) => setBenData('search', value)}
                         onSearch={handleBeneficiariesSearch}
                         onReset={handleBeneficiariesReset}
-                        showFilters={showFilters}
-                        onToggleFilters={() => setShowFilters(!showFilters)}
                         searchPlaceholder="Search by name, beneficiary number, email..."
                         filterContent={
                             <>

@@ -28,6 +28,8 @@ class ComplianceCheckController extends Controller
                 'front_setback_m' => 'nullable|numeric|min:0',
                 'rear_setback_m' => 'nullable|numeric|min:0',
                 'side_setback_m' => 'nullable|numeric|min:0',
+                'side_setback_left_m' => 'nullable|numeric|min:0',
+                'side_setback_right_m' => 'nullable|numeric|min:0',
                 'building_footprint_sqm' => 'nullable|numeric|min:0',
                 'land_use_type' => 'nullable|string',
                 'building_height_m' => 'nullable|numeric|min:0',

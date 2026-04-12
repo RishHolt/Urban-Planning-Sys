@@ -40,7 +40,6 @@ interface ContractorsIndexProps {
 }
 
 export default function ContractorsIndex({ contractors, filters: initialFilters = {} }: ContractorsIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         search: initialFilters.search || '',
         contractor_type: initialFilters.contractor_type || '',
@@ -48,7 +47,7 @@ export default function ContractorsIndex({ contractors, filters: initialFilters 
     });
 
     const handleSearch = (): void => {
-        get('/admin/infrastructure/contractors', {
+        router.get('/admin/infrastructure/contractors', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -73,18 +72,20 @@ export default function ContractorsIndex({ contractors, filters: initialFilters 
         return labels[type] || type;
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Contractors"
             description="Manage contractors and suppliers"
         >
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue={data.search}
                 onSearchChange={(value) => setData('search', value)}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder="Search by code, company name, or contact person..."
                 actionButtons={
                     <Button

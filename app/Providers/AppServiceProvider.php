@@ -57,5 +57,8 @@ class AppServiceProvider extends ServiceProvider
                 $this->loadMigrationsFrom($modulePath);
             }
         }
+
+        // Register Observers
+        \App\Models\ZoningApplication::observe(\App\Observers\ZoningApplicationObserver::class);
     }
 }

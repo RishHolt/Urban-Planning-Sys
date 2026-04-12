@@ -42,9 +42,11 @@ class RegisterRequest extends FormRequest
         ];
 
         // Only require reCAPTCHA if site key is configured
+        /* reCAPTCHA disabled
         if (config('services.recaptcha.site_key')) {
             $rules['g-recaptcha-response'] = ['required', 'string'];
         }
+        */
 
         return $rules;
     }
@@ -80,6 +82,7 @@ class RegisterRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             // Only verify captcha if site key is configured and token is provided
+            /* reCAPTCHA disabled
             if (config('services.recaptcha.site_key') && $this->has('g-recaptcha-response')) {
                 $recaptchaService = app(RecaptchaService::class);
                 $token = $this->input('g-recaptcha-response');
@@ -91,6 +94,7 @@ class RegisterRequest extends FormRequest
                     );
                 }
             }
+            */
         });
     }
 }

@@ -53,6 +53,8 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
+                'email' => $request->session()->get('email'),
+                'otp_code' => $request->session()->get('otp_code'),
             ],
             'csrf_token' => csrf_token(), // Share CSRF token for fetch requests
             'recaptcha_site_key' => config('services.recaptcha.site_key'),

@@ -6,12 +6,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    public function getConnection(): ?string
+    {
+        return 'zcs_db';
+    }
+
     /**
      * Run the migrations.
      */
     public function up(): void
     {
-        Schema::table('zones', function (Blueprint $table) {
+        Schema::connection('zcs_db')->table('zones', function (Blueprint $table) {
             $table->boolean('is_municipality')->default(false)->after('is_active');
             $table->index('is_municipality');
         });
@@ -22,7 +27,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('zones', function (Blueprint $table) {
+        Schema::connection('zcs_db')->table('zones', function (Blueprint $table) {
             $table->dropIndex(['is_municipality']);
             $table->dropColumn('is_municipality');
         });

@@ -53,9 +53,13 @@ export default function ZoneDetailsPanel({
         if (zone) {
             loadClassifications();
             setLabelValue(zone.label || '');
-            setIsEditingLabel(false);
+            setClassificationId(zone.zoning_classification_id || '');
+            setColor(zone.color || '#3388ff');
         }
     }, [zone]);
+
+    const [classificationId, setClassificationId] = useState('');
+    const [color, setColor] = useState('');
 
     const loadClassifications = async () => {
         try {
@@ -74,35 +78,35 @@ export default function ZoneDetailsPanel({
         );
     }
 
-    const handleColorChange = async (color: string) => {
-        if (!zone.classification) {
-            return;
-        }
-
-        setIsUpdatingClassification(true);
-        try {
-            await updateZoningClassification(zone.classification.id, { color });
-            // Update the zone's color in the parent component
-            onUpdate({ color });
-        } catch (error) {
-            console.error('Failed to update classification color:', error);
-        } finally {
-            setIsUpdatingClassification(false);
-        }
-    };
-
-    const handleAutoColor = async () => {
+    const handleAutoColor = () => {
         if (!zone.classification) {
             return;
         }
 
         const hslColor = generatePolygonColor(zone.code);
         const hexColor = hslToHex(hslColor);
-        await handleColorChange(hexColor);
+        setColor(hexColor);
     };
 
-    const handleClassificationChange = async (classificationId: string) => {
-        onUpdate({ zoning_classification_id: classificationId });
+    const handleUpdateDetails = async () => {
+        setIsUpdatingClassification(true);
+        try {
+            // Update classification globally if the color changed
+            if (zone.classification && color && color !== zone.color) {
+                await updateZoningClassification(zone.classification.id, { color });
+            }
+            
+            // Push all pending changes back to the map
+            onUpdate({ 
+                label: labelValue || null,
+                zoning_classification_id: classificationId,
+                color: color 
+            });
+        } catch (error) {
+            console.error('Failed to update zone details:', error);
+        } finally {
+            setIsUpdatingClassification(false);
+        }
     };
 
     return (
@@ -124,52 +128,16 @@ export default function ZoneDetailsPanel({
                 <label className="block mb-1 font-medium text-gray-700 dark:text-gray-300 text-sm">
                     Zone Label
                 </label>
-                {canEditLabel && isEditingLabel ? (
-                    <div className="flex items-center gap-2">
-                        <Input
-                            type="text"
-                            value={labelValue}
-                            onChange={(e) => setLabelValue(e.target.value)}
-                            placeholder="ZN-12345678"
-                            className="flex-1"
-                        />
-                        <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => {
-                                onUpdate({ label: labelValue || null });
-                                setIsEditingLabel(false);
-                            }}
-                        >
-                            Save
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                                setLabelValue(zone.label || '');
-                                setIsEditingLabel(false);
-                            }}
-                        >
-                            Cancel
-                        </Button>
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-2">
-                        <p className="flex-1 text-gray-900 dark:text-white text-sm">{zone.label || 'N/A'}</p>
-                        {canEditLabel && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setIsEditingLabel(true)}
-                            >
-                                <Edit size={14} />
-                            </Button>
-                        )}
-                    </div>
-                )}
+                <div className="flex items-center gap-2">
+                    <Input
+                        type="text"
+                        value={labelValue}
+                        onChange={(e) => setLabelValue(e.target.value)}
+                        placeholder="ZN-12345678"
+                        className="flex-1"
+                        disabled={!canEditLabel}
+                    />
+                </div>
             </div>
 
             <div>
@@ -191,8 +159,8 @@ export default function ZoneDetailsPanel({
                     Change Classification
                 </label>
                 <select
-                    value={zone.zoning_classification_id}
-                    onChange={(e) => handleClassificationChange(e.target.value)}
+                    value={classificationId}
+                    onChange={(e) => setClassificationId(e.target.value)}
                     className="bg-white dark:bg-dark-surface px-3 py-2 border border-gray-300 focus:border-transparent dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary w-full text-gray-900 dark:text-white text-sm"
                 >
                     {classifications.map((classification) => (
@@ -227,19 +195,19 @@ export default function ZoneDetailsPanel({
 
             <div>
                 <label className="block mb-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
-                    Color
+                    Classification Color
                 </label>
                 <div className="flex items-center gap-3">
                     <input
                         type="color"
-                        value={zone.color || '#3388ff'}
-                        onChange={(e) => handleColorChange(e.target.value)}
+                        value={color}
+                        onChange={(e) => setColor(e.target.value)}
                         className="border border-gray-300 dark:border-gray-600 rounded w-16 h-10 cursor-pointer"
                     />
                     <Input
                         type="text"
-                        value={zone.color || ''}
-                        onChange={(e) => handleColorChange(e.target.value)}
+                        value={color}
+                        onChange={(e) => setColor(e.target.value)}
                         placeholder="Color"
                         className="flex-1"
                     />
@@ -272,9 +240,19 @@ export default function ZoneDetailsPanel({
             </div>
 
             <div className="space-y-2 pt-4 border-gray-200 dark:border-gray-700 border-t">
+                <Button
+                    onClick={handleUpdateDetails}
+                    disabled={isUpdatingClassification}
+                    className="flex justify-center items-center gap-2 w-full"
+                >
+                    <Edit size={16} />
+                    {isUpdatingClassification ? 'Saving...' : 'Update Zone Details'}
+                </Button>
+
                 {!zone.has_geometry ? (
                     <Button
                         onClick={onDrawBoundaries}
+                        variant="outline"
                         className="flex justify-center items-center gap-2 w-full"
                     >
                         <MapPin size={16} />

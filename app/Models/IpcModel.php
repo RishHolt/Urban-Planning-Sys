@@ -11,5 +11,5 @@ abstract class IpcModel extends Model
      *
      * @var string|null
      */
-    protected $connection = 'ipc_db';
+    protected $connection = 'zcs_db';
 }

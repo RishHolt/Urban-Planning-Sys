@@ -26,7 +26,7 @@ export default function IssueClearance({ application }: IssueClearanceProps) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/clearances', {
+        post('/admin/zoning/clearances', {
             preserveScroll: true,
         });
     };

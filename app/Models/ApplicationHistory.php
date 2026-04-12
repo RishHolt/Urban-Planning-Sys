@@ -28,7 +28,9 @@ class ApplicationHistory extends ZcsModel
     protected $fillable = [
         'application_id',
         'status',
+        'event_type',
         'remarks',
+        'metadata',
         'updated_by',
         'updated_at',
     ];
@@ -42,7 +44,16 @@ class ApplicationHistory extends ZcsModel
     {
         return [
             'updated_at' => 'datetime',
+            'metadata' => 'array',
         ];
+    }
+
+    /**
+     * Get the user who updated the application.
+     */
+    public function updatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     /**

@@ -2,11 +2,22 @@ export interface Auth {
     user: User | null;
 }
 
+export interface FlashData {
+    message: string | null;
+    error: string | null;
+    status: string | null;
+    email?: string;
+    otp_code?: string;
+    type?: string;
+}
+
 export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
     csrf_token?: string;
+    flash: FlashData;
+    recaptcha_site_key?: string;
     [key: string]: unknown;
 }
 
@@ -41,7 +52,7 @@ export interface User {
     account_no: string | null;
     username: string | null;
     email: string;
-    role: 'user' | 'staff' | 'admin' | 'superadmin';
+    role: 'user' | 'staff' | 'admin' | 'super_admin';
     email_verified: boolean;
     email_verified_at: string | null;
     department: 'ZCS' | 'SBR' | 'HBR' | 'OMT' | 'IPC' | null;
@@ -53,3 +64,5 @@ export interface User {
     updated_at: string;
     [key: string]: unknown; // This allows for additional properties...
 }
+
+export type PageProps<T = Record<string, unknown>> = T & SharedData;

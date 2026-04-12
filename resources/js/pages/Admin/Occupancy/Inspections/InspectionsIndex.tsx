@@ -3,7 +3,7 @@ import { router, Link } from '@inertiajs/react';
 import AdminLayout from '../../../../components/AdminLayout';
 import AdminContentCard from '../../../../components/AdminContentCard';
 import Button from '../../../../components/Button';
-import { Plus, Search, Filter, Eye, ClipboardCheck, Calendar } from 'lucide-react';
+import { Plus, Search, Eye, ClipboardCheck, Calendar } from 'lucide-react';
 
 interface Inspection {
     id: number;
@@ -43,7 +43,6 @@ interface InspectionsIndexProps {
 }
 
 export default function InspectionsIndex({ inspections, filters = {} }: InspectionsIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const [search, setSearch] = useState(filters.search || '');
     const [inspectionType, setInspectionType] = useState(filters.inspection_type || '');
     const [result, setResult] = useState(filters.result || '');
@@ -100,18 +99,8 @@ export default function InspectionsIndex({ inspections, filters = {} }: Inspecti
 
                 {/* Filters */}
                 <AdminContentCard>
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="font-semibold text-gray-900 dark:text-white text-lg">Filters</h2>
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className="text-primary hover:underline"
-                        >
-                            <Filter className="inline mr-1 w-4 h-4" />
-                            {showFilters ? 'Hide' : 'Show'} Filters
-                        </button>
-                    </div>
+                    <h2 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">Filters</h2>
 
-                    {showFilters && (
                         <div className="gap-4 grid grid-cols-1 md:grid-cols-3">
                             <div>
                                 <label className="block mb-1 font-medium text-gray-700 dark:text-gray-300 text-sm">

@@ -31,7 +31,6 @@ interface ComplaintsIndexProps {
 }
 
 export default function ComplaintsIndex({ complaints, filters: initialFilters = {}, isAdmin = false }: ComplaintsIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         status: initialFilters.status || '',
         priority: initialFilters.priority || '',
@@ -141,6 +140,8 @@ export default function ComplaintsIndex({ complaints, filters: initialFilters = 
         </div>
     );
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <Layout
             title={isAdmin ? 'Complaints Management' : 'My Complaints'}
@@ -160,12 +161,12 @@ export default function ComplaintsIndex({ complaints, filters: initialFilters = 
             )}
 
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue=""
                 onSearchChange={() => {}}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder=""
                 hideSearch={true}
                 filterContent={

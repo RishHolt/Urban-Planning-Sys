@@ -29,9 +29,11 @@ class LoginRequest extends FormRequest
         ];
 
         // Only require captcha when not verifying OTP (code not present) and site key is configured
+        /* reCAPTCHA disabled
         if (! $this->has('code') && config('services.recaptcha.site_key')) {
             $rules['g-recaptcha-response'] = ['required', 'string'];
         }
+        */
 
         return $rules;
     }
@@ -58,6 +60,7 @@ class LoginRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             // Only verify captcha when not verifying OTP (code not present) and site key is configured
+            /* reCAPTCHA disabled
             if (config('services.recaptcha.site_key') && $this->has('g-recaptcha-response') && ! $this->input('code')) {
                 $recaptchaService = app(RecaptchaService::class);
                 $token = $this->input('g-recaptcha-response');
@@ -69,6 +72,7 @@ class LoginRequest extends FormRequest
                     );
                 }
             }
+            */
         });
     }
 }

@@ -24,17 +24,14 @@ class InspectionService
         try {
             $application = ZoningApplication::findOrFail($applicationId);
 
-            // Check if application already has an inspection
             if ($application->inspection) {
                 throw new \Exception('This application already has an inspection scheduled.');
             }
 
-            // Validate application is in a valid status for inspection
-            if (! in_array($application->status, ['for_inspection', 'under_review'])) {
+            if (! in_array($application->status, ['for_inspection', 'under_review'], true)) {
                 throw new \Exception('Application must be in "for_inspection" or "under_review" status to schedule an inspection.');
             }
 
-            // Create inspection
             $inspection = Inspection::create([
                 'application_id' => $applicationId,
                 'inspector_id' => $inspectorId,
@@ -43,21 +40,19 @@ class InspectionService
                 'inspection_status' => 'pending',
             ]);
 
-            // Update application status to 'for_inspection' if not already
             if ($application->status !== 'for_inspection') {
                 $application->update(['status' => 'for_inspection']);
             }
 
-            // Create history record
             ApplicationHistory::create([
                 'application_id' => $application->id,
+                'event_type' => 'status_change',
                 'status' => 'for_inspection',
-                'remarks' => "Inspection scheduled for {$scheduledDate}".($notes ? ". Notes: {$notes}" : ''),
-                'updated_by' => auth()->id(),
+                'remarks' => 'Inspection scheduled for '.$scheduledDate.($notes ? ". Notes: {$notes}" : ''),
+                'updated_by' => auth()->id() ?? $inspectorId,
                 'updated_at' => now(),
             ]);
 
-            // Notify inspector
             $inspector = User::find($inspectorId);
             if ($inspector) {
                 NotificationService::create(
@@ -70,7 +65,6 @@ class InspectionService
                 );
             }
 
-            // Notify applicant
             if ($application->user_id) {
                 NotificationService::create(
                     $application->user_id,
@@ -112,28 +106,26 @@ class InspectionService
                 'completed_at' => now(),
             ]);
 
-            // Update application status based on result
             $application = $inspection->clearanceApplication;
             if ($result === 'passed') {
                 $application->update(['status' => 'approved']);
                 $status = 'approved';
                 $remarks = 'Inspection passed. Ready for clearance issuance.';
             } else {
-                $application->update(['status' => 'denied']);
-                $status = 'denied';
+                $application->update(['status' => 'rejected']);
+                $status = 'rejected';
                 $remarks = 'Inspection failed: '.($findings ?? 'No findings provided');
             }
 
-            // Create history record
             ApplicationHistory::create([
                 'application_id' => $application->id,
+                'event_type' => 'status_change',
                 'status' => $status,
                 'remarks' => $remarks,
-                'updated_by' => auth()->id(),
+                'updated_by' => auth()->id() ?? $application->user_id,
                 'updated_at' => now(),
             ]);
 
-            // Notify applicant
             if ($application->user_id) {
                 NotificationService::create(
                     $application->user_id,

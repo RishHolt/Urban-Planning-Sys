@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ZoningApplicationResource;
+use App\Models\User;
 use App\Models\ZoningApplication;
+use App\Models\ZoningApplicationDocument;
 use App\Models\ZoningApplicationStatusHistory;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,49 +21,44 @@ class AdminZoningApplicationController extends Controller
     {
         $query = ZoningApplication::query();
 
-        // Search functionality
-        if ($request->has('search') && $request->search) {
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('application_number', 'like', "%{$search}%")
+                    ->orWhere('reference_no', 'like', "%{$search}%")
                     ->orWhere('applicant_name', 'like', "%{$search}%")
                     ->orWhere('company_name', 'like', "%{$search}%")
-                    ->orWhere('proposed_use', 'like', "%{$search}%");
+                    ->orWhere('proposed_use', 'like', "%{$search}%")
+                    ->orWhere('purpose', 'like', "%{$search}%");
             });
         }
 
-        // Filter by status
-        if ($request->has('status') && $request->status) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Filter by applicant type
-        if ($request->has('applicantType') && $request->applicantType) {
+        if ($request->filled('applicantType')) {
             $query->where('applicant_type', $request->applicantType);
         }
 
-        // Filter by municipality
-        if ($request->has('municipality') && $request->municipality) {
+        if ($request->filled('municipality')) {
             $query->where('municipality', 'like', "%{$request->municipality}%");
         }
 
-        // Filter by barangay
-        if ($request->has('barangay') && $request->barangay) {
+        if ($request->filled('barangay')) {
             $query->where('barangay', 'like', "%{$request->barangay}%");
         }
 
-        // Filter by date range
-        if ($request->has('dateFrom') && $request->dateFrom) {
+        if ($request->filled('dateFrom')) {
             $query->where('application_date', '>=', $request->dateFrom);
         }
-        if ($request->has('dateTo') && $request->dateTo) {
+        if ($request->filled('dateTo')) {
             $query->where('application_date', '<=', $request->dateTo);
         }
 
         $applications = $query->orderBy('created_at', 'desc')
             ->paginate(15);
 
-        // Manually transform the collection to preserve pagination structure for frontend
         $applications->getCollection()->transform(function ($application) {
             return (new ZoningApplicationResource($application))->resolve();
         });
@@ -87,13 +84,41 @@ class AdminZoningApplicationController extends Controller
     {
         $application = ZoningApplication::with([
             'documents.versions',
-            'statusHistory',
+            'statusHistory.changedBy.profile',
+            'history.updatedBy.profile',
             'externalVerifications',
             'zone',
         ])->findOrFail($id);
 
+        $inspectors = User::query()
+            ->where('is_active', true)
+            ->whereIn('role', ['admin', 'staff', 'super_admin'])
+            ->with('profile')
+            ->orderBy('email')
+            ->get()
+            ->map(static function (User $user): array {
+                $profile = $user->profile;
+                $name = '';
+                if ($profile) {
+                    $name = trim(implode(' ', array_filter([
+                        $profile->first_name,
+                        $profile->middle_name,
+                        $profile->last_name,
+                        $profile->suffix,
+                    ])));
+                }
+
+                return [
+                    'id' => $user->id,
+                    'name' => $name !== '' ? $name : $user->email,
+                ];
+            })
+            ->values()
+            ->all();
+
         return Inertia::render('Admin/Zoning/ApplicationDetails', [
             'application' => (new ZoningApplicationResource($application))->resolve(),
+            'inspectors' => $inspectors,
         ]);
     }
 
@@ -110,8 +135,7 @@ class AdminZoningApplicationController extends Controller
 
         $application = ZoningApplication::findOrFail($id);
         $oldStatus = $application->status;
-        
-        // Update application
+
         $application->update([
             'status' => $validated['status'],
             'notes' => $validated['notes'] ?? $application->notes,
@@ -120,7 +144,6 @@ class AdminZoningApplicationController extends Controller
             'reviewed_at' => now(),
         ]);
 
-        // If approved, set approval fields
         if ($validated['status'] === 'approved') {
             $application->update([
                 'approved_by' => auth()->id(),
@@ -128,7 +151,6 @@ class AdminZoningApplicationController extends Controller
             ]);
         }
 
-        // Create status history
         ZoningApplicationStatusHistory::create([
             'zoning_application_id' => $application->id,
             'status_from' => $oldStatus,
@@ -153,7 +175,6 @@ class AdminZoningApplicationController extends Controller
 
         $application = ZoningApplication::findOrFail($id);
 
-        // Only allow document requests for pending or under_review applications
         if (! in_array($application->status, ['pending', 'under_review'])) {
             return back()->withErrors([
                 'status' => 'Document requests can only be made for pending or under review applications.',
@@ -162,12 +183,10 @@ class AdminZoningApplicationController extends Controller
 
         $oldStatus = $application->status;
 
-        // Set status back to pending if it was under_review
         if ($application->status === 'under_review') {
             $application->update(['status' => 'pending']);
         }
 
-        // Create history record
         ZoningApplicationStatusHistory::create([
             'zoning_application_id' => $application->id,
             'status_from' => $oldStatus,
@@ -187,42 +206,43 @@ class AdminZoningApplicationController extends Controller
     {
         $query = ZoningApplication::query();
 
-        // Apply same filters as index
-        if ($request->has('search') && $request->search) {
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('application_number', 'like', "%{$search}%")
+                    ->orWhere('reference_no', 'like', "%{$search}%")
                     ->orWhere('applicant_name', 'like', "%{$search}%")
-                    ->orWhere('company_name', 'like', "%{$search}%");
+                    ->orWhere('company_name', 'like', "%{$search}%")
+                    ->orWhere('proposed_use', 'like', "%{$search}%")
+                    ->orWhere('purpose', 'like', "%{$search}%");
             });
         }
 
-        if ($request->has('status') && $request->status) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        if ($request->has('applicantType') && $request->applicantType) {
+        if ($request->filled('applicantType')) {
             $query->where('applicant_type', $request->applicantType);
         }
 
-        if ($request->has('municipality') && $request->municipality) {
+        if ($request->filled('municipality')) {
             $query->where('municipality', 'like', "%{$request->municipality}%");
         }
 
-        if ($request->has('barangay') && $request->barangay) {
+        if ($request->filled('barangay')) {
             $query->where('barangay', 'like', "%{$request->barangay}%");
         }
 
-        if ($request->has('dateFrom') && $request->dateFrom) {
+        if ($request->filled('dateFrom')) {
             $query->where('application_date', '>=', $request->dateFrom);
         }
-        if ($request->has('dateTo') && $request->dateTo) {
+        if ($request->filled('dateTo')) {
             $query->where('application_date', '<=', $request->dateTo);
         }
 
         $applications = $query->orderBy('created_at', 'desc')->get();
 
-        // Create CSV
         $filename = 'zoning_applications_'.date('Y-m-d_His').'.csv';
         $headers = [
             'Content-Type' => 'text/csv',
@@ -231,10 +251,10 @@ class AdminZoningApplicationController extends Controller
 
         $callback = function () use ($applications) {
             $file = fopen('php://output', 'w');
-            
-            // CSV Headers
+
             fputcsv($file, [
                 'Application Number',
+                'Reference No',
                 'Applicant Type',
                 'Applicant Name',
                 'Company Name',
@@ -244,28 +264,32 @@ class AdminZoningApplicationController extends Controller
                 'Municipality',
                 'Barangay',
                 'Lot Area',
+                'Lot Area Total',
                 'Application Type',
-                'Proposed Use',
+                'Project Type',
+                'Proposed Use / Purpose',
                 'Status',
                 'Application Date',
                 'Submitted At',
             ]);
 
-            // CSV Data
             foreach ($applications as $application) {
                 fputcsv($file, [
                     $application->application_number,
+                    $application->reference_no,
                     $application->applicant_type,
                     $application->applicant_name,
-                    $application->company_name,
+                    $application->company_name ?? '',
                     $application->applicant_email,
                     $application->applicant_contact,
                     $application->province,
                     $application->municipality,
                     $application->barangay,
                     $application->lot_area,
+                    $application->lot_area_total,
                     $application->application_type,
-                    $application->proposed_use,
+                    $application->project_type,
+                    $application->proposed_use ?? $application->purpose,
                     $application->status,
                     $application->application_date?->format('Y-m-d'),
                     $application->submitted_at?->format('Y-m-d H:i:s'),
@@ -277,6 +301,7 @@ class AdminZoningApplicationController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+
     /**
      * Approve a zoning document.
      */
@@ -325,12 +350,11 @@ class AdminZoningApplicationController extends Controller
         $application = ZoningApplication::findOrFail($id);
         $document = $application->documents()->findOrFail($documentId);
 
-        // Get all versions including parent and children
         $parentId = $document->parent_document_id ?: $document->id;
-        $versions = \App\Models\ZoningApplicationDocument::where(function($q) use ($parentId) {
-                $q->where('id', $parentId)
-                  ->orWhere('parent_document_id', $parentId);
-            })
+        $versions = ZoningApplicationDocument::where(function ($q) use ($parentId) {
+            $q->where('id', $parentId)
+                ->orWhere('parent_document_id', $parentId);
+        })
             ->orderBy('version', 'desc')
             ->get()
             ->map(function ($doc) {
@@ -340,7 +364,7 @@ class AdminZoningApplicationController extends Controller
                     'fileName' => $doc->file_name,
                     'fileSize' => $doc->file_size,
                     'status' => $doc->status,
-                    'url' => $doc->file_path ? asset('storage/' . $doc->file_path) : null,
+                    'url' => $doc->file_path ? asset('storage/'.$doc->file_path) : null,
                     'mimeType' => $doc->mime_type,
                     'isCurrent' => (bool) $doc->is_current,
                     'reviewedAt' => $doc->reviewed_at?->format('Y-m-d H:i:s'),

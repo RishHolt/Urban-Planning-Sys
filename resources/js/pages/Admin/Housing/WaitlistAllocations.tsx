@@ -48,7 +48,6 @@ export default function WaitlistAllocations({ waitlist, allocations, filters: in
     const [activeTab, setActiveTab] = useState<'waitlist' | 'allocations'>(
         (initialFilters.view as 'waitlist' | 'allocations') || 'waitlist'
     );
-    const [showFilters, setShowFilters] = useState(false);
 
     // Waitlist form
     const { data: waitlistData, setData: setWaitlistData, get: waitlistGet } = useForm({
@@ -161,6 +160,8 @@ export default function WaitlistAllocations({ waitlist, allocations, filters: in
         });
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Waitlist & Allocations"
@@ -201,12 +202,12 @@ export default function WaitlistAllocations({ waitlist, allocations, filters: in
             {activeTab === 'waitlist' && (
                 <>
                     <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                         searchValue=""
                         onSearchChange={() => {}}
                         onSearch={handleWaitlistSearch}
                         onReset={handleWaitlistReset}
-                        showFilters={showFilters}
-                        onToggleFilters={() => setShowFilters(!showFilters)}
                         searchPlaceholder=""
                         hideSearch={true}
                         filterContent={
@@ -355,12 +356,12 @@ export default function WaitlistAllocations({ waitlist, allocations, filters: in
             {activeTab === 'allocations' && (
                 <>
                     <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                         searchValue=""
                         onSearchChange={() => {}}
                         onSearch={handleAllocSearch}
                         onReset={handleAllocReset}
-                        showFilters={showFilters}
-                        onToggleFilters={() => setShowFilters(!showFilters)}
                         searchPlaceholder=""
                         hideSearch={true}
                         filterContent={

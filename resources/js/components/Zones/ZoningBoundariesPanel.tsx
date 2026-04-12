@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import Button from '../Button';
-import { Layers, ExternalLink } from 'lucide-react';
+import { Layers, ExternalLink, Edit2 } from 'lucide-react';
 
 interface ZoningBoundariesPanelProps {
     classifications: Array<{
@@ -12,11 +12,13 @@ interface ZoningBoundariesPanelProps {
         is_active: boolean;
     }>;
     zoningCounts: Record<string, number>;
+    onEditClassification?: (classification: any) => void;
 }
 
 export default function ZoningBoundariesPanel({ 
     classifications, 
-    zoningCounts 
+    zoningCounts,
+    onEditClassification
 }: ZoningBoundariesPanelProps) {
     return (
         <div className="space-y-6">
@@ -103,14 +105,26 @@ export default function ZoningBoundariesPanel({
                                                 {zoneCount} {zoneCount === 1 ? 'zone' : 'zones'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button
-                                                    onClick={() => router.visit(`/admin/zoning/map?classification=${classification.id}`)}
-                                                    className="text-primary hover:text-primary/80 p-1 rounded transition-colors flex items-center gap-1"
-                                                    title="View on Map"
-                                                >
-                                                    <ExternalLink size={16} />
-                                                    View
-                                                </button>
+                                                <div className="flex justify-end items-center gap-3">
+                                                    {onEditClassification && (
+                                                        <button
+                                                            onClick={() => onEditClassification(classification)}
+                                                            className="text-primary hover:text-primary/80 p-1 rounded transition-colors flex items-center gap-1"
+                                                            title="Edit Classification"
+                                                        >
+                                                            <Edit2 size={16} />
+                                                            Edit
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => router.visit(`/admin/zoning/map?classification=${classification.id}`)}
+                                                        className="text-primary hover:text-primary/80 p-1 rounded transition-colors flex items-center gap-1"
+                                                        title="View on Map"
+                                                    >
+                                                        <ExternalLink size={16} />
+                                                        View
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     );

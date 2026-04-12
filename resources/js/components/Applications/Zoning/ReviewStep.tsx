@@ -5,10 +5,12 @@ interface ReviewStepProps {
     data: {
         applicant_type: string;
         is_representative: boolean;
+        representative_name: string;
+        lot_owner: string;
+        lot_owner_contact_number: string;
+        lot_owner_contact_email: string;
         contact_number: string;
         contact_email: string;
-        tax_dec_ref_no: string;
-        barangay_permit_ref_no: string;
 
         pin_lat: number | null;
         pin_lng: number | null;
@@ -22,22 +24,27 @@ interface ReviewStepProps {
         project_type: string;
         building_type: string;
 
-        lot_owner: string;
+        tct_no: string;
+        tax_declaration_no: string;
         lot_area_total: number;
-        lot_area_used: number;
+        building_footprint_sqm: number | null;
         is_subdivision: boolean;
         subdivision_name: string;
         block_no: string;
         lot_no: string;
-        total_lots_planned: number | null;
-        has_subdivision_plan: boolean;
+        project_cost: number | null;
 
-        project_description: string;
-        existing_structure: string;
+        front_setback_m: number | null;
+        rear_setback_m: number | null;
+        side_setback_left_m: number | null;
+        side_setback_right_m: number | null;
         number_of_storeys: number | null;
         floor_area_sqm: number | null;
         number_of_units: number | null;
+        project_description: string;
         purpose: string;
+
+        assessed_fee: number;
     };
 }
 
@@ -55,35 +62,60 @@ export default function ReviewStep({ data }: ReviewStepProps) {
         return String(value);
     };
 
+    const formatCurrency = (value: number | null): string => {
+        if (!value) return 'Not provided';
+        return `₱ ${value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
     const reviewSections = useMemo(() => {
+        const applicantItems = [
+            { label: 'Applicant Type', value: (data.applicant_type || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
+        ];
+
+        if (data.applicant_type === 'representative') {
+            applicantItems.push(
+                { label: 'Representative Name', value: data.representative_name },
+                { label: 'Lot Owner / Title Holder', value: data.lot_owner },
+                { label: "Owner's Contact Number", value: data.lot_owner_contact_number },
+                { label: "Owner's Contact Email", value: data.lot_owner_contact_email },
+            );
+        } else {
+            applicantItems.push(
+                { label: data.applicant_type === 'corporation' ? 'Company / Organization Name' : 'Applicant Name', value: data.lot_owner },
+            );
+            if (data.applicant_type === 'corporation') {
+                applicantItems.push({ label: 'Representative Name', value: data.representative_name });
+            }
+        }
+
+        applicantItems.push(
+            { label: 'Contact Number', value: data.contact_number },
+            { label: 'Contact Email', value: data.contact_email },
+        );
+
         const sections = [
             {
                 title: 'Applicant Information',
-                items: [
-                    { label: 'Applicant Type', value: (data.applicant_type || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
-                    { label: 'Representative?', value: data.is_representative ? 'Yes' : 'No' },
-                    { label: 'Contact Number', value: data.contact_number },
-                    { label: 'Contact Email', value: data.contact_email },
-                    { label: 'Tax Dec Ref', value: data.tax_dec_ref_no },
-                    { label: 'Barangay Permit Ref', value: data.barangay_permit_ref_no },
-                ],
+                items: applicantItems,
             },
             {
                 title: 'Location & Project Classification',
                 items: [
                     { label: 'Address', value: data.lot_address },
-                    { label: 'Coordinates', value: data.pin_lat && data.pin_lng ? `${data.pin_lat}, ${data.pin_lng}` : 'Not selected' },
+                    { label: 'Coordinates', value: data.pin_lat && data.pin_lng ? `${data.pin_lat.toFixed(6)}, ${data.pin_lng.toFixed(6)}` : 'Not selected' },
                     { label: 'Land Use Type', value: (data.land_use_type || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
                     { label: 'Project Type', value: (data.project_type || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
                     { label: 'Building Type', value: data.building_type },
                 ],
             },
             {
-                title: 'Lot Details',
+                title: 'Lot & Title Information',
                 items: [
-                    { label: 'Lot Owner / Title Holder', value: data.lot_owner },
-                    { label: 'Total Lot Area', value: `${formatValue(data.lot_area_total)} sqm` },
-                    { label: 'Lot Area Used', value: `${formatValue(data.lot_area_used)} sqm` },
+                    { label: 'TCT No.', value: data.tct_no },
+                    { label: 'Tax Declaration No.', value: data.tax_declaration_no },
+                    { label: 'Total Lot Area', value: data.lot_area_total ? `${formatValue(data.lot_area_total)} sqm` : 'Not provided' },
+                    { label: 'Building Footprint', value: data.building_footprint_sqm ? `${formatValue(data.building_footprint_sqm)} sqm` : 'Not provided' },
+                    { label: 'Estimated Project Cost', value: formatCurrency(data.project_cost) },
                     ...(data.is_subdivision
                         ? [
                             { label: 'Subdivision Name', value: data.subdivision_name },
@@ -97,11 +129,20 @@ export default function ReviewStep({ data }: ReviewStepProps) {
                 title: 'Building & Structure Details',
                 items: [
                     { label: 'Number of Storeys', value: data.number_of_storeys },
-                    { label: 'Floor Area', value: `${formatValue(data.floor_area_sqm)} sqm` },
+                    { label: 'Total Floor Area', value: data.floor_area_sqm ? `${formatValue(data.floor_area_sqm)} sqm` : 'Not provided' },
                     { label: 'Number of Units', value: data.number_of_units },
-                    { label: 'Existing Structure', value: (data.existing_structure || 'none').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
+                    { label: 'Front Setback', value: data.front_setback_m ? `${data.front_setback_m} m` : 'Not provided' },
+                    { label: 'Rear Setback', value: data.rear_setback_m ? `${data.rear_setback_m} m` : 'Not provided' },
+                    { label: 'Side Setback (Left)', value: data.side_setback_left_m ? `${data.side_setback_left_m} m` : 'Not provided' },
+                    { label: 'Side Setback (Right)', value: data.side_setback_right_m ? `${data.side_setback_right_m} m` : 'Not provided' },
                     { label: 'Description', value: data.project_description },
                     { label: 'Purpose', value: data.purpose },
+                ],
+            },
+            {
+                title: 'Fee Assessment',
+                items: [
+                    { label: 'Assessed Fee', value: formatCurrency(data.assessed_fee) },
                 ],
             },
         ];

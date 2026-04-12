@@ -26,9 +26,17 @@ class StoreUserRequest extends FormRequest
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['nullable', 'string', Rule::in(['user', 'staff', 'admin', 'super_admin'])],
-            'role_ids' => ['nullable', 'array'],
-            'role_ids.*' => ['exists:roles,id'],
             'is_active' => ['nullable', 'boolean'],
+
+            // Profile fields
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'suffix' => ['nullable', 'string', 'max:10'],
+            'mobile_number' => ['required', 'string', 'max:20'],
+            'street' => ['required', 'string', 'max:255'],
+            'barangay' => ['required', 'string', 'max:255'],
+            'city' => ['required', 'string', 'max:255'],
         ];
     }
 }

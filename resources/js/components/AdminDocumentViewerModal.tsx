@@ -90,7 +90,7 @@ export default function AdminDocumentViewerModal({
     return (
         <>
             <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
+                className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm"
             >
                 <div
                     className="relative bg-white dark:bg-dark-surface rounded-lg shadow-xl max-w-7xl max-h-[90vh] w-full mx-4 overflow-hidden flex flex-col"

@@ -1,4 +1,4 @@
-import { FileText, Eye, CheckCircle2, XCircle, Clock, RotateCcw, Info } from 'lucide-react';
+import { FileText, Eye, CheckCircle2, XCircle, Clock, RotateCcw, Info, Download } from 'lucide-react';
 import Button from '@/components/Button';
 
 export type DocumentStatus = 'pending' | 'approved' | 'rejected' | 'under_review';
@@ -12,6 +12,8 @@ export interface Document {
     status: DocumentStatus;
     version: number;
     isCurrent: boolean;
+    url: string;
+    mimeType?: string;
     notes?: string | null;
     reviewedAt?: string | null;
     uploadedAt: string;
@@ -21,10 +23,11 @@ export interface Document {
 interface DocumentCardProps {
     document: Document;
     onView: () => void;
+    onDownload: () => void;
     onUploadNew?: () => void;
 }
 
-export default function DocumentCard({ document, onView, onUploadNew }: DocumentCardProps) {
+export default function DocumentCard({ document, onView, onDownload, onUploadNew }: DocumentCardProps) {
     const isApproved = document.status === 'approved';
     const isRejected = document.status === 'rejected';
     const isPending = document.status === 'pending';
@@ -50,10 +53,17 @@ export default function DocumentCard({ document, onView, onUploadNew }: Document
                     <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
                         <FileText className="text-primary" size={24} />
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 pt-1">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
                             v{document.version}
                         </span>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onDownload(); }}
+                            className="p-1 text-gray-400 hover:text-primary hover:bg-primary/5 rounded transition-all"
+                            title="Download Document"
+                        >
+                            <Download size={16} />
+                        </button>
                         {getStatusIcon()}
                     </div>
                 </div>
@@ -95,7 +105,7 @@ export default function DocumentCard({ document, onView, onUploadNew }: Document
                         onClick={onUploadNew}
                     >
                         <RotateCcw size={14} className="mr-2" />
-                        Re-upload Version {document.version + 1}
+                        Re-Upload
                     </Button>
                 )}
             </div>

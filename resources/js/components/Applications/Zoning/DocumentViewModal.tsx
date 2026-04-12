@@ -64,6 +64,16 @@ export default function DocumentViewModal({ document, applicationId, onClose, is
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.location.href = `/zoning-applications/${applicationId}/documents/${displayedDoc.id}/download`}
+                            className="flex items-center gap-2 font-bold text-sm px-4 h-10 rounded-full text-gray-500 hover:text-primary hover:bg-primary/5 transition-all"
+                            title="Download Document"
+                        >
+                            <Download size={18} />
+                            <span className="hidden sm:inline">Download</span>
+                        </Button>
                         {document.versions && document.versions.length > 1 && (
                             <Button
                                 variant="ghost"
@@ -72,7 +82,7 @@ export default function DocumentViewModal({ document, applicationId, onClose, is
                                 className={`flex items-center gap-2 font-bold text-sm px-4 h-10 rounded-full transition-all ${showHistory ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                             >
                                 <History size={18} />
-                                <span>Version History</span>
+                                <span className="hidden sm:inline">Version History</span>
                                 <ChevronRight size={14} className={`transition-transform duration-300 ${showHistory ? 'rotate-90' : ''}`} />
                             </Button>
                         )}
@@ -93,13 +103,13 @@ export default function DocumentViewModal({ document, applicationId, onClose, is
                         <div className="w-full h-full flex items-center justify-center">
                             {isImage ? (
                                 <img
-                                    src={`/storage/${displayedDoc.filePath}`}
+                                    src={displayedDoc.url}
                                     alt={displayedDoc.fileName}
                                     className="max-w-full max-h-full object-contain shadow-xl rounded"
                                 />
                             ) : isPDF ? (
                                 <iframe
-                                    src={`/storage/${displayedDoc.filePath}#toolbar=0`}
+                                    src={`${displayedDoc.url}#toolbar=0`}
                                     className="w-full h-full min-h-[500px] border-none rounded shadow-xl"
                                     title={displayedDoc.fileName}
                                 />

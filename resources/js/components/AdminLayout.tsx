@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link } from '@inertiajs/react';
 import AdminHeader from './AdminHeader';
 import Sidebar from './Sidebar';
@@ -33,13 +33,15 @@ export default function AdminLayout({
         return true;
     });
 
+    const toggleSidebar = useCallback(() => setSidebarOpen((o) => !o), []);
+
     if (variant === 'hero') {
         return (
             <div className="flex flex-col bg-background dark:bg-dark-bg w-full min-h-dvh transition-colors">
-                <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
-                <AdminHeader sidebarOpen={sidebarOpen} />
+                <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+                <AdminHeader sidebarOpen={sidebarOpen} onToggle={toggleSidebar} />
 
-                <main className={`flex-1 transition-all duration-300 ease-in-out ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
+                <main className={`flex-1 transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-[72px]'
                     } mt-16`}>
                     <section className="flex flex-col justify-center items-center py-20 md:py-32 w-full">
                         <div className="z-10 relative space-y-8 mx-auto px-4 max-w-7xl text-center">
@@ -61,10 +63,10 @@ export default function AdminLayout({
 
     return (
         <div className="flex flex-col bg-background dark:bg-dark-bg w-full min-h-dvh transition-colors">
-            <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
-            <AdminHeader sidebarOpen={sidebarOpen} />
+            <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+            <AdminHeader sidebarOpen={sidebarOpen} onToggle={toggleSidebar} />
 
-            <main className={`flex-1 transition-all duration-300 ease-in-out ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
+            <main className={`flex-1 transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-[72px]'
                 } mt-16`}>
                 <div className="mx-auto px-4 py-8 max-w-7xl">
                     {backButton && (

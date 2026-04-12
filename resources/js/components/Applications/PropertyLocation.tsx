@@ -25,6 +25,7 @@ interface PropertyLocationProps {
     // View mode props
     showMap?: boolean;
     readOnly?: boolean; // If true, location cannot be changed
+    mapBounds?: [[number, number], [number, number]];
 }
 
 export default function PropertyLocation({
@@ -43,6 +44,7 @@ export default function PropertyLocation({
     errors = {},
     showMap = true,
     readOnly = false,
+    mapBounds,
 }: PropertyLocationProps) {
     const [detectedZone, setDetectedZone] = useState<Zone | null>(zone || null);
     const [loadingZones, setLoadingZones] = useState(false);
@@ -82,7 +84,8 @@ export default function PropertyLocation({
                         // Populate structured address fields in the background
                         if (result.address.province) onAddressChange('province', result.address.province);
                         if (result.address.municipality) onAddressChange('municipality', result.address.municipality);
-                        if (result.address.barangay) onAddressChange('barangay', result.address.barangay);
+                        // Skip barangay if we have our own zones to detect it more accurately
+                        if (result.address.barangay && (!zones || zones.length === 0)) onAddressChange('barangay', result.address.barangay);
                         if (result.address.street) onAddressChange('street_name', result.address.street);
 
                         setGeocodingError(null);
@@ -168,11 +171,11 @@ export default function PropertyLocation({
                             {lotAddress || `${streetName}, ${barangay}, ${municipality}, ${province}`.replace(/^[ ,]+|[ ,]+$/g, '')}
                         </p>
                     </div>
-                    {detectedZone && (
+                    {(detectedZone?.name || detectedZone?.code) && (
                         <div>
                             <span className="block mb-1 text-gray-500 dark:text-gray-400 text-sm">Zone</span>
                             <p className="font-medium text-gray-900 dark:text-white text-sm">
-                                {detectedZone.name} ({detectedZone.code})
+                                {detectedZone.name} {detectedZone.code ? `(${detectedZone.code})` : ''}
                             </p>
                         </div>
                     )}
@@ -196,6 +199,7 @@ export default function PropertyLocation({
                     error={errors.pin_lat || errors.pin_lng}
                     zones={zones}
                     readOnly={readOnly}
+                    mapBounds={mapBounds}
                 />
                 {readOnly && (
                     <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">

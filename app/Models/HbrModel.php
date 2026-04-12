@@ -11,5 +11,5 @@ abstract class HbrModel extends Model
      *
      * @var string|null
      */
-    protected $connection = 'hbr_db';
+    protected $connection = 'zcs_db';
 }

@@ -1,6 +1,5 @@
 import { Link } from '@inertiajs/react';
 import Header from '../../../components/Header';
-import Footer from '../../../components/Footer';
 import Button from '../../../components/Button';
 import { ArrowLeft, FileText, MapPin, Calendar, CheckCircle, XCircle, Clock } from 'lucide-react';
 
@@ -342,7 +341,6 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     </div>
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

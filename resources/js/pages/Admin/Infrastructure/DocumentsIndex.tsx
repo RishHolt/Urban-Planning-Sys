@@ -3,7 +3,7 @@ import { useState } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import AdminContentCard from '../../../components/AdminContentCard';
 import Button from '../../../components/Button';
-import { Plus, FileText, Download, Trash2, Filter } from 'lucide-react';
+import { Plus, FileText, Download, Trash2 } from 'lucide-react';
 import { showSuccess, showError, showConfirm } from '../../../lib/swal';
 import { getCsrfToken } from '../../../data/services';
 
@@ -30,9 +30,8 @@ interface DocumentsIndexProps {
 
 export default function DocumentsIndex({ project, documents, filters: initialFilters = {} }: DocumentsIndexProps) {
     const [showUploadModal, setShowUploadModal] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
 
-    const { data, setData, post } = useForm({
+    const { data, setData, post, processing } = useForm({
         document: null as File | null,
         document_type: 'project_plan',
     });
@@ -128,16 +127,7 @@ export default function DocumentsIndex({ project, documents, filters: initialFil
                 label: 'Back to Project',
             }}
         >
-            <div className="mb-6 flex justify-between items-center">
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="flex items-center gap-2"
-                >
-                    <Filter size={18} />
-                    Filters
-                </Button>
+            <div className="mb-6 flex justify-end">
                 <Button
                     variant="primary"
                     size="sm"
@@ -150,7 +140,6 @@ export default function DocumentsIndex({ project, documents, filters: initialFil
             </div>
 
             {/* Filters */}
-            {showFilters && (
                 <AdminContentCard padding="md" className="mb-6">
                     <div>
                         <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -178,7 +167,6 @@ export default function DocumentsIndex({ project, documents, filters: initialFil
                         </Button>
                     </div>
                 </AdminContentCard>
-            )}
 
             <AdminContentCard padding="lg">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -281,8 +269,8 @@ export default function DocumentsIndex({ project, documents, filters: initialFil
                                 </div>
                             </div>
                             <div className="flex gap-3 mt-6">
-                                <Button type="submit" variant="primary" disabled={post.processing} className="flex-1">
-                                    {post.processing ? 'Uploading...' : 'Upload Document'}
+                                <Button type="submit" variant="primary" disabled={processing} className="flex-1">
+                                    {processing ? 'Uploading...' : 'Upload Document'}
                                 </Button>
                                 <Button
                                     type="button"

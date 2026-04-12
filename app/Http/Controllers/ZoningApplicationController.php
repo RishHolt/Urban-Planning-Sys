@@ -24,7 +24,7 @@ class ZoningApplicationController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = ZoningApplication::with(['zone'])
+        $query = ZoningApplication::with(['zone.classification'])
             ->where('user_id', Auth::id());
 
         // Filter by status if provided
@@ -51,7 +51,26 @@ class ZoningApplicationController extends Controller
     {
         $this->authorize('create', ZoningApplication::class);
 
-        return Inertia::render('Applications/ZoningApplication');
+        $classifications = \App\Models\ZoningClassification::select('id', 'name', 'code')
+            ->whereNotIn('code', ['BOUNDARY', 'BARANGAY'])
+            ->orderBy('name')
+            ->get();
+
+        $municipalBoundary = \App\Models\Zone::with('classification')
+            ->municipal()
+            ->first();
+
+        $barangayBoundaries = \App\Models\Zone::with('classification')
+            ->barangay()
+            ->orderBy('label', 'asc')
+            ->get()
+            ->map(fn ($zone) => \App\Helpers\ZoneFormatter::format($zone, false));
+
+        return Inertia::render('Applications/ZoningApplication', [
+            'classifications' => $classifications,
+            'municipalBoundary' => $municipalBoundary ? \App\Helpers\ZoneFormatter::format($municipalBoundary, false) : null,
+            'barangayBoundaries' => $barangayBoundaries,
+        ]);
     }
 
     /**
@@ -71,9 +90,10 @@ class ZoningApplicationController extends Controller
     public function show(string $id): Response
     {
         $application = ZoningApplication::with([
-            'zone',
+            'zone.classification',
             'documents.versions',
-            'history',
+            'history.updatedBy.profile',
+            'statusHistory.changedBy.profile',
             'externalVerifications',
             'inspection',
             'issuedClearance',
@@ -112,7 +132,7 @@ class ZoningApplicationController extends Controller
             }
 
             // Cache fee assessments for 1 hour
-            $cacheKey = 'fee_assessment_'.md5(json_encode($validated));
+            $cacheKey = 'fee_assessment_v2_'.md5(json_encode($validated));
             $assessment = \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function () use ($validated) {
                 return $this->feeAssessmentService->calculateZoningFee($validated);
             });

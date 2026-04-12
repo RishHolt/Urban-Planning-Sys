@@ -127,7 +127,7 @@ export default function InspectionsIndex({ inspections, inspectors = [], applica
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedInspection) {
-            put(`/inspections/${selectedInspection.id}`, {
+            put(`/admin/zoning/inspections/${selectedInspection.id}`, {
                 preserveScroll: true,
                 onSuccess: () => {
                     setShowRecordModal(false);
@@ -173,7 +173,7 @@ export default function InspectionsIndex({ inspections, inspectors = [], applica
         }
 
         // Submit the form - Inertia will handle the data conversion
-        scheduleForm.post('/inspections', {
+        scheduleForm.post('/admin/zoning/inspections', {
             preserveScroll: true,
             onSuccess: () => {
                 setShowScheduleModal(false);
@@ -191,12 +191,12 @@ export default function InspectionsIndex({ inspections, inspectors = [], applica
     };
 
     const handleViewDetails = async (inspectionId: number) => {
-        router.visit(`/inspections/${inspectionId}`);
+        router.visit(`/admin/zoning/inspections/${inspectionId}`);
     };
 
     const handleGenerateReport = async (inspectionId: number) => {
         try {
-            const response = await fetch(`/inspections/${inspectionId}/report`);
+            const response = await fetch(`/admin/zoning/inspections/${inspectionId}/report`);
             const data = await response.json();
             setReportData(data);
             setShowDetailModal(true);
@@ -208,7 +208,7 @@ export default function InspectionsIndex({ inspections, inspectors = [], applica
     const handleAddChecklistItem = (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedInspection) {
-            post(`/inspections/${selectedInspection.id}/checklist-items`, {
+            post(`/admin/zoning/inspections/${selectedInspection.id}/checklist-items`, {
                 preserveScroll: true,
                 onSuccess: () => {
                     checklistForm.reset();
@@ -220,7 +220,7 @@ export default function InspectionsIndex({ inspections, inspectors = [], applica
     const handleUpdateChecklistItem = async (itemId: number, status: string, notes?: string) => {
         if (selectedInspection) {
             try {
-                await fetch(`/inspections/${selectedInspection.id}/checklist-items/${itemId}`, {
+                await fetch(`/admin/zoning/inspections/${selectedInspection.id}/checklist-items/${itemId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -241,7 +241,7 @@ export default function InspectionsIndex({ inspections, inspectors = [], applica
     const handleUploadPhoto = (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedInspection) {
-            post(`/inspections/${selectedInspection.id}/photos`, {
+            post(`/admin/zoning/inspections/${selectedInspection.id}/photos`, {
                 preserveScroll: true,
                 forceFormData: true,
                 onSuccess: () => {
@@ -255,7 +255,7 @@ export default function InspectionsIndex({ inspections, inspectors = [], applica
     const handleUploadDocument = (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedInspection) {
-            post(`/inspections/${selectedInspection.id}/documents`, {
+            post(`/admin/zoning/inspections/${selectedInspection.id}/documents`, {
                 preserveScroll: true,
                 forceFormData: true,
                 onSuccess: () => {

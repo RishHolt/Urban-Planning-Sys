@@ -43,7 +43,6 @@ export default function ZonesIndex({
     barangayBoundaries = [],
     filters: initialFilters = {} 
 }: ZonesIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         search: initialFilters.search || '',
         status: initialFilters.status || '',
@@ -51,7 +50,7 @@ export default function ZonesIndex({
     });
 
     const handleSearch = (): void => {
-        get('/admin/zoning/zones', {
+        router.get('/admin/zoning/zones', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -140,6 +139,8 @@ export default function ZonesIndex({
         );
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <>
             <AdminLayout
@@ -150,12 +151,12 @@ export default function ZonesIndex({
                     {/* Zoning Zones Tab */}
                     <TabPanel tabId="zoning">
                         <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                             searchValue={data.search}
                             onSearchChange={(value) => setData('search', value)}
                             onSearch={handleSearch}
                             onReset={handleReset}
-                            showFilters={showFilters}
-                            onToggleFilters={() => setShowFilters(!showFilters)}
                             searchPlaceholder="Search by code, name, or label..."
                             actionButtons={
                                 <div className="flex items-center gap-2">

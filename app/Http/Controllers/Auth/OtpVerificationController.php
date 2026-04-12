@@ -30,9 +30,19 @@ class OtpVerificationController extends Controller
             return redirect()->route('login');
         }
 
+        $otpCode = null;
+        if (app()->environment('local')) {
+            $otpCode = EmailVerification::where('email', $email)
+                ->whereNull('verified_at')
+                ->where('expires_at', '>', now())
+                ->latest()
+                ->value('code');
+        }
+
         return Inertia::render('VerifyOtp', [
             'email' => $email,
             'type' => session('verification_type', 'registration'),
+            'otp_code' => $otpCode,
         ]);
     }
 

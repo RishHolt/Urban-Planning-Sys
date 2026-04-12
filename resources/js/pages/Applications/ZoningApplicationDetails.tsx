@@ -1,13 +1,13 @@
 import { Link, usePage } from '@inertiajs/react';
 import Header from '../../components/Header';
-import Footer from '../../components/Footer';
 import Button from '../../components/Button';
 import StatusBadge from '../../components/StatusBadge';
-import StatusHistory from '../../components/StatusHistory';
+import ApplicationTimeline from '../../components/StatusHistory';
 import PropertyLocation from '../../components/Applications/PropertyLocation';
 import RequirementManager from '../../components/Applications/Zoning/RequirementManager';
 import ApplicationDetailsTabs, { TabPanel } from '../../components/ApplicationDetailsTabs';
-import { ArrowLeft, CheckCircle, XCircle, Clock, FileText, Eye, Download, MapPin, Building, User, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, FileText, Eye, Download, MapPin, Building, User, Mail, Phone, Info, AlertTriangle } from 'lucide-react';
+import ComplianceReportView from '../../components/Applications/Zoning/ComplianceReportView';
 
 interface Document {
     id: number;
@@ -19,10 +19,11 @@ interface Document {
 }
 
 interface History {
-    id: number;
+    id: number | string;
     status: string;
-    remarks: string | null;
-    updatedBy?: number;
+    eventType: 'created' | 'updated' | 'status_change' | 'document_upload' | 'document_action' | 'document_request';
+    remarks: string;
+    performerName: string;
     updatedAt: string;
 }
 
@@ -74,12 +75,21 @@ interface Application {
     floorAreaSqm?: number | null;
     numberOfUnits?: number | null;
     purpose: string;
+    tctNo?: string | null;
+    projectCost?: number | null;
+    buildingFootprintSqm?: number | null;
+    frontSetbackM?: number | null;
+    rearSetbackM?: number | null;
+    sideSetbackLeftM?: number | null;
+    sideSetbackRightM?: number | null;
     zone?: any;
     documents: Document[];
     externalVerifications: ExternalVerification[];
     history: History[];
+    timeline: History[];
     submittedAt: string | null;
     createdAt: string;
+    compliance?: any;
 }
 
 interface ApplicationDetailsProps {
@@ -278,7 +288,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                     )}
                                 </div>
 
-                                <div className="mt-6 grid gap-4 md:grid-cols-3 pt-6 border-t border-gray-100 dark:border-gray-800">
+                                <div className="mt-6 grid gap-4 md:grid-cols-4 pt-6 border-t border-gray-100 dark:border-gray-800">
                                     <div>
                                         <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                                             No. of Storeys
@@ -293,9 +303,38 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                     </div>
                                     <div>
                                         <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Building Footprint
+                                        </label>
+                                        <p className="text-gray-900 dark:text-white">{application.buildingFootprintSqm ? `${application.buildingFootprintSqm.toLocaleString()} sqm` : 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                        <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                                             No. of Units
                                         </label>
                                         <p className="text-gray-900 dark:text-white">{application.numberOfUnits || 'N/A'}</p>
+                                    </div>
+                                </div>
+
+                                {/* Setbacks Section */}
+                                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Setbacks (meters)</h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                                        <div className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-dark-surface/50">
+                                            <p className="text-[10px] text-gray-500 uppercase">Front</p>
+                                            <p className="font-bold text-gray-900 dark:text-white">{application.frontSetbackM ?? '-'}</p>
+                                        </div>
+                                        <div className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-dark-surface/50">
+                                            <p className="text-[10px] text-gray-500 uppercase">Rear</p>
+                                            <p className="font-bold text-gray-900 dark:text-white">{application.rearSetbackM ?? '-'}</p>
+                                        </div>
+                                        <div className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-dark-surface/50">
+                                            <p className="text-[10px] text-gray-500 uppercase">Left</p>
+                                            <p className="font-bold text-gray-900 dark:text-white">{application.sideSetbackLeftM ?? '-'}</p>
+                                        </div>
+                                        <div className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-dark-surface/50">
+                                            <p className="text-[10px] text-gray-500 uppercase">Right</p>
+                                            <p className="font-bold text-gray-900 dark:text-white">{application.sideSetbackRightM ?? '-'}</p>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -318,6 +357,11 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                     </div>
                                 )}
                             </section>
+
+                            {/* Compliance Analysis */}
+                            {application.compliance && (
+                                <ComplianceReportView compliance={application.compliance} />
+                            )}
 
                             {/* Applicant and Owner Details */}
                             <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
@@ -573,38 +617,25 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
 
                                 {/* Required Documents Tab */}
                                 <TabPanel tabId="required_documents" status={documentStatus}>
-                                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
-                                            <FileText size={20} />
-                                            Required Documents
-                                        </h2>
-                                        <RequirementManager
-                                            applicationId={application.id.toString()}
-                                            documents={application.documents as any[]}
-                                            applicantType={application.applicantType}
-                                            isRepresentative={application.isRepresentative}
-                                        />
-                                    </section>
+                                    <RequirementManager
+                                        applicationId={application.id.toString()}
+                                        documents={application.documents as any[]}
+                                        applicantType={application.applicantType}
+                                        isRepresentative={application.isRepresentative}
+                                    />
                                 </TabPanel>
 
                                 {/* Status History Tab */}
                                 <TabPanel tabId="status_history">
                                     {/* Status History */}
-                            {application.history && application.history.length > 0 && (
+                            {application.timeline && application.timeline.length > 0 && (
                                 <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
                                     <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
                                         <Clock size={20} />
-                                        Status History
+                                        Application Timeline
                                     </h2>
-                                    <StatusHistory
-                                        history={application.history.map((h) => ({
-                                            id: h.id,
-                                            statusFrom: null,
-                                            statusTo: h.status,
-                                            changedBy: h.updatedBy ?? 0,
-                                            notes: h.remarks,
-                                            createdAt: h.updatedAt,
-                                        }))}
+                                    <ApplicationTimeline
+                                        items={application.timeline}
                                     />
                                 </section>
                                 )}
@@ -650,22 +681,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                     <Clock size={18} />
                                     Timeline
                                 </h2>
-                                <div className="space-y-3 text-sm">
-                                    <div>
-                                        <label className="block mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
-                                            Created
-                                        </label>
-                                        <p className="text-gray-900 dark:text-white">{formatDate(application.createdAt)}</p>
-                                    </div>
-                                    {application.submittedAt && (
-                                        <div>
-                                            <label className="block mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
-                                                Submitted
-                                            </label>
-                                            <p className="text-gray-900 dark:text-white">{formatDate(application.submittedAt)}</p>
-                                        </div>
-                                    )}
-                                </div>
+                                <ApplicationTimeline items={application.timeline || []} />
                             </section>
 
                             {/* Rejection Reason */}
@@ -682,7 +698,6 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     </div>
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

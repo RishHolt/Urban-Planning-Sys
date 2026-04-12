@@ -4,13 +4,14 @@ import AdminLayout from '../../../components/AdminLayout';
 import Button from '../../../components/Button';
 import AdminDocumentViewerModal from '../../../components/AdminDocumentViewerModal';
 import VersionHistoryModal from '../../../components/VersionHistoryModal';
-import StatusHistory from '../../../components/StatusHistory';
+import ApplicationTimeline from '../../../components/StatusHistory';
 import RequirementManager from '../../../components/Applications/Zoning/RequirementManager';
 import PropertyLocation from '../../../components/Applications/PropertyLocation';
 import StatusBadge from '../../../components/StatusBadge';
 import ApplicationDetailsTabs, { TabPanel } from '../../../components/ApplicationDetailsTabs';
 import { showDocumentApproved, showDocumentRejected, showError, showNotesRequired } from '../../../lib/swal';
 import { getCsrfToken } from '../../../data/services';
+import Select from '../../../components/Select';
 import {
     ArrowLeft,
     FileText,
@@ -25,8 +26,11 @@ import {
     Download,
     Eye,
     File,
-    Info
+    Info,
+    ClipboardCheck
 } from 'lucide-react';
+import ComplianceReportView from '../../../components/Applications/Zoning/ComplianceReportView';
+import InspectionManager from '../../../components/Applications/Zoning/InspectionManager';
 
 interface Document {
     id: number;
@@ -41,13 +45,14 @@ interface Document {
     version?: number;
 }
 
-interface StatusHistoryEntry {
-    id: number;
-    statusFrom: string | null;
-    statusTo: string;
-    changedBy: number;
-    notes: string | null;
-    createdAt: string;
+interface TimelineItem {
+    id: number | string;
+    status: string;
+    eventType: 'created' | 'updated' | 'status_change' | 'document_upload' | 'document_action' | 'document_request';
+    remarks: string;
+    metadata?: any;
+    performerName: string;
+    updatedAt: string;
 }
 
 interface ExternalVerification {
@@ -108,17 +113,30 @@ interface Application {
     reviewedAt: string | null;
     approvedBy: number | null;
     approvedAt: string | null;
+    tctNo: string | null;
+    projectCost: number | null;
+    buildingFootprintSqm: number | null;
+    frontSetbackM: number | null;
+    rearSetbackM: number | null;
+    sideSetbackLeftM: number | null;
+    sideSetbackRightM: number | null;
+    hasSubdivisionPlan: boolean;
+    totalLotsPlanned: number | null;
     documents: Document[];
-    statusHistory: StatusHistoryEntry[];
+    statusHistory: TimelineItem[];
+    timeline: TimelineItem[];
+    inspections?: any[];
     externalVerifications?: ExternalVerification[];
     zone?: any;
+    compliance?: any;
 }
 
 interface ApplicationDetailsProps {
     application: Application;
+    inspectors?: Array<{ id: number; name: string }>;
 }
 
-export default function ApplicationDetails({ application }: ApplicationDetailsProps) {
+export default function ApplicationDetails({ application, inspectors = [] }: ApplicationDetailsProps) {
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
 
     const [viewingDocument, setViewingDocument] = useState<{
@@ -168,6 +186,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
             onSuccess: () => {
                 setUpdatingStatus(false);
                 setStatusForm(prev => ({ ...prev, notes: '' }));
+                router.reload({ only: ['application'] });
             },
             onError: () => setUpdatingStatus(false),
         });
@@ -435,9 +454,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                     </p>
                                 </div>
                             )}
-                        </div>
-
-                        <div className="mt-6 grid gap-4 md:grid-cols-3 pt-6 border-t border-gray-100 dark:border-gray-800">
+                        </div>                        <div className="mt-6 grid gap-4 md:grid-cols-4 pt-6 border-t border-gray-100 dark:border-gray-800">
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                                     No. of Storeys
@@ -452,14 +469,43 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             </div>
                             <div>
                                 <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Building Footprint
+                                </label>
+                                <p className="text-gray-900 dark:text-white">{application.buildingFootprintSqm ? `${application.buildingFootprintSqm.toLocaleString()} sqm` : 'N/A'}</p>
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                                     No. of Units
                                 </label>
                                 <p className="text-gray-900 dark:text-white">{application.numberOfUnits || 'N/A'}</p>
                             </div>
                         </div>
 
+                        {/* Setbacks Overlay */}
+                        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Setbacks (meters)</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                                <div className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-dark-surface/50">
+                                    <p className="text-[10px] text-gray-500 uppercase">Front</p>
+                                    <p className="font-bold text-gray-900 dark:text-white">{application.frontSetbackM ?? '-'}</p>
+                                </div>
+                                <div className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-dark-surface/50">
+                                    <p className="text-[10px] text-gray-500 uppercase">Rear</p>
+                                    <p className="font-bold text-gray-900 dark:text-white">{application.rearSetbackM ?? '-'}</p>
+                                </div>
+                                <div className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-dark-surface/50">
+                                    <p className="text-[10px] text-gray-500 uppercase">Left</p>
+                                    <p className="font-bold text-gray-900 dark:text-white">{application.sideSetbackLeftM ?? '-'}</p>
+                                </div>
+                                <div className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-dark-surface/50">
+                                    <p className="text-[10px] text-gray-500 uppercase">Right</p>
+                                    <p className="font-bold text-gray-900 dark:text-white">{application.sideSetbackRightM ?? '-'}</p>
+                                </div>
+                            </div>
+                        </div>
+
                         {application.projectDescription && (
-                            <div className="mt-6">
+                            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
                                 <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Project Description
                                 </label>
@@ -476,11 +522,72 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                         )}
                     </section>
 
+                    {/* Compliance Analysis */}
+                    {application.compliance && (
+                        <ComplianceReportView compliance={application.compliance} />
+                    )}
+
+                    {/* Lot & Title Information */}
+                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white text-xl">
+                                <FileText size={20} />
+                                Lot & Title Information
+                            </h2>
+                            {application.projectCost && (
+                                <div className="text-right">
+                                    <p className="text-xs text-gray-500 uppercase font-medium">Est. Project Cost</p>
+                                    <p className="text-accent font-bold">₱{Number(application.projectCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="grid gap-6 md:grid-cols-2">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block mb-1 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        TCT / Title Number
+                                    </label>
+                                    <p className="font-mono text-gray-900 dark:text-white text-lg font-bold">
+                                        {application.tctNo || 'N/A'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                        Tax Declaration No.
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white font-mono">
+                                        {application.taxDecRefNo || 'N/A'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="space-y-4 md:pl-6 md:border-l border-gray-100 dark:border-gray-800">
+                                <div>
+                                    <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                        Total Lot Area
+                                    </label>
+                                    <p className="text-gray-900 dark:text-white font-bold text-lg">
+                                        {application.lotAreaTotal?.toLocaleString()} sqm
+                                    </p>
+                                </div>
+                                {application.lotAreaUsed && (
+                                    <div>
+                                        <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                            Area to be Used
+                                        </label>
+                                        <p className="text-gray-900 dark:text-white">
+                                            {application.lotAreaUsed?.toLocaleString()} sqm
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </section>
+
                     {/* Applicant & Property Owner */}
                     <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
                         <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
                             <User size={20} />
-                            Applicant & Property Owner
+                            {application.isRepresentative ? 'Applicant & Property Owner' : 'Owner & Applicant Details'}
                         </h2>
                         <div className="grid gap-6 md:grid-cols-2">
                             <div className="space-y-4">
@@ -492,46 +599,59 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                         {application.lotOwner}
                                     </p>
                                 </div>
-                                {application.lotOwnerContactNumber && (
-                                    <div>
-                                        <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
-                                            Owner Contact Number
-                                        </label>
-                                        <p className="text-gray-900 dark:text-white flex items-center gap-2">
-                                            <Phone size={14} className="text-gray-400" />
-                                            {application.lotOwnerContactNumber}
-                                        </p>
-                                    </div>
-                                )}
-                                {application.lotOwnerContactEmail && (
-                                    <div>
-                                        <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
-                                            Owner Contact Email
-                                        </label>
-                                        <p className="text-gray-900 dark:text-white flex items-center gap-2">
-                                            <Mail size={14} className="text-gray-400" />
-                                            {application.lotOwnerContactEmail}
-                                        </p>
-                                    </div>
-                                )}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {application.lotOwnerContactNumber && (
+                                        <div>
+                                            <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                                Contact Number
+                                            </label>
+                                            <p className="text-gray-900 dark:text-white flex items-center gap-2">
+                                                <Phone size={14} className="text-gray-400" />
+                                                {application.lotOwnerContactNumber}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {application.lotOwnerContactEmail && (
+                                        <div>
+                                            <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                                Contact Email
+                                            </label>
+                                            <p className="text-gray-900 dark:text-white flex items-center gap-2">
+                                                <Mail size={14} className="text-gray-400" />
+                                                {application.lotOwnerContactEmail}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="space-y-4 pt-4 md:pt-0 md:pl-6 md:border-l border-gray-100 dark:border-gray-800">
                                 <div>
                                     <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
-                                        Application Filed By
+                                        Submission Type
                                     </label>
-                                    <p className="text-gray-900 dark:text-white capitalize">
-                                        {application.isRepresentative ? 'Authorized Representative' : 'Self / Lot Owner'}
+                                    <p className="text-gray-900 dark:text-white flex items-center gap-2">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${application.isRepresentative ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>
+                                            {application.isRepresentative ? 'Filed by Representative' : 'Filed by Owner'}
+                                        </span>
                                     </p>
                                 </div>
-                                {application.isRepresentative && application.representativeName && (
+                                
+                                {application.isRepresentative ? (
+                                    application.representativeName && (
+                                        <div>
+                                            <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                                Authorized Representative
+                                            </label>
+                                            <p className="text-gray-900 dark:text-white font-medium">
+                                                {application.representativeName}
+                                            </p>
+                                        </div>
+                                    )
+                                ) : (
                                     <div>
-                                        <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
-                                            Representative Name
-                                        </label>
-                                        <p className="text-gray-900 dark:text-white font-medium">
-                                            {application.representativeName}
+                                        <p className="text-gray-500 text-sm italic">
+                                            The owner submitted this application personally. No representative involved.
                                         </p>
                                     </div>
                                 )}
@@ -562,7 +682,7 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                         {application.isSubdivision && (
                             <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
                                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Subdivision Details</h4>
-                                <div className="grid gap-3 md:grid-cols-3">
+                                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                                     {application.subdivisionName && (
                                         <div>
                                             <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
@@ -587,6 +707,20 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                             <p className="text-gray-900 dark:text-white">{application.lotNo}</p>
                                         </div>
                                     )}
+                                    {application.totalLotsPlanned && (
+                                        <div>
+                                            <label className="block mb-1 text-xs font-medium text-gray-500 uppercase">
+                                                Total Lots Planned
+                                            </label>
+                                            <p className="text-gray-900 dark:text-white font-bold">{application.totalLotsPlanned}</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="mt-4 flex items-center gap-2">
+                                    <span className={`h-2 w-2 rounded-full ${application.hasSubdivisionPlan ? 'bg-green-500' : 'bg-gray-300'}`} />
+                                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                                        {application.hasSubdivisionPlan ? 'Subdivision Plan Provided' : 'No Subdivision Plan Included'}
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -669,18 +803,21 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
 
                         {/* Required Documents Tab */}
                         <TabPanel tabId="required_documents" status={documentStatus}>
-                            <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                                <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-xl">
-                                    <FileText size={20} />
-                                    Required Documents
-                                </h2>
-                                <RequirementManager
-                                    applicationId={application.id}
-                                    documents={application.documents as any[]}
-                                    applicantType={application.applicantType}
-                                    isRepresentative={application.isRepresentative}
-                                />
-                            </section>
+                            <RequirementManager
+                                applicationId={application.id}
+                                documents={application.documents as any[]}
+                                applicantType={application.applicantType}
+                                isRepresentative={application.isRepresentative}
+                            />
+                        </TabPanel>
+
+                        {/* Inspection Tab (Internal) */}
+                        <TabPanel tabId="inspections" status={application.inspections?.some(i => i.inspection_status === 'pending') ? 'yellow' : undefined}>
+                            <InspectionManager 
+                                applicationId={application.id} 
+                                inspections={application.inspections || []} 
+                                inspectors={inspectors} 
+                            />
                         </TabPanel>
                     </ApplicationDetailsTabs>
                 </div>
@@ -693,20 +830,18 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                             Admin Actions
                         </h2>
                         <div className="space-y-4">
-                            <div>
-                                <label className="block mb-1 text-xs font-bold text-gray-500 uppercase">Update Status</label>
-                                <select
-                                    className="w-full p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"
+                                <Select
+                                    label="Update Status"
                                     value={statusForm.status}
                                     onChange={(e) => setStatusForm({ ...statusForm, status: e.target.value as any })}
                                 >
                                     <option value="pending">Pending</option>
                                     <option value="under_review">Under Review</option>
                                     <option value="for_inspection">For Inspection</option>
+                                    <option value="for_approval">For Approval</option>
                                     <option value="approved">Approved</option>
                                     <option value="rejected">Rejected</option>
-                                </select>
-                            </div>
+                                </Select>
 
                             {statusForm.status === 'rejected' && (
                                 <div>
@@ -756,47 +891,14 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     </section>
 
                     {/* Timeline Summary */}
-                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-lg">
-                            <Clock size={18} />
-                            Timeline
-                        </h2>
-                        <div className="space-y-4 text-sm">
-                            <div>
-                                <label className="block text-gray-500 dark:text-gray-400">Created</label>
-                                <p className="font-medium text-gray-900 dark:text-white">{formatDate(application.createdAt)}</p>
-                            </div>
-                            {application.submittedAt && (
-                                <div>
-                                    <label className="block text-gray-500 dark:text-gray-400">Submitted</label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{formatDate(application.submittedAt)}</p>
-                                </div>
-                            )}
-                            {application.reviewedAt && (
-                                <div>
-                                    <label className="block text-gray-500 dark:text-gray-400">Reviewed</label>
-                                    <p className="font-medium text-gray-900 dark:text-white">{formatDate(application.reviewedAt)}</p>
-                                </div>
-                            )}
-                        </div>
-                    </section>
 
-                    {/* Status History */}
+                    {/* Application Timeline */}
                     <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                        <h2 className="flex items-center gap-2 mb-4 font-semibold text-gray-900 dark:text-white text-lg">
-                            <Clock size={18} />
-                            Action History
+                        <h2 className="flex items-center gap-2 mb-6 font-semibold text-gray-900 dark:text-white text-lg border-b border-gray-100 dark:border-gray-800 pb-4">
+                            <Clock size={18} className="text-primary" />
+                            Application Timeline
                         </h2>
-                        <StatusHistory
-                            history={application.statusHistory?.map(h => ({
-                                id: h.id,
-                                statusFrom: h.statusFrom,
-                                statusTo: h.statusTo,
-                                changedBy: h.changedBy,
-                                notes: h.notes,
-                                createdAt: h.createdAt
-                            })) || []}
-                        />
+                        <ApplicationTimeline items={application.timeline || []} />
                     </section>
                 </div>
             </div>

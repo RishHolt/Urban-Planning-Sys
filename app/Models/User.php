@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -66,41 +65,22 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the roles assigned to the user.
-     */
-    public function roles(): BelongsToMany
-    {
-        return $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id')
-            ->withPivot('created_at');
-    }
-
-    /**
      * Check if the user has access to a specific module.
-     * Checks both enum role and dynamic roles.
+     * Checks enum role.
      */
     public function hasModuleAccess(string $moduleCode): bool
     {
         // Super admin and admin have access to all modules
-        if (in_array($this->role, ['super_admin', 'admin'])) {
+        if (in_array($this->role, ['super_admin', 'admin', 'staff'])) {
             return true;
         }
 
-        // Staff also have access to all modules
-        if ($this->role === 'staff') {
-            return true;
-        }
-
-        // Check dynamic roles for module access
-        return $this->roles()
-            ->whereHas('modules', function ($query) use ($moduleCode) {
-                $query->where('code', $moduleCode);
-            })
-            ->exists();
+        return false;
     }
 
     /**
      * Check if the user has any of the specified roles.
-     * Checks both enum role and dynamic roles.
+     * Checks enum role.
      *
      * @param  array<string>|string  $roleNames
      */
@@ -109,13 +89,6 @@ class User extends Authenticatable
         $roleNames = is_array($roleNames) ? $roleNames : [$roleNames];
 
         // Check enum role
-        if (in_array($this->role, $roleNames)) {
-            return true;
-        }
-
-        // Check dynamic roles
-        return $this->roles()
-            ->whereIn('name', $roleNames)
-            ->exists();
+        return in_array($this->role, $roleNames);
     }
 }

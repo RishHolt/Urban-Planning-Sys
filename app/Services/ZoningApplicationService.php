@@ -113,9 +113,9 @@ class ZoningApplicationService
                 'project_description' => $data['project_description'],
                 'purpose' => $data['purpose'],
 
-                // Prerequisites
-                'tax_dec_ref_no' => $data['tax_dec_ref_no'],
-                'barangay_permit_ref_no' => $data['barangay_permit_ref_no'],
+                // Prerequisites (Map from frontend field names if necessary)
+                'tax_dec_ref_no' => $data['tax_declaration_no'] ?? $data['tax_dec_ref_no'] ?? null,
+                'barangay_permit_ref_no' => $data['barangay_permit_ref_no'] ?? null,
 
                 // Subdivision Info
                 'is_subdivision' => $data['is_subdivision'],
@@ -138,6 +138,15 @@ class ZoningApplicationService
                 'assessed_fee' => $assessedFee,
                 'status' => 'pending',
                 'submitted_at' => now(),
+
+                // Missing fields from prev application
+                'tct_no' => $data['tct_no'] ?? null,
+                'project_cost' => $data['project_cost'] ?? null,
+                'building_footprint_sqm' => $data['building_footprint_sqm'] ?? null,
+                'front_setback_m' => $data['front_setback_m'] ?? null,
+                'rear_setback_m' => $data['rear_setback_m'] ?? null,
+                'side_setback_left_m' => $data['side_setback_left_m'] ?? null,
+                'side_setback_right_m' => $data['side_setback_right_m'] ?? null,
             ]);
 
             // Run verifications
@@ -208,29 +217,36 @@ class ZoningApplicationService
      */
     protected function verifyPrerequisites(ZoningApplication $application, array $data): void
     {
+        $taxDecRefNo = $data['tax_declaration_no'] ?? $data['tax_dec_ref_no'] ?? null;
+        $barangayPermitRefNo = $data['barangay_permit_ref_no'] ?? null;
+
         // Verify Tax Declaration
-        $taxDecVerification = $this->treasuryService->verifyTaxDeclaration($data['tax_dec_ref_no']);
-        ExternalVerification::create([
-            'application_id' => $application->id,
-            'verification_type' => 'tax_declaration',
-            'reference_no' => $data['tax_dec_ref_no'],
-            'status' => $taxDecVerification['verified'] ? 'verified' : 'failed',
-            'response_data' => $taxDecVerification['data'],
-            'external_system' => 'Treasury',
-            'verified_at' => $taxDecVerification['verified'] ? now() : null,
-        ]);
+        if ($taxDecRefNo) {
+            $taxDecVerification = $this->treasuryService->verifyTaxDeclaration($taxDecRefNo);
+            ExternalVerification::create([
+                'application_id' => $application->id,
+                'verification_type' => 'tax_declaration',
+                'reference_no' => $taxDecRefNo,
+                'status' => $taxDecVerification['verified'] ? 'verified' : 'failed',
+                'response_data' => $taxDecVerification['data'],
+                'external_system' => 'Treasury',
+                'verified_at' => $taxDecVerification['verified'] ? now() : null,
+            ]);
+        }
 
         // Verify Barangay Permit
-        $barangayPermitVerification = $this->permitLicensingService->verifyBarangayPermit($data['barangay_permit_ref_no']);
-        ExternalVerification::create([
-            'application_id' => $application->id,
-            'verification_type' => 'barangay_permit',
-            'reference_no' => $data['barangay_permit_ref_no'],
-            'status' => $barangayPermitVerification['verified'] ? 'verified' : 'failed',
-            'response_data' => $barangayPermitVerification['data'],
-            'external_system' => 'Permit & Licensing',
-            'verified_at' => $barangayPermitVerification['verified'] ? now() : null,
-        ]);
+        if ($barangayPermitRefNo) {
+            $barangayPermitVerification = $this->permitLicensingService->verifyBarangayPermit($barangayPermitRefNo);
+            ExternalVerification::create([
+                'application_id' => $application->id,
+                'verification_type' => 'barangay_permit',
+                'reference_no' => $barangayPermitRefNo,
+                'status' => $barangayPermitVerification['verified'] ? 'verified' : 'failed',
+                'response_data' => $barangayPermitVerification['data'],
+                'external_system' => 'Permit & Licensing',
+                'verified_at' => $barangayPermitVerification['verified'] ? now() : null,
+            ]);
+        }
     }
 
     /**

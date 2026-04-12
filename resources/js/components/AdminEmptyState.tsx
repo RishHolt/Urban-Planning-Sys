@@ -5,7 +5,7 @@ interface AdminEmptyStateProps {
     icon: LucideIcon;
     title: string;
     description: string;
-    action?: {
+    action?: React.ReactNode | {
         label: string;
         onClick: () => void;
     };
@@ -17,6 +17,20 @@ export default function AdminEmptyState({
     description,
     action,
 }: AdminEmptyStateProps) {
+    const renderAction = () => {
+        if (!action) return null;
+
+        if (typeof action === 'object' && 'label' in action && 'onClick' in action) {
+            return (
+                <Button variant="primary" onClick={action.onClick}>
+                    {action.label}
+                </Button>
+            );
+        }
+
+        return action as React.ReactNode;
+    };
+
     return (
         <div className="text-center py-12">
             <Icon size={64} className="mx-auto mb-4 text-gray-400 dark:text-gray-600" />
@@ -26,11 +40,7 @@ export default function AdminEmptyState({
             <p className="mb-6 text-gray-600 dark:text-gray-400">
                 {description}
             </p>
-            {action && (
-                <Button variant="primary" onClick={action.onClick}>
-                    {action.label}
-                </Button>
-            )}
+            {renderAction()}
         </div>
     );
 }

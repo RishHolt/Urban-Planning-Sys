@@ -1,6 +1,5 @@
 import { Link, useForm, usePage, router } from '@inertiajs/react';
 import Header from '../../../components/Header';
-import Footer from '../../../components/Footer';
 import Button from '../../../components/Button';
 import StatusBadge from '../../../components/StatusBadge';
 import ApplicationDetailsTabs, { TabPanel } from '../../../components/ApplicationDetailsTabs';
@@ -716,7 +715,6 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                     </div>
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

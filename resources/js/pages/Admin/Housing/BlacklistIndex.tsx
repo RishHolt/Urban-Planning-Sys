@@ -29,7 +29,6 @@ interface BlacklistIndexProps {
 
 export default function BlacklistIndex({ blacklist, filters: initialFilters = {} }: BlacklistIndexProps) {
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
-    const [showFilters, setShowFilters] = useState(false);
     const [showLiftModal, setShowLiftModal] = useState<string | null>(null);
     const { data, setData, get } = useForm({
         status: initialFilters.status || '',
@@ -40,7 +39,7 @@ export default function BlacklistIndex({ blacklist, filters: initialFilters = {}
     });
 
     const handleSearch = (): void => {
-        get('/admin/housing/blacklist', {
+        router.get('/admin/housing/blacklist', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -96,6 +95,8 @@ export default function BlacklistIndex({ blacklist, filters: initialFilters = {}
         });
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Blacklist Management"
@@ -114,12 +115,12 @@ export default function BlacklistIndex({ blacklist, filters: initialFilters = {}
             )}
 
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue=""
                 onSearchChange={() => {}}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder=""
                 hideSearch={true}
                 filterContent={

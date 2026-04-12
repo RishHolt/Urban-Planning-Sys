@@ -28,13 +28,12 @@ interface WaitlistIndexProps {
 }
 
 export default function WaitlistIndex({ waitlist, filters: initialFilters = {} }: WaitlistIndexProps) {
-    const [showFilters, setShowFilters] = useState(false);
     const { data, setData, get } = useForm({
         housing_program: initialFilters.housing_program || '',
     });
 
     const handleSearch = (): void => {
-        get('/admin/housing/waitlist', {
+        router.get('/admin/housing/waitlist', Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined)), {
             preserveState: true,
             preserveScroll: true,
         });
@@ -63,18 +62,20 @@ export default function WaitlistIndex({ waitlist, filters: initialFilters = {} }
         });
     };
 
+    const activeFilterCount = Object.entries(data).filter(([k, v]) => k !== 'search' && v !== '' && v !== null && v !== undefined).length;
+
     return (
         <AdminLayout
             title="Waitlist"
             description="View and manage the housing application waitlist queue"
         >
             <AdminFilterSection
+                filterData={data}
+                activeFilterCount={activeFilterCount}
                 searchValue=""
                 onSearchChange={() => {}}
                 onSearch={handleSearch}
                 onReset={handleReset}
-                showFilters={showFilters}
-                onToggleFilters={() => setShowFilters(!showFilters)}
                 searchPlaceholder=""
                 hideSearch={true}
                 filterContent={

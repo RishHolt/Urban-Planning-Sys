@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useForm, usePage, Link } from '@inertiajs/react';
 import Header from '../components/Header';
-import Footer from '../components/Footer';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import GoogleIcon from '../components/GoogleIcon';
@@ -15,6 +14,7 @@ export default function Login() {
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
     const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
     const [otpEmail, setOtpEmail] = useState('');
+    const [otpCode, setOtpCode] = useState<string | null>(null);
     const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
 
     const { flash, recaptcha_site_key } = usePage().props as any;
@@ -24,27 +24,13 @@ export default function Login() {
         'g-recaptcha-response': '',
     });
 
-    // Check for email in flash data (from backend redirect)
     useEffect(() => {
         if (flash?.email && !isOtpModalOpen) {
             setOtpEmail(flash.email);
+            setOtpCode(flash?.otp_code ?? null);
             setIsOtpModalOpen(true);
-            
-            // Log OTP code to browser console for testing
-            if (flash?.otp_code) {
-                console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                console.log('%c🔐 OTP CODE FOR TESTING', 'color: #4CAF50; font-weight: bold; font-size: 16px;');
-                console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                console.log(`%cEmail: ${flash.email}`, 'color: #2196F3; font-size: 14px;');
-                console.log(`%cCode: ${flash.otp_code}`, 'color: #FF9800; font-weight: bold; font-size: 18px;');
-                console.log(`%cType: ${flash.type || 'login'}`, 'color: #2196F3; font-size: 14px;');
-                console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-            }
-        } else if (data.email && !isOtpModalOpen && !flash?.email) {
-            // Fallback: use email from form if flash is not available yet
-            // This handles the case where the response hasn't updated flash yet
         }
-    }, [flash, data.email, isOtpModalOpen]);
+    }, [flash, isOtpModalOpen]);
 
     const handleGoogleLogin = () => {
         window.location.href = '/auth/google';
@@ -76,34 +62,8 @@ export default function Login() {
                 
                 if (email && !isOtpModalOpen) {
                     setOtpEmail(email);
+                    setOtpCode(flashData?.otp_code ?? null);
                     setIsOtpModalOpen(true);
-                    
-                    // Log OTP code to browser console for testing
-                    if (flashData?.otp_code) {
-                        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                        console.log('%c🔐 OTP CODE FOR TESTING', 'color: #4CAF50; font-weight: bold; font-size: 16px;');
-                        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                        console.log(`%cEmail: ${email}`, 'color: #2196F3; font-size: 14px;');
-                        console.log(`%cCode: ${flashData.otp_code}`, 'color: #FF9800; font-weight: bold; font-size: 18px;');
-                        console.log(`%cType: login`, 'color: #2196F3; font-size: 14px;');
-                        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                    } else {
-                        // Fetch OTP from API if not in flash
-                        fetch(`/api/otp/${email}`)
-                            .then(res => res.json())
-                            .then(result => {
-                                if (result.code) {
-                                    console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                                    console.log('%c🔐 OTP CODE FOR TESTING', 'color: #4CAF50; font-weight: bold; font-size: 16px;');
-                                    console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                                    console.log(`%cEmail: ${email}`, 'color: #2196F3; font-size: 14px;');
-                                    console.log(`%cCode: ${result.code}`, 'color: #FF9800; font-weight: bold; font-size: 18px;');
-                                    console.log(`%cType: login`, 'color: #2196F3; font-size: 14px;');
-                                    console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                                }
-                            })
-                            .catch(() => {});
-                    }
                 }
             },
         });
@@ -245,7 +205,6 @@ export default function Login() {
                 </div>
             </div>
 
-            <Footer />
 
             {/* Register Modal */}
             <RegisterModal
@@ -259,6 +218,7 @@ export default function Login() {
                 onClose={() => setIsOtpModalOpen(false)}
                 email={otpEmail}
                 type="login"
+                initialOtpCode={otpCode}
             />
         </div>
     );

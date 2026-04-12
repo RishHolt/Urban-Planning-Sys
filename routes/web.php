@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminAuditLogController;
 use App\Http\Controllers\Admin\AdminHousingBeneficiaryController;
+use App\Http\Controllers\Auth\AdminLoginController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\OtpVerificationController;
@@ -22,7 +23,7 @@ Route::get('/', function () {
         $role = $user->role ?? 'citizen';
 
         // Redirect admin and staff to admin page
-        if (in_array($role, ['admin', 'staff'])) {
+        if (in_array($role, ['admin', 'staff', 'super_admin'])) {
             return redirect()->route('admin.home');
         }
 
@@ -52,6 +53,10 @@ Route::middleware('guest')->group(function () {
     // Google OAuth
     Route::get('/auth/google', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'redirect'])->name('google.redirect');
     Route::get('/auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'callback'])->name('google.callback');
+
+    // Admin Login
+    Route::get('/login/admin', [AdminLoginController::class, 'create'])->name('admin.login');
+    Route::post('/login/admin', [AdminLoginController::class, 'store'])->name('admin.login.store');
 });
 
 // Logout route - needs auth but not RedirectByRole
@@ -140,30 +145,6 @@ Route::middleware('auth')->group(function () {
     // Prerequisite verification (before application submission)
     Route::post('/api/verify-prerequisites', [\App\Http\Controllers\PrerequisiteVerificationController::class, 'verify'])->name('prerequisites.verify');
 
-    // Inspections routes (inspector and admin only)
-    Route::prefix('inspections')->name('inspections.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\InspectionController::class, 'index'])->name('index');
-        Route::get('/{id}', [\App\Http\Controllers\InspectionController::class, 'show'])->name('show');
-        Route::post('/', [\App\Http\Controllers\InspectionController::class, 'store'])->name('store');
-        Route::put('/{id}', [\App\Http\Controllers\InspectionController::class, 'update'])->name('update');
-        Route::post('/{id}/review', [\App\Http\Controllers\InspectionController::class, 'review'])->name('review');
-        Route::post('/{id}/checklist-items', [\App\Http\Controllers\InspectionController::class, 'addChecklistItem'])->name('checklist.add');
-        Route::put('/{id}/checklist-items/{itemId}', [\App\Http\Controllers\InspectionController::class, 'updateChecklistItem'])->name('checklist.update');
-        Route::post('/{id}/photos', [\App\Http\Controllers\InspectionController::class, 'uploadPhoto'])->name('photos.upload');
-        Route::post('/{id}/documents', [\App\Http\Controllers\InspectionController::class, 'uploadDocument'])->name('documents.upload');
-        Route::get('/{id}/report', [\App\Http\Controllers\InspectionController::class, 'generateReport'])->name('report');
-    });
-
-    // Issued Clearances routes (admin only)
-    Route::prefix('clearances')->name('clearances.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\IssuedClearanceController::class, 'index'])->name('index');
-        Route::get('/create', [\App\Http\Controllers\IssuedClearanceController::class, 'create'])->name('create');
-        Route::post('/', [\App\Http\Controllers\IssuedClearanceController::class, 'store'])->name('store');
-        Route::get('/{id}', [\App\Http\Controllers\IssuedClearanceController::class, 'show'])->name('show');
-        Route::get('/{id}/view', [\App\Http\Controllers\IssuedClearanceController::class, 'view'])->name('view');
-        Route::get('/{id}/download', [\App\Http\Controllers\IssuedClearanceController::class, 'download'])->name('download');
-    });
-
     // Legacy Zoning Application routes - Redirect to New Zoning Application system
     Route::prefix('applications/zoning')->name('applications.zoning.')->group(function () {
         Route::get('/', function () {
@@ -243,6 +224,8 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
             return Inertia::render('Admin/Home');
         })->name('home');
 
+        Route::redirect('inspections', '/admin/zoning/inspections')->name('inspections.legacy-redirect');
+
         // Zoning Clearance routes
         Route::prefix('zoning')->name('zoning.')->group(function () {
             Route::get('/dashboard', function () {
@@ -289,17 +272,53 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
                 Route::prefix('boundaries')->name('boundaries.')->group(function () {
                     Route::get('/municipal', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'getMunicipalBoundary'])->name('municipal.get');
                     Route::post('/municipal', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'storeMunicipalBoundary'])->name('municipal.store');
+                    Route::delete('/municipal', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'deleteMunicipalBoundary'])->name('municipal.delete');
                     Route::get('/barangay', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'getBarangayBoundaries'])->name('barangay.get');
                     Route::post('/barangay', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'storeBarangayBoundary'])->name('barangay.store');
                     Route::post('/barangay/import', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'importBarangayBoundaries'])->name('barangay.import');
                     Route::delete('/barangay/all', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'deleteAllBarangayBoundaries'])->name('barangay.deleteAll');
+                    Route::patch('/barangay/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'updateBarangayBoundary'])->name('barangay.update');
                     Route::delete('/barangay/{id}', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'deleteBarangayBoundary'])->name('barangay.delete');
                 });
+            });
+
+            // Compliance Rules Management
+            Route::prefix('compliance-rules')->name('compliance-rules.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Admin\ComplianceRuleController::class, 'indexPage'])->name('index');
+                Route::post('/', [\App\Http\Controllers\Admin\ComplianceRuleController::class, 'store'])->name('store');
+                Route::get('/{id}', [\App\Http\Controllers\Admin\ComplianceRuleController::class, 'show'])->name('show');
+                Route::patch('/{id}', [\App\Http\Controllers\Admin\ComplianceRuleController::class, 'update'])->name('update');
+                Route::delete('/{id}', [\App\Http\Controllers\Admin\ComplianceRuleController::class, 'destroy'])->name('destroy');
+                Route::post('/seed-from-config', [\App\Http\Controllers\Admin\ComplianceRuleController::class, 'seedFromConfig'])->name('seed');
             });
 
             // Zoning Classification API routes (for JSON responses)
             Route::prefix('api/classifications')->name('api.classifications.')->group(function () {
                 Route::get('/', [\App\Http\Controllers\Admin\ZoningClassificationController::class, 'index'])->name('index');
+            });
+
+            // Inspections
+            Route::prefix('inspections')->name('inspections.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\InspectionController::class, 'index'])->name('index');
+                Route::get('/{id}', [\App\Http\Controllers\InspectionController::class, 'show'])->name('show');
+                Route::post('/', [\App\Http\Controllers\InspectionController::class, 'store'])->name('store');
+                Route::put('/{id}', [\App\Http\Controllers\InspectionController::class, 'update'])->name('update');
+                Route::post('/{id}/review', [\App\Http\Controllers\InspectionController::class, 'review'])->name('review');
+                Route::post('/{id}/checklist-items', [\App\Http\Controllers\InspectionController::class, 'addChecklistItem'])->name('checklist.add');
+                Route::put('/{id}/checklist-items/{itemId}', [\App\Http\Controllers\InspectionController::class, 'updateChecklistItem'])->name('checklist.update');
+                Route::post('/{id}/photos', [\App\Http\Controllers\InspectionController::class, 'uploadPhoto'])->name('photos.upload');
+                Route::post('/{id}/documents', [\App\Http\Controllers\InspectionController::class, 'uploadDocument'])->name('documents.upload');
+                Route::get('/{id}/report', [\App\Http\Controllers\InspectionController::class, 'generateReport'])->name('report');
+            });
+
+            // Issued Clearances
+            Route::prefix('clearances')->name('clearances.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\IssuedClearanceController::class, 'index'])->name('index');
+                Route::get('/create', [\App\Http\Controllers\IssuedClearanceController::class, 'create'])->name('create');
+                Route::post('/', [\App\Http\Controllers\IssuedClearanceController::class, 'store'])->name('store');
+                Route::get('/{id}', [\App\Http\Controllers\IssuedClearanceController::class, 'show'])->name('show');
+                Route::get('/{id}/view', [\App\Http\Controllers\IssuedClearanceController::class, 'view'])->name('view');
+                Route::get('/{id}/download', [\App\Http\Controllers\IssuedClearanceController::class, 'download'])->name('download');
             });
         });
 

@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import VerifyOtpModal from './VerifyOtpModal';
 import Recaptcha from '../components/Recaptcha';
 import { showError } from '../lib/swal';
 import { X, Mail, Lock, User, Phone, MapPin, Eye, EyeOff } from 'lucide-react';
@@ -16,30 +15,9 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [noMiddleName, setNoMiddleName] = useState(false);
-    const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
-    const [registrationEmail, setRegistrationEmail] = useState('');
     const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
 
-    const { flash, recaptcha_site_key } = usePage().props as any;
-
-    // Check for email in flash data (from backend redirect)
-    useEffect(() => {
-        if (flash?.email && isOpen && !isOtpModalOpen) {
-            setRegistrationEmail(flash.email);
-            setIsOtpModalOpen(true);
-            
-            // Log OTP code to browser console for testing
-            if (flash?.otp_code) {
-                console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                console.log('%c🔐 OTP CODE FOR TESTING', 'color: #4CAF50; font-weight: bold; font-size: 16px;');
-                console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                console.log(`%cEmail: ${flash.email}`, 'color: #2196F3; font-size: 14px;');
-                console.log(`%cCode: ${flash.otp_code}`, 'color: #FF9800; font-weight: bold; font-size: 18px;');
-                console.log(`%cType: registration`, 'color: #2196F3; font-size: 14px;');
-                console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-            }
-        }
-    }, [flash, isOpen, isOtpModalOpen]);
+    const { recaptcha_site_key } = usePage().props as any;
 
     const { data, setData, post, processing, errors, reset } = useForm({
         first_name: '',
@@ -107,53 +85,10 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
                                 await showError('Passwords do not match');
                                 return;
                             }
-                            if (!recaptchaToken) {
-                                await showError('Please complete the reCAPTCHA verification');
-                                return;
-                            }
-                            setData('g-recaptcha-response', recaptchaToken);
                             post('/register', {
                                 preserveState: true,
                                 preserveScroll: true,
-                                onSuccess: (page) => {
-                                    // Check if email is in flash or use form email
-                                    const flashData = (page.props as any)?.flash;
-                                    const email = flashData?.email || data.email;
-                                    
-                                    // Debug: log entire response
-                                    console.log('Registration response:', { flashData, pageProps: page.props });
-                                    
-                                    if (email && !isOtpModalOpen) {
-                                        setRegistrationEmail(email);
-                                        setIsOtpModalOpen(true);
-                                        
-                                        // Log OTP code to browser console for testing
-                                        if (flashData?.otp_code) {
-                                            console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                                            console.log('%c🔐 OTP CODE FOR TESTING', 'color: #4CAF50; font-weight: bold; font-size: 16px;');
-                                            console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                                            console.log(`%cEmail: ${email}`, 'color: #2196F3; font-size: 14px;');
-                                            console.log(`%cCode: ${flashData.otp_code}`, 'color: #FF9800; font-weight: bold; font-size: 18px;');
-                                            console.log(`%cType: registration`, 'color: #2196F3; font-size: 14px;');
-                                            console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                                        } else {
-                                            // Fetch OTP from API if not in flash
-                                            fetch(`/api/otp/${email}`)
-                                                .then(res => res.json())
-                                                .then(result => {
-                                                    if (result.code) {
-                                                        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                                                        console.log('%c🔐 OTP CODE FOR TESTING', 'color: #4CAF50; font-weight: bold; font-size: 16px;');
-                                                        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                                                        console.log(`%cEmail: ${email}`, 'color: #2196F3; font-size: 14px;');
-                                                        console.log(`%cCode: ${result.code}`, 'color: #FF9800; font-weight: bold; font-size: 18px;');
-                                                        console.log(`%cType: registration`, 'color: #2196F3; font-size: 14px;');
-                                                        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #4CAF50; font-weight: bold; font-size: 14px;');
-                                                    }
-                                                })
-                                                .catch(() => {});
-                                        }
-                                    }
+                                onSuccess: () => {
                                     reset();
                                 },
                             });
@@ -161,59 +96,57 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
                         className="space-y-4"
                     >
                         {/* Name Fields */}
-                        <div className="gap-4 grid grid-cols-2">
+                        <div className="gap-4 grid grid-cols-1 md:grid-cols-3">
                             <Input
                                 type="text"
                                 name="first_name"
                                 label="First Name"
-                                placeholder="Enter first name"
+                                placeholder="First name"
                                 icon={<User size={20} />}
                                 value={data.first_name}
                                 onChange={(e) => setData('first_name', e.target.value)}
                                 error={errors.first_name}
                                 required
                             />
+                            <div className="space-y-2">
+                                <Input
+                                    type="text"
+                                    name="middle_name"
+                                    label="Middle Name"
+                                    placeholder="Middle name"
+                                    icon={<User size={20} />}
+                                    value={data.middle_name}
+                                    onChange={(e) => setData('middle_name', e.target.value)}
+                                    error={errors.middle_name}
+                                    disabled={noMiddleName}
+                                    className={noMiddleName ? 'opacity-50' : ''}
+                                />
+                                <label className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={noMiddleName}
+                                        onChange={(e) => {
+                                            setNoMiddleName(e.target.checked);
+                                            if (e.target.checked) {
+                                                setData('middle_name', '');
+                                            }
+                                        }}
+                                        className="border-gray-300 rounded focus:ring-primary text-primary"
+                                    />
+                                    <span>No middle name</span>
+                                </label>
+                            </div>
                             <Input
                                 type="text"
                                 name="last_name"
                                 label="Last Name"
-                                placeholder="Enter last name"
+                                placeholder="Last name"
                                 icon={<User size={20} />}
                                 value={data.last_name}
                                 onChange={(e) => setData('last_name', e.target.value)}
                                 error={errors.last_name}
                                 required
                             />
-                        </div>
-
-                        {/* Middle Name with Checkbox */}
-                        <div className="space-y-2">
-                            <Input
-                                type="text"
-                                name="middle_name"
-                                label="Middle Name"
-                                placeholder="Enter middle name"
-                                icon={<User size={20} />}
-                                value={data.middle_name}
-                                onChange={(e) => setData('middle_name', e.target.value)}
-                                error={errors.middle_name}
-                                disabled={noMiddleName}
-                                className={noMiddleName ? 'opacity-50' : ''}
-                            />
-                            <label className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm">
-                                <input
-                                    type="checkbox"
-                                    checked={noMiddleName}
-                                    onChange={(e) => {
-                                        setNoMiddleName(e.target.checked);
-                                        if (e.target.checked) {
-                                            setData('middle_name', '');
-                                        }
-                                    }}
-                                    className="border-gray-300 rounded focus:ring-primary text-primary"
-                                />
-                                <span>No middle name</span>
-                            </label>
                         </div>
 
                         {/* Suffix */}
@@ -384,19 +317,6 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
                             </button>
                         </div>
 
-                        {recaptcha_site_key && (
-                            <div className="flex justify-center">
-                                <Recaptcha
-                                    siteKey={recaptcha_site_key}
-                                    onChange={setRecaptchaToken}
-                                    onError={() => setRecaptchaToken(null)}
-                                />
-                            </div>
-                        )}
-                        {errors['g-recaptcha-response'] && (
-                            <p className="text-red-500 text-sm">{errors['g-recaptcha-response']}</p>
-                        )}
-
                         {/* Submit Button */}
                         <div className="pt-4">
                             <Button
@@ -404,27 +324,14 @@ export default function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
                                 variant="primary"
                                 size="lg"
                                 className="w-full"
-                                disabled={processing || !isPasswordValid || (recaptcha_site_key && !recaptchaToken)}
+                                disabled={processing || !isPasswordValid}
                             >
                                 {processing ? 'Creating Account...' : 'Create Account'}
                             </Button>
-                            {recaptcha_site_key && !recaptchaToken && (
-                                <p className="mt-2 text-center text-red-500 text-sm">
-                                    Please complete the reCAPTCHA verification
-                                </p>
-                            )}
                         </div>
                     </form>
                 </div>
             </div>
-
-            {/* OTP Verification Modal */}
-            <VerifyOtpModal
-                isOpen={isOtpModalOpen}
-                onClose={() => setIsOtpModalOpen(false)}
-                email={registrationEmail}
-                type="registration"
-            />
         </div>
     );
 }
