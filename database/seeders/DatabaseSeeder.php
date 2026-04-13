@@ -14,6 +14,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             ZoningClassificationSeeder::class,
             ComplianceRuleSeeder::class,
+            UserSeeder::class,
+            ZoningApplicationSeeder::class,
         ]);
     }
 }

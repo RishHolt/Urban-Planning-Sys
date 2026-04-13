@@ -2,11 +2,21 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property \Illuminate\Support\Carbon|null $scheduled_date
+ * @property \Illuminate\Support\Carbon|null $inspected_at
+ * @property \Illuminate\Support\Carbon|null $completed_at
+ * @property \Illuminate\Support\Carbon|null $reviewed_at
+ */
 class Inspection extends ZcsModel
 {
+    /** @use HasFactory<\Database\Factories\InspectionFactory> */
+    use HasFactory;
     /**
      * The attributes that are mass assignable.
      *

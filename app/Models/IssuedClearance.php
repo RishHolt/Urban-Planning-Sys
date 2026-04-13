@@ -3,6 +3,21 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+
+/**
+ * @property int $id
+ * @property string $clearance_no
+ * @property int $application_id
+ * @property int $issued_by
+ * @property Carbon $issue_date
+ * @property Carbon|null $valid_until
+ * @property string|null $conditions
+ * @property string $status
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ * @property ZoningApplication $clearanceApplication
+ */
 
 class IssuedClearance extends ZcsModel
 {

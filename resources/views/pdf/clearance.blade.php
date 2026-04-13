@@ -5,258 +5,168 @@
     <title>Zoning Clearance Certificate - {{ $clearance->clearance_no }}</title>
     <style>
         @page {
-            margin: 5mm 6mm 5mm 6mm;
+            margin: 8mm 15mm 8mm 15mm;
         }
         body {
             font-family: 'DejaVu Sans', sans-serif;
             margin: 0;
             padding: 0;
             font-size: 12px;
-            line-height: 1.25;
-            color: #1f2937;
+            line-height: 1.3;
+            color: #000000;
         }
-        
+
         /* Header Styling */
         .header {
             text-align: center;
-            margin-bottom: 3px;
-            padding: 4px 8px;
-            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
-            border-radius: 3px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 8px;
+            padding: 4px 10px;
         }
         .logo {
-            width: 30px;
-            height: 30px;
-            margin: 0 auto 2px;
-            background: white;
-            padding: 2px;
-            border-radius: 50%;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 6px;
         }
         .header h1 {
-            margin: 0 0 1px 0;
-            font-size: 15px;
-            color: #ffffff;
+            margin: 0 0 3px 0;
+            font-size: 16px;
+            color: #000000;
             font-weight: 700;
-            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
         .header-subtitle {
             margin: 0;
-            font-size: 8.5px;
-            color: #e0e7ff;
-            font-weight: 400;
+            font-size: 11px;
+            color: #000000;
+            font-weight: normal;
+            text-transform: uppercase;
         }
         .certificate-title {
-            margin: 2px 0 2px;
-            padding: 3px 8px;
-            font-size: 15px;
+            text-align: center;
+            margin: 6px 0;
+            font-size: 17px;
             font-weight: 700;
-            color: #1e3a8a;
+            color: #000000;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            background: linear-gradient(to bottom, #eff6ff, #dbeafe);
-            border-left: 3px solid #2563eb;
-            border-right: 3px solid #2563eb;
-            border-radius: 2px;
+            text-decoration: underline;
         }
         .clearance-number {
-            font-size: 10px;
-            color: #4b5563;
-            margin: 2px 0;
-            padding: 2px 6px;
-            background: #f3f4f6;
-            border-radius: 2px;
-            display: inline-block;
+            text-align: center;
+            font-size: 12px;
+            color: #000000;
+            margin: 3px 0 10px 0;
+            font-weight: bold;
         }
-        .clearance-number strong {
-            color: #1e3a8a;
-        }
-        
+
         /* Certification Text */
         .certification-text {
             text-align: justify;
-            margin: 3px 0;
-            padding: 4px 8px;
-            background: linear-gradient(to right, #eff6ff, #f0f9ff);
-            border-left: 3px solid #3b82f6;
-            border-radius: 2px;
-            font-size: 11px;
-            line-height: 1.25;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            margin: 8px 0;
+            font-size: 12px;
+            line-height: 1.5;
         }
-        .certification-text strong {
-            color: #1e3a8a;
-        }
-        
+
         /* Section Styling */
         .section {
-            margin-bottom: 3px;
+            margin-bottom: 10px;
             page-break-inside: avoid;
         }
         .section-title {
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 700;
-            color: #ffffff;
+            color: #000000;
             text-transform: uppercase;
-            margin-bottom: 2px;
-            padding: 2px 6px;
-            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-            border-radius: 2px;
-            letter-spacing: 0.3px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            margin-bottom: 5px;
+            border-bottom: 1.5px solid #000000;
+            padding-bottom: 2px;
         }
-        
+
         /* Info Table Styling */
         .info-table {
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
-            background: #ffffff;
-            border-radius: 2px;
-            overflow: hidden;
-        }
-        .info-table tr {
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .info-table tr:last-child {
-            border-bottom: none;
-        }
-        .info-table tr:nth-child(even) {
-            background: #f9fafb;
+            margin-bottom: 5px;
         }
         .info-table td {
-            padding: 2px 4px;
+            padding: 2px 0;
             font-size: 11px;
             vertical-align: top;
             word-wrap: break-word;
         }
         .info-label {
-            width: 38%;
-            font-weight: 600;
-            color: #374151;
+            width: 40%;
+            font-weight: bold;
         }
         .info-value {
-            width: 62%;
-            color: #1f2937;
+            width: 60%;
         }
-        
+
         /* Conditions Box */
         .conditions-box {
-            background: #fffbeb;
-            border: 1px solid #fcd34d;
-            border-left: 3px solid #f59e0b;
-            border-radius: 2px;
-            padding: 4px 6px;
+            border: 1px solid #000000;
+            padding: 7px;
             font-size: 11px;
-            line-height: 1.25;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            line-height: 1.3;
+            margin-top: 3px;
         }
-        
+
         /* Two-column layout */
         .two-column {
             display: table;
             width: 100%;
             table-layout: fixed;
-            margin-bottom: 3px;
+            margin-bottom: 8px;
         }
         .column {
             display: table-cell;
             width: 50%;
-            padding: 0 2px;
+            padding: 0 10px 0 0;
             vertical-align: top;
-        }
-        .column:first-child {
-            padding-left: 0;
         }
         .column:last-child {
             padding-right: 0;
+            padding-left: 10px;
         }
-        
+
         /* Signature Section */
         .signature-section {
-            margin-top: 3px;
-            padding: 4px 6px;
-            border: 1px solid #e5e7eb;
-            border-radius: 2px;
-            background: #f9fafb;
+            margin-top: 10px;
+            text-align: right;
             page-break-inside: avoid;
         }
-        .signature-flex {
-            display: table;
-            width: 100%;
-            table-layout: fixed;
-        }
-        .sig-left {
-            display: table-cell;
-            width: 70%;
-            vertical-align: middle;
-            padding-right: 8px;
-        }
-        .sig-right {
-            display: table-cell;
-            width: 30%;
-            text-align: center;
-            vertical-align: middle;
-            border-left: 1px solid #e5e7eb;
-            padding-left: 8px;
-        }
         .signature-line {
-            border-top: 1.5px solid #1f2937;
-            margin: 0 0 2px 0;
-            width: 180px;
-            display: inline-block;
+            border-top: 1px solid #000000;
+            margin: 0 0 4px auto;
+            width: 220px;
+            display: block;
         }
         .signature-name {
             font-weight: 700;
-            font-size: 11px;
-            color: #1f2937;
+            font-size: 12px;
             text-transform: uppercase;
-            margin-bottom: 1px;
+            text-align: center;
+            width: 220px;
+            margin-left: auto;
         }
         .signature-label {
-            font-size: 9px;
-            color: #6b7280;
-            margin: 0;
+            font-size: 11px;
+            text-align: center;
+            width: 220px;
+            margin-left: auto;
         }
-        
-        /* QR Code */
-        .qr-code {
-            width: 42px;
-            height: 42px;
-            margin: 0 auto 2px;
-            padding: 3px;
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 3px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-        .qr-code img {
-            width: 100%;
-            height: 100%;
-        }
-        .qr-text {
-            font-size: 7.5px;
-            font-weight: 600;
-            color: #4b5563;
-            margin: 0;
-        }
-        
+
         /* Footer */
         .footer {
-            margin-top: 3px;
-            padding-top: 2px;
+            margin-top: 12px;
+            padding-top: 6px;
             text-align: center;
-            font-size: 8px;
-            color: #9ca3af;
-            border-top: 1px solid #e5e7eb;
+            font-size: 11px;
+            color: #000000;
+            border-top: 1px solid #000000;
         }
         .footer p {
-            margin: 1px 0;
-            line-height: 1.2;
-        }
-        .footer strong {
-            color: #6b7280;
+            margin: 2px 0;
         }
         
         /* Watermark */
@@ -265,66 +175,46 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 60px;
-            color: rgba(37, 99, 235, 0.04);
-            font-weight: 900;
+            font-size: 70px;
+            color: rgba(0, 0, 0, 0.05); /* very light black */
+            font-weight: bold;
             z-index: -1;
             letter-spacing: 5px;
-        }
-        
-        /* Badge styling */
-        .badge {
-            display: inline-block;
-            padding: 1px 5px;
-            font-size: 9px;
-            font-weight: 600;
-            border-radius: 8px;
-            background: #dbeafe;
-            color: #1e40af;
         }
     </style>
 </head>
 <body>
-    <div class="watermark">OFFICIAL</div>
+    <div class="watermark">NON-OFFICIAL DOCUMENT</div>
     
     <!-- Header -->
     <div class="header">
         <img src="data:image/png;base64,{{ $logo }}" alt="Logo" class="logo">
-        <h1>ZONING CLEARANCE SYSTEM</h1>
-        <p class="header-subtitle">Urban Planning & Development Office | Republic of the Philippines</p>
+        <p class="header-subtitle">Republic of the Philippines<br>Local Government Unit</p>
+        <h1>URBAN PLANNING &amp; DEVELOPMENT OFFICE</h1>
     </div>
 
-    <div style="text-align: center;">
-        <h2 class="certificate-title">Zoning Clearance Certificate</h2>
-        <div class="clearance-number">
-            <strong>Certificate No:</strong> {{ $clearance->clearance_no }}
-        </div>
-    </div>
+    <div class="certificate-title">ZONING CLEARANCE CERTIFICATE</div>
+    <div class="clearance-number">No: {{ $clearance->clearance_no }}</div>
 
     <!-- Certification Text -->
     <div class="certification-text">
-        <strong>TO WHOM IT MAY CONCERN:</strong> This is to certify that the zoning application bearing Reference Number <strong>{{ $application->reference_no }}</strong> has been thoroughly reviewed and evaluated. The proposed development has been found to be in full compliance with all applicable zoning regulations, land use policies, and development standards as prescribed by law.
+        <strong>TO WHOM IT MAY CONCERN:</strong><br><br>
+        This is to certify that the zoning application bearing Reference Number <strong>{{ $application->reference_no }}</strong> has been thoroughly reviewed and evaluated. The proposed development has been found to be in compliance with all applicable zoning regulations, land use policies, and development standards.
     </div>
 
     <!-- Application Information -->
     <div class="section">
-        <div class="section-title">► Application Information</div>
+        <div class="section-title">Application Information</div>
         <table class="info-table">
             <tr>
-                <td class="info-label">Reference Number:</td>
-                <td class="info-value"><strong>{{ $application->reference_no }}</strong></td>
+                <td class="info-label" style="width: 25%;">Reference Number:</td>
+                <td class="info-value" style="width: 25%;">{{ $application->reference_no }}</td>
+                <td class="info-label" style="width: 25%;">Application Date:</td>
+                <td class="info-value" style="width: 25%;">{{ $application->application_date ? $application->application_date->format('F d, Y') : 'N/A' }}</td>
             </tr>
             <tr>
-                <td class="info-label">Application Number:</td>
-                <td class="info-value">{{ $application->application_number }}</td>
-            </tr>
-            <tr>
-                <td class="info-label">Application Date:</td>
-                <td class="info-value">{{ $application->application_date ? $application->application_date->format('F d, Y') : 'N/A' }}</td>
-            </tr>
-            <tr>
-                <td class="info-label">Property Owner:</td>
-                <td class="info-value"><strong>{{ $application->lot_owner }}</strong></td>
+                <td class="info-label" style="width: 25%;">Property Owner:</td>
+                <td class="info-value" colspan="3">{{ mb_strtoupper($application->lot_owner) }}</td>
             </tr>
         </table>
     </div>
@@ -334,65 +224,59 @@
         <!-- Property Details -->
         <div class="column">
             <div class="section">
-                <div class="section-title">► Property Details</div>
+                <div class="section-title">Property Details</div>
                 <table class="info-table">
                     <tr>
+                        <td class="info-label">Title / TCT No.:</td>
+                        <td class="info-value">{{ $application->tct_no ?? 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="info-label">Total Lot Area:</td>
+                        <td class="info-value">{{ number_format($application->lot_area_total, 2) }} sqm</td>
+                    </tr>
+                    <tr>
                         <td class="info-label">Address:</td>
-                        <td class="info-value">{{ $application->lot_address }}</td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Barangay:</td>
-                        <td class="info-value">{{ $application->barangay ?? 'N/A' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Municipality/City:</td>
-                        <td class="info-value">{{ $application->municipality ?? 'N/A' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Province:</td>
-                        <td class="info-value">{{ $application->province ?? 'N/A' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Lot Area:</td>
-                        <td class="info-value"><strong>{{ number_format($application->lot_area_total, 2) }} sqm</strong></td>
+                        <td class="info-value">{{ $application->lot_address }}, {{ $application->barangay ?? 'N/A' }}</td>
                     </tr>
                     @if($application->zone)
                     <tr>
-                        <td class="info-label">Zone:</td>
-                        <td class="info-value"><span class="badge">{{ $application->zone->name ?? 'N/A' }}</span></td>
+                        <td class="info-label">Classification:</td>
+                        <td class="info-value">{{ mb_strtoupper($application->zone->name ?? 'N/A') }}</td>
                     </tr>
                     @endif
                 </table>
             </div>
         </div>
 
-        <!-- Project & Clearance Information -->
+        <!-- Project Info -->
         <div class="column">
             <div class="section">
-                <div class="section-title">► Project & Clearance Info</div>
+                <div class="section-title">Project Details</div>
                 <table class="info-table">
                     <tr>
-                        <td class="info-label">Land Use Type:</td>
-                        <td class="info-value">{{ ucwords(str_replace('_', ' ', $application->land_use_type ?? 'N/A')) }}</td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Project Type:</td>
+                        <td class="info-label">Nature of Project:</td>
                         <td class="info-value">{{ ucwords(str_replace('_', ' ', $application->project_type ?? 'N/A')) }}</td>
                     </tr>
+                    @if($application->building_type)
                     <tr>
-                        <td class="info-label">Issue Date:</td>
-                        <td class="info-value"><strong>{{ $clearance->issue_date->format('F d, Y') }}</strong></td>
+                        <td class="info-label">Building/Structure:</td>
+                        <td class="info-value">{{ $application->building_type }}</td>
+                    </tr>
+                    @endif
+                    <tr>
+                        <td class="info-label">Proposed Use:</td>
+                        <td class="info-value">{{ mb_strtoupper(str_replace('_', ' ', $application->land_use_type ?? 'N/A')) }}</td>
                     </tr>
                     <tr>
-                        <td class="info-label">Valid Until:</td>
-                        <td class="info-value">
-                            @if($clearance->valid_until)
-                                <strong>{{ $clearance->valid_until->format('F d, Y') }}</strong>
-                            @else
-                                <strong>No Expiration</strong>
-                            @endif
-                        </td>
+                        <td class="info-label">Total Floor Area:</td>
+                        <td class="info-value">{{ $application->floor_area_sqm ? number_format($application->floor_area_sqm, 2) . ' sqm' : 'N/A' }}</td>
                     </tr>
+                    @if($application->number_of_storeys)
+                    <tr>
+                        <td class="info-label">Storeys:</td>
+                        <td class="info-value">{{ $application->number_of_storeys }}</td>
+                    </tr>
+                    @endif
                 </table>
             </div>
         </div>
@@ -401,39 +285,41 @@
     <!-- Conditions -->
     @if($clearance->conditions)
     <div class="section">
-        <div class="section-title">► Conditions and Requirements</div>
+        <div class="section-title">Conditions and Requirements</div>
         <div class="conditions-box">
             {!! nl2br(e($clearance->conditions)) !!}
         </div>
     </div>
     @endif
 
-    <!-- Signature Section -->
-    <div class="signature-section">
-        <div class="signature-flex">
-            <div class="sig-left">
-                <div class="signature-line"></div>
-                @if($clearance->approvedBy)
-                    <div class="signature-name">{{ $clearance->approvedBy->name }}</div>
-                @else
-                    <div class="signature-name">_______________________</div>
-                @endif
-                <div class="signature-label">Approved by • <strong>Zoning Administrator</strong> • Date: {{ $clearance->issue_date->format('F d, Y') }}</div>
-            </div>
-            <div class="sig-right">
-                <div class="qr-code">
-                    <img src="data:image/svg+xml;base64,{{ $qrCode }}" alt="Verification QR Code">
-                </div>
-                <div class="qr-text">Scan to Verify</div>
-            </div>
-        </div>
+    <div style="margin-top: 30px; font-size: 13px;">
+        <table style="width: 100%;">
+            <tr>
+                <td style="width: 50%;">
+                    <strong>Issued Date:</strong> {{ $clearance->issue_date->format('F d, Y') }}<br><br>
+                    <strong>Valid Until:</strong> {{ $clearance->valid_until ? $clearance->valid_until->format('F d, Y') : 'No Expiration' }}
+                </td>
+                <td style="width: 50%; vertical-align: bottom;">
+                    <!-- Signature -->
+                    <div class="signature-section">
+                        @if($clearance->approvedBy)
+                            <div class="signature-name" style="margin-bottom: 5px;">{{ mb_strtoupper($clearance->approvedBy->name) }}</div>
+                        @else
+                            <div class="signature-name" style="margin-bottom: 5px;">_______________________</div>
+                        @endif
+                        <div class="signature-line"></div>
+                        <div class="signature-label">Zoning Administrator</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
     </div>
 
     <!-- Footer -->
     <div class="footer">
-        <p>This is an officially computer-generated zoning clearance certificate and is valid without a physical signature.</p>
-        <p><strong>Certificate No:</strong> {{ $clearance->clearance_no }} | <strong>Generated on:</strong> {{ now()->format('F d, Y h:i A') }}</p>
-        <p><strong>Important Notice:</strong> Any alteration, tampering, or unauthorized reproduction of this document is unlawful and punishable under applicable laws.</p>
+        <p>This is a computer-generated document and is valid without a physical signature if verified through the official portal.</p>
+        <p>Generated on: {{ now()->format('F d, Y h:i A') }}</p>
     </div>
 </body>
 </html>
+

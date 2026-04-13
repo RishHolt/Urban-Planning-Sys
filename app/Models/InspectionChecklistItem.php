@@ -1,11 +1,10 @@
 <?php
 
 namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
+ 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class InspectionChecklistItem extends Model
+class InspectionChecklistItem extends ZcsModel
 {
     /**
      * The attributes that are mass assignable.

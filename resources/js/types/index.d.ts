@@ -52,7 +52,7 @@ export interface User {
     account_no: string | null;
     username: string | null;
     email: string;
-    role: 'user' | 'staff' | 'admin' | 'super_admin';
+    role: 'citizen' | 'staff' | 'admin' | 'inspector' | 'developer' | 'committee_member' | 'project_manager' | 'engineer';
     email_verified: boolean;
     email_verified_at: string | null;
     department: 'ZCS' | 'SBR' | 'HBR' | 'OMT' | 'IPC' | null;

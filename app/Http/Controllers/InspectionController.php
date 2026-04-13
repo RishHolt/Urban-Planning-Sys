@@ -38,7 +38,7 @@ class InspectionController extends Controller
         $user = Auth::user();
         $canManage = $this->userCanManageInspections($user);
 
-        $query = Inspection::with(['clearanceApplication', 'checklistItems', 'photos', 'documents']);
+        $query = Inspection::with(['clearanceApplication', 'checklistItems', 'photos', 'documents', 'inspector.profile']);
 
         if (! $canManage) {
             $query->where('inspector_id', Auth::id());
@@ -78,10 +78,9 @@ class InspectionController extends Controller
                 })
                 ->values();
 
-            $applications = \App\Models\ZoningApplication::whereIn('status', ['for_inspection', 'under_review'])
-                ->whereDoesntHave('inspection')
+            $applications = \App\Models\ZoningApplication::whereIn('status', ['for_inspection', 'under_review', 'for_approval'])
                 ->select('id', 'reference_no', 'application_number', 'lot_address', 'lot_owner', 'applicant_name', 'status')
-                ->orderByRaw("CASE WHEN status = 'for_inspection' THEN 0 ELSE 1 END")
+                ->orderByRaw("CASE WHEN status = 'for_inspection' THEN 0 WHEN status = 'for_approval' THEN 1 ELSE 2 END")
                 ->orderBy('created_at', 'desc')
                 ->limit(100)
                 ->get()
@@ -92,7 +91,7 @@ class InspectionController extends Controller
                         'lot_address' => $app->lot_address ?? 'N/A',
                         'lot_owner' => $app->lot_owner ?? $app->applicant_name ?? 'N/A',
                         'status' => $app->status,
-                        'display_label' => ($app->reference_no ?? $app->application_number ?? 'N/A').' - '.($app->lot_owner ?? $app->applicant_name ?? 'N/A'),
+                        'display_label' => ($app->reference_no ?? $app->application_number ?? 'N/A').' — '.($app->lot_owner ?? $app->applicant_name ?? 'N/A').' ('.ucfirst(str_replace('_', ' ', $app->status)).')',
                     ];
                 });
         }
@@ -110,7 +109,7 @@ class InspectionController extends Controller
     public function show(string $id): Response
     {
         $inspection = Inspection::with([
-            'clearanceApplication',
+            'clearanceApplication.statusHistory.changedBy.profile',
             'inspector.profile',
             'checklistItems',
             'photos.uploadedBy.profile',
@@ -166,7 +165,7 @@ class InspectionController extends Controller
     /**
      * Update checklist item compliance status.
      */
-    public function updateChecklistItem(Request $request, string $inspectionId, string $itemId): JsonResponse
+    public function updateChecklistItem(Request $request, string $inspectionId, string $itemId): RedirectResponse
     {
         Inspection::findOrFail($inspectionId);
 
@@ -180,7 +179,7 @@ class InspectionController extends Controller
 
         $item->update($validated);
 
-        return response()->json(['success' => true, 'item' => $item]);
+        return back()->with('success', "Checklist item '{$item->item_name}' updated successfully.");
     }
 
     /**
@@ -292,7 +291,7 @@ class InspectionController extends Controller
         $report = [
             'inspection_id' => $inspection->id,
             'application_reference' => $inspection->clearanceApplication->reference_no,
-            'scheduled_date' => $inspection->scheduled_date->format('Y-m-d'),
+            'scheduled_date' => $inspection->scheduled_date?->format('Y-m-d'),
             'inspected_at' => $inspection->inspected_at?->format('Y-m-d H:i:s'),
             'inspector' => $inspectorName,
             'result' => $inspection->result,

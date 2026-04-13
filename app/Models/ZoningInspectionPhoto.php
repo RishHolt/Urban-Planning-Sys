@@ -2,10 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ZoningInspectionPhoto extends Model
+class ZoningInspectionPhoto extends ZcsModel
 {
     /**
      * The table associated with the model.

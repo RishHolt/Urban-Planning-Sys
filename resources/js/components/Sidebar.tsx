@@ -39,11 +39,12 @@ interface MenuItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
-    { href: '/admin', icon: LayoutDashboard, label: 'Main Dashboard' },
     {
         icon: ClipboardList,
         label: 'Zoning Clearance',
         children: [
+            { href: '/admin/zoning/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+            { href: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
             { href: '/admin/zoning/applications', icon: ListChecks, label: 'Applications' },
             { href: '/admin/zoning/inspections', icon: ClipboardCheck, label: 'Inspections' },
             { href: '/admin/zoning/clearances', icon: FileCheck, label: 'Issued Clearances' },
@@ -52,52 +53,9 @@ const MENU_ITEMS: MenuItem[] = [
             { href: '/admin/zoning/map', icon: Map, label: 'Zoning Map' },
         ],
     },
-    {
-        icon: Home,
-        label: 'Housing Beneficiary',
-        children: [
-            { href: '/admin/housing/applications', icon: ListChecks, label: 'Applications & Beneficiaries' },
-            { href: '/admin/housing/projects', icon: Building, label: 'Projects & Units' },
-            { href: '/admin/housing/waitlist', icon: List, label: 'Waitlist & Allocations' },
-        ],
-    },
-    {
-        icon: FileSearch,
-        label: 'Subdivision & Building',
-        children: [
-            { href: '/admin/development-clearance/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-            { href: '/admin/development-clearance/applications', icon: ListChecks, label: 'Applications' },
-            { href: '/admin/subdivision/certificates', icon: FileCheck, label: 'Issued Certificates' },
-            { href: '/admin/subdivision/reports', icon: BarChart3, label: 'Reports' },
-        ],
-    },
-    {
-        icon: Wrench,
-        label: 'Infrastructure Projects',
-        children: [
-            { href: '/admin/infrastructure/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-            { href: '/admin/infrastructure/projects', icon: Building2, label: 'Projects' },
-            { href: '/admin/infrastructure/contractors', icon: Users, label: 'Contractors' },
-            { href: '/admin/infrastructure/reports', icon: BarChart3, label: 'Reports' },
-        ],
-    },
-    {
-        icon: Eye,
-        label: 'Occupancy Monitoring',
-        children: [
-            { href: '/admin/occupancy/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-            { href: '/admin/occupancy/buildings', icon: Building, label: 'Buildings' },
-            { href: '/admin/occupancy/units', icon: Home, label: 'Units' },
-            { href: '/admin/occupancy/records', icon: ClipboardList, label: 'Occupancy Records' },
-            { href: '/admin/occupancy/inspections', icon: ClipboardCheck, label: 'Inspections' },
-            { href: '/admin/occupancy/complaints', icon: AlertTriangle, label: 'Complaints' },
-            { href: '/admin/occupancy/violations', icon: FileWarning, label: 'Violations' },
-            { href: '/admin/occupancy/reports', icon: BarChart3, label: 'Reports' },
-        ],
-    },
+
     { href: '/admin/user-management', icon: UserCog, label: 'User Management' },
     { href: '/admin/audit-logs', icon: History, label: 'System Logs' },
-    { href: '/admin/reports', icon: BarChart3, label: 'Reports' },
 ];
 
 const INSPECTOR_MENU: MenuItem[] = [
@@ -137,6 +95,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
 
     const isExpanded = useCallback(
         (label: string): boolean => {
+            if (label === 'Zoning Clearance') return true;
             const item = MENU_ITEMS.find((m) => m.label === label);
             return expandedMenu === label || isParentActive(item?.children);
         },

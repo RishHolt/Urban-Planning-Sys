@@ -88,6 +88,7 @@ class AdminZoningApplicationController extends Controller
             'history.updatedBy.profile',
             'externalVerifications',
             'zone',
+            'inspections.inspector.profile',
         ])->findOrFail($id);
 
         $inspectors = User::query()
@@ -128,7 +129,7 @@ class AdminZoningApplicationController extends Controller
     public function updateStatus(Request $request, string $id)
     {
         $validated = $request->validate([
-            'status' => ['required', 'in:pending,under_review,for_inspection,approved,rejected'],
+            'status' => ['required', 'in:pending,under_review,for_inspection,for_approval,approved,rejected'],
             'notes' => ['nullable', 'string'],
             'rejection_reason' => ['nullable', 'string', 'required_if:status,rejected'],
         ]);

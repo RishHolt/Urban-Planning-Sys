@@ -24,12 +24,8 @@ class InspectionService
         try {
             $application = ZoningApplication::findOrFail($applicationId);
 
-            if ($application->inspection) {
-                throw new \Exception('This application already has an inspection scheduled.');
-            }
-
-            if (! in_array($application->status, ['for_inspection', 'under_review'], true)) {
-                throw new \Exception('Application must be in "for_inspection" or "under_review" status to schedule an inspection.');
+            if (! in_array($application->status, ['for_inspection', 'under_review', 'for_approval'], true)) {
+                throw new \Exception('Application must be in "For Inspection", "Under Review", or "For Approval" status to schedule an inspection.');
             }
 
             $inspection = Inspection::create([
@@ -108,13 +104,13 @@ class InspectionService
 
             $application = $inspection->clearanceApplication;
             if ($result === 'passed') {
-                $application->update(['status' => 'approved']);
-                $status = 'approved';
-                $remarks = 'Inspection passed. Ready for clearance issuance.';
+                $application->update(['status' => 'for_approval']);
+                $status = 'for_approval';
+                $remarks = 'Inspection passed. Application moved to For Approval for final admin review.';
             } else {
-                $application->update(['status' => 'rejected']);
-                $status = 'rejected';
-                $remarks = 'Inspection failed: '.($findings ?? 'No findings provided');
+                // Keep in for_inspection so admin can decide on re-inspection or rejection
+                $status = 'for_inspection';
+                $remarks = 'Inspection failed: '.($findings ?? 'No findings provided').'. Application returned for review.';
             }
 
             ApplicationHistory::create([

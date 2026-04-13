@@ -126,7 +126,7 @@ export default function ZoningApplication({
 
     // Load zones for detection and merge with boundary layers
     useEffect(() => {
-        fetch('/api/zones', {
+        fetch('/api/zones?zoning_only=true', {
             headers: {
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',

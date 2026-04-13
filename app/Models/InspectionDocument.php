@@ -2,10 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class InspectionDocument extends Model
+class InspectionDocument extends ZcsModel
 {
     /**
      * The attributes that are mass assignable.

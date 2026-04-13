@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ZoningApplication extends ZcsModel
 {
+    /** @use HasFactory<\Database\Factories\ZoningApplicationFactory> */
+    use HasFactory;
     /**
      * The table associated with the model.
      *
@@ -165,11 +168,19 @@ class ZoningApplication extends ZcsModel
     }
 
     /**
-     * Get the inspection record for the application.
+     * Get the inspection record for the application (single, for existence checks).
      */
     public function inspection(): HasOne
     {
         return $this->hasOne(Inspection::class, 'application_id');
+    }
+
+    /**
+     * Get all inspection records for the application.
+     */
+    public function inspections(): HasMany
+    {
+        return $this->hasMany(Inspection::class, 'application_id');
     }
 
     /**

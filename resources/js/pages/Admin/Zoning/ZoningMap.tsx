@@ -535,19 +535,7 @@ function MapWithDraw({
             registerSaveEdit(null);
         }
 
-        // Listen to map move/zoom events for viewport-based rendering
-        const handleMapMove = () => {
-            if (renderTimeoutRef.current) {
-                clearTimeout(renderTimeoutRef.current);
-            }
-            renderTimeoutRef.current = setTimeout(() => {
-                renderZones();
-                reEnableEditMode(); // Re-enable edit mode after re-rendering
-            }, 150); // Debounce by 150ms
-        };
 
-        map.on('moveend', handleMapMove);
-        map.on('zoomend', handleMapMove);
 
         // Map click handler for barangay selection in zoning mode
         // Only triggers if click didn't hit a zone (zones handle their own clicks)
@@ -612,11 +600,6 @@ function MapWithDraw({
 
         // Cleanup
         return () => {
-            if (renderTimeoutRef.current) {
-                clearTimeout(renderTimeoutRef.current);
-            }
-            map.off('moveend', handleMapMove);
-            map.off('zoomend', handleMapMove);
             map.off('click', handleMapClick);
             polygonLayersRef.current.forEach((layer) => {
                 if (map.hasLayer(layer)) {
@@ -1222,7 +1205,8 @@ export default function ZoningMap() {
 
                 setZones((prev) => [...prev, newZone]);
                 setSelectedZone(newZone);
-                setSelectedClassification(null); // Clear selection after creating
+                // Keep selectedClassification for continuous drawing
+                // setSelectedClassification(null); // Clear selection after creating
                 await loadAllZonesForMap();
                 showSuccess(`Zone ${newZone.label} created successfully`);
                 setIsDrawing(false);
@@ -1754,7 +1738,8 @@ export default function ZoningMap() {
                                             onChange={(e) => {
                                                 const barangay = barangayBoundaries.find((b) => b.id === e.target.value);
                                                 setSelectedBarangay(barangay || null);
-                                                setSelectedClassification(null); // Clear classification when barangay changes
+                                                // Keep classification when barangay changes
+                                                // setSelectedClassification(null);
                                             }}
                                             className="bg-white dark:bg-dark-surface px-3 py-2 border border-gray-300 focus:border-transparent dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary w-full text-gray-900 dark:text-white text-sm"
                                             required
@@ -2170,7 +2155,8 @@ export default function ZoningMap() {
                                 onSelectBarangay={(barangay) => {
                                     if (editMode === 'zoning') {
                                         setSelectedBarangay(barangay);
-                                        setSelectedClassification(null); // Clear classification when barangay changes
+                                        // Keep classification when barangay changes
+                                        // setSelectedClassification(null);
                                     }
                                 }}
                                 onEditCancel={() => {

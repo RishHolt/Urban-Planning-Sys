@@ -10,6 +10,7 @@ interface Clearance {
     clearance_no: string;
     reference_no: string;
     lot_owner: string;
+    project_type: string;
     lot_address: string;
     issue_date: string;
     valid_until: string | null;
@@ -146,7 +147,13 @@ export default function ClearancesIndex({ clearances, filters: initialFilters = 
                                             Reference No
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Lot Owner
+                                            Applicant
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Project Type
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Lot Address
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Issue Date
@@ -173,6 +180,14 @@ export default function ClearancesIndex({ clearances, filters: initialFilters = 
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 {clearance.lot_owner}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                                    {clearance.project_type || 'N/A'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 max-w-[200px] truncate" title={clearance.lot_address}>
+                                                {clearance.lot_address}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 {clearance.issue_date}

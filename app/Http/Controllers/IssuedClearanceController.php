@@ -47,6 +47,7 @@ class IssuedClearanceController extends Controller
                     'clearance_no' => $clearance->clearance_no,
                     'reference_no' => $clearance->clearanceApplication->reference_no,
                     'lot_owner' => $clearance->clearanceApplication->lot_owner,
+                    'project_type' => ucwords(str_replace('_', ' ', $clearance->clearanceApplication->project_type ?? '')),
                     'lot_address' => $clearance->clearanceApplication->lot_address,
                     'issue_date' => $clearance->issue_date->format('Y-m-d'),
                     'valid_until' => $clearance->valid_until?->format('Y-m-d'),
@@ -170,16 +171,6 @@ class IssuedClearanceController extends Controller
         $clearance = IssuedClearance::with(['clearanceApplication.zone', 'approvedBy'])->findOrFail($id);
         $application = $clearance->clearanceApplication;
 
-        // Generate QR code for verification
-        $verificationUrl = url("/clearances/{$clearance->id}/verify");
-
-        $renderer = new \BaconQrCode\Renderer\ImageRenderer(
-            new \BaconQrCode\Renderer\RendererStyle\RendererStyle(100),
-            new \BaconQrCode\Renderer\Image\SvgImageBackEnd
-        );
-        $writer = new \BaconQrCode\Writer($renderer);
-        $qrCode = base64_encode($writer->writeString($verificationUrl));
-
         // Load and encode logo
         $logoPath = public_path('logo.png');
         $logo = base64_encode(file_get_contents($logoPath));
@@ -187,7 +178,6 @@ class IssuedClearanceController extends Controller
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.clearance', [
             'clearance' => $clearance,
             'application' => $application,
-            'qrCode' => $qrCode,
             'logo' => $logo,
         ]);
 
@@ -206,16 +196,6 @@ class IssuedClearanceController extends Controller
         $clearance = IssuedClearance::with(['clearanceApplication.zone', 'approvedBy'])->findOrFail($id);
         $application = $clearance->clearanceApplication;
 
-        // Generate QR code for verification
-        $verificationUrl = url("/clearances/{$clearance->id}/verify");
-
-        $renderer = new \BaconQrCode\Renderer\ImageRenderer(
-            new \BaconQrCode\Renderer\RendererStyle\RendererStyle(100),
-            new \BaconQrCode\Renderer\Image\SvgImageBackEnd
-        );
-        $writer = new \BaconQrCode\Writer($renderer);
-        $qrCode = base64_encode($writer->writeString($verificationUrl));
-
         // Load and encode logo
         $logoPath = public_path('logo.png');
         $logo = base64_encode(file_get_contents($logoPath));
@@ -223,7 +203,6 @@ class IssuedClearanceController extends Controller
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.clearance', [
             'clearance' => $clearance,
             'application' => $application,
-            'qrCode' => $qrCode,
             'logo' => $logo,
         ]);
 

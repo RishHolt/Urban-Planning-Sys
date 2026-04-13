@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
+Route::get('/privacy', fn() => Inertia::render('Privacy'))->name('privacy');
+Route::get('/terms', fn() => Inertia::render('Terms'))->name('terms');
+
 Route::get('/', function () {
     $user = Auth::user();
 
@@ -77,6 +80,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/documents', [\App\Http\Controllers\ZoningApplicationDocumentController::class, 'store'])->name('documents.store');
         Route::patch('/{id}/documents/{documentId}/status', [\App\Http\Controllers\ZoningApplicationDocumentController::class, 'updateStatus'])->name('documents.update-status');
         Route::get('/{id}/documents/{documentId}/download', [\App\Http\Controllers\ZoningApplicationDocumentController::class, 'download'])->name('documents.download');
+        Route::get('/{id}/clearance/download', [\App\Http\Controllers\ZoningApplicationController::class, 'downloadClearance'])->name('clearance.download');
     });
 
     // Subdivision Application routes (for developers)
@@ -220,17 +224,15 @@ Route::middleware(['auth', RedirectByRole::class])->group(function () {
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
-        Route::get('/', function () {
-            return Inertia::render('Admin/Home');
-        })->name('home');
+        Route::get('/', [\App\Http\Controllers\Admin\AdminDashboardController::class, 'index'])->name('home');
+
+        Route::get('/analytics', [\App\Http\Controllers\Admin\AnalyticsController::class, 'index'])->name('analytics');
 
         Route::redirect('inspections', '/admin/zoning/inspections')->name('inspections.legacy-redirect');
 
         // Zoning Clearance routes
         Route::prefix('zoning')->name('zoning.')->group(function () {
-            Route::get('/dashboard', function () {
-                return Inertia::render('Admin/Zoning/Dashboard');
-            })->name('dashboard');
+            Route::get('/dashboard', [\App\Http\Controllers\Admin\ZoningDashboardController::class, 'index'])->name('dashboard');
 
             Route::get('/map', function () {
                 return Inertia::render('Admin/Zoning/ZoningMap');

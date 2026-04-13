@@ -10,10 +10,11 @@ interface TabPanelProps {
     tabId: string;
     children: ReactNode;
     status?: 'red' | 'yellow' | 'green';
+    className?: string;
 }
 
-export function TabPanel({ children }: TabPanelProps) {
-    return <>{children}</>;
+export function TabPanel({ children, className = "flex flex-col gap-6" }: TabPanelProps) {
+    return <div className={className}>{children}</div>;
 }
 
 export default function ApplicationDetailsTabs({ 
@@ -80,7 +81,7 @@ export default function ApplicationDetailsTabs({
                     if (isValidElement(child) && child.type === TabPanel) {
                         const props = child.props as TabPanelProps;
                         if (props.tabId === activeTab) {
-                            return props.children;
+                            return child;
                         }
                     }
                     return null;

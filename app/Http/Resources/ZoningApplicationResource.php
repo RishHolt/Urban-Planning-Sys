@@ -100,7 +100,29 @@ class ZoningApplicationResource extends JsonResource
             'externalVerifications' => $this->whenLoaded('externalVerifications', function () {
                 return ExternalVerificationResource::collection($this->externalVerifications)->resolve();
             }),
-            'inspection' => $this->whenLoaded('inspection'),
+            'inspections' => $this->whenLoaded('inspections', function () {
+                return $this->inspections->map(function ($inspection) {
+                    return [
+                        'id' => $inspection->id,
+                        'inspector_id' => $inspection->inspector_id,
+                        'scheduled_date' => $inspection->scheduled_date?->format('Y-m-d'),
+                        'inspected_at' => $inspection->inspected_at?->format('Y-m-d H:i:s'),
+                        'result' => $inspection->result,
+                        'inspection_status' => $inspection->inspection_status,
+                        'findings' => $inspection->findings,
+                        'recommendations' => $inspection->recommendations,
+                        'review_notes' => $inspection->review_notes,
+                        'inspector' => $inspection->inspector ? [
+                            'id' => $inspection->inspector->id,
+                            'email' => $inspection->inspector->email,
+                            'profile' => $inspection->inspector->profile ? [
+                                'first_name' => $inspection->inspector->profile->first_name,
+                                'last_name' => $inspection->inspector->profile->last_name,
+                            ] : null,
+                        ] : null,
+                    ];
+                })->values()->all();
+            }),
             'issuedClearance' => $this->whenLoaded('issuedClearance'),
             'statusHistory' => $this->whenLoaded('statusHistory', function () {
                 return ZoningApplicationStatusHistoryResource::collection($this->statusHistory)->resolve();

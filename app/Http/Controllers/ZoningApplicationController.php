@@ -156,4 +156,23 @@ class ZoningApplicationController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Download the issued clearance for a specific application.
+     */
+    public function downloadClearance(string $id)
+    {
+        $application = ZoningApplication::with('issuedClearance')
+            ->where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $this->authorize('view', $application);
+
+        if ($application->status !== 'approved' || !$application->issuedClearance) {
+            abort(404, 'Clearance not found or not yet approved.');
+        }
+
+        return app(\App\Http\Controllers\IssuedClearanceController::class)->download($application->issuedClearance->id);
+    }
 }

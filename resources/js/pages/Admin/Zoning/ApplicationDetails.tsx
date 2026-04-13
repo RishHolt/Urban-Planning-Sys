@@ -819,6 +819,17 @@ export default function ApplicationDetails({ application, inspectors = [] }: App
                                 inspectors={inspectors} 
                             />
                         </TabPanel>
+
+                        {/* Application Timeline Tab */}
+                        <TabPanel tabId="application_timeline">
+                            <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg border-2 border-primary/20">
+                                <h2 className="flex items-center gap-2 mb-6 font-semibold text-gray-900 dark:text-white text-lg border-b border-gray-100 dark:border-gray-800 pb-4">
+                                    <Clock size={18} className="text-primary" />
+                                    Application Timeline
+                                </h2>
+                                <ApplicationTimeline items={application.timeline || []} />
+                            </section>
+                        </TabPanel>
                     </ApplicationDetailsTabs>
                 </div>
 
@@ -881,7 +892,7 @@ export default function ApplicationDetails({ application, inspectors = [] }: App
                                 <Button
                                     className="w-full"
                                     variant="primary"
-                                    onClick={() => router.visit(`/clearances/create?application_id=${application.id}`)}
+                                    onClick={() => router.visit(`/admin/zoning/clearances/create?application_id=${application.id}`)}
                                 >
                                     <FileText size={16} className="mr-2" />
                                     Issue Clearance
@@ -890,16 +901,6 @@ export default function ApplicationDetails({ application, inspectors = [] }: App
                         </div>
                     </section>
 
-                    {/* Timeline Summary */}
-
-                    {/* Application Timeline */}
-                    <section className="bg-white dark:bg-dark-surface shadow-lg p-6 rounded-lg">
-                        <h2 className="flex items-center gap-2 mb-6 font-semibold text-gray-900 dark:text-white text-lg border-b border-gray-100 dark:border-gray-800 pb-4">
-                            <Clock size={18} className="text-primary" />
-                            Application Timeline
-                        </h2>
-                        <ApplicationTimeline items={application.timeline || []} />
-                    </section>
                 </div>
             </div>
 

@@ -85,14 +85,18 @@ function ZoneLayers({
     zones,
     municipalityBoundary,
     barangayBoundaries,
+    allBarangays,
     selectedZone,
     onSelectZone,
+    onSelectBarangay,
 }: {
     zones: Zone[];
     municipalityBoundary: Zone | null;
     barangayBoundaries: Zone[];
+    allBarangays: Zone[];
     selectedZone: Zone | null;
     onSelectZone: (zone: Zone) => void;
+    onSelectBarangay: (id: string) => void;
 }) {
     const map = useMap();
     const polygonLayersRef = useRef<Map<string, L.Layer>>(new Map());
@@ -157,6 +161,29 @@ function ZoneLayers({
                     const weight = isBoundary ? 3 : 2;
                     const opacity = 0.8;
 
+                    let locationBarangay = '';
+                    if (!isBoundary && allBarangays.length > 0) {
+                        try {
+                            const zoneFeature = ensureClosedPolygon(zone.geometry);
+                            const zoneCentroid = turf.centroid(zoneFeature.type === 'Polygon' ? turf.polygon(zoneFeature.coordinates) : turf.multiPolygon(zoneFeature.coordinates));
+                            for (const barangay of allBarangays) {
+                                if (!barangay.geometry) continue;
+                                const bFeature = ensureClosedPolygon(barangay.geometry);
+                                let matched = false;
+                                if (bFeature.type === 'Polygon') {
+                                    matched = turf.booleanPointInPolygon(zoneCentroid, turf.polygon(bFeature.coordinates));
+                                } else if (bFeature.type === 'MultiPolygon') {
+                                    for (const polygonCoords of bFeature.coordinates) {
+                                        if (turf.booleanPointInPolygon(zoneCentroid, turf.polygon(polygonCoords))) {
+                                            matched = true; break;
+                                        }
+                                    }
+                                }
+                                if (matched) { locationBarangay = barangay.label || 'Unnamed Barangay'; break; }
+                            }
+                        } catch (e) {}
+                    }
+
                     const layer = geoJSONToLeaflet(zone.geometry, {
                         color: layerColor,
                         fillColor: layerColor,
@@ -193,6 +220,7 @@ function ZoneLayers({
                                     <span class="block font-bold text-gray-700 dark:text-gray-300 text-sm truncate" title="${zone.label || 'N/A'}">
                                         ${zone.label || 'No Label Set'}
                                     </span>
+                                    ${locationBarangay ? `<span class="block text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>${locationBarangay}</span>` : ''}
                                 </div>
                                 <div class="mb-2">
                                     <span class="block mb-0.5 font-bold text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Classification</span>
@@ -213,21 +241,44 @@ function ZoneLayers({
                         }).setContent(popupContent);
 
                         // Bind popup and click handler
-                        const handleClick = () => {
-                            onSelectZone(zone);
-                        };
+                        if (!isBoundary) {
+                            const setupLandUseZone = (polyLayer: L.Polygon | L.Layer) => {
+                                polyLayer.bindPopup(popup);
+                                polyLayer.on('click', () => onSelectZone(zone));
+                                polyLayer.on('dblclick', (e: any) => {
+                                    const clickPoint = turf.point([e.latlng.lng, e.latlng.lat]);
+                                    for (const barangay of allBarangays) {
+                                        if (!barangay.geometry) continue;
+                                        try {
+                                            const closedGeometry = ensureClosedPolygon(barangay.geometry);
+                                            const featureObj = closedGeometry.type === 'Polygon'
+                                                ? turf.feature(closedGeometry)
+                                                : turf.feature(closedGeometry);
+                                            if (turf.booleanPointInPolygon(clickPoint, featureObj as any)) {
+                                                onSelectBarangay(barangay.id);
+                                                break;
+                                            }
+                                        } catch (err) {}
+                                    }
+                                });
+                            };
 
-                        if (layer instanceof L.LayerGroup) {
-                            layer.eachLayer((sublayer) => {
-                                if (sublayer instanceof L.Polygon) {
-                                    sublayer.bindPopup(popup);
-                                    sublayer.on('click', handleClick);
-                                }
-                            });
-                        } else if (layer instanceof L.Polygon) {
-                            layer.bindPopup(popup);
-                            layer.on('click', handleClick);
+                            if (layer instanceof L.LayerGroup) {
+                                layer.eachLayer((sublayer) => setupLandUseZone(sublayer));
+                            } else {
+                                setupLandUseZone(layer);
+                            }
+                        } else {
+                            const handleClick = () => onSelectZone(zone);
+                            if (layer instanceof L.LayerGroup) {
+                                layer.eachLayer((sublayer) => {
+                                    if (sublayer instanceof L.Polygon) sublayer.on('click', handleClick);
+                                });
+                            } else if (layer instanceof L.Polygon) {
+                                layer.on('click', handleClick);
+                            }
                         }
+
                     }
                 } catch (error) {
                     console.error(`Error rendering zone ${zone.code}:`, error);
@@ -238,26 +289,8 @@ function ZoneLayers({
         // Initial render
         renderZones();
 
-        // Listen to map move/zoom events
-        const handleMapMove = () => {
-            if (renderTimeoutRef.current) {
-                clearTimeout(renderTimeoutRef.current);
-            }
-            renderTimeoutRef.current = setTimeout(() => {
-                renderZones();
-            }, 150);
-        };
-
-        map.on('moveend', handleMapMove);
-        map.on('zoomend', handleMapMove);
-
         // Cleanup
         return () => {
-            if (renderTimeoutRef.current) {
-                clearTimeout(renderTimeoutRef.current);
-            }
-            map.off('moveend', handleMapMove);
-            map.off('zoomend', handleMapMove);
             polygonLayersRef.current.forEach((layer) => {
                 if (map.hasLayer(layer)) {
                     map.removeLayer(layer);
@@ -544,14 +577,80 @@ export default function ZoningMap() {
     // Filter barangays based on search query
     const filteredBarangays = useMemo(() => {
         if (!searchQuery.trim()) {
-            return barangaysWithZones;
+            return barangayBoundaries;
         }
         const query = searchQuery.toLowerCase().trim();
-        return barangaysWithZones.filter((barangay) => {
+        return barangayBoundaries.filter((barangay) => {
             const label = (barangay.label || '').toLowerCase();
             return label.includes(query);
         });
-    }, [barangaysWithZones, searchQuery]);
+    }, [barangayBoundaries, searchQuery]);
+
+    const displayBarangays = useMemo(() => {
+        if (!selectedBarangayId) return barangayBoundaries;
+        return barangayBoundaries.filter(b => b.id === selectedBarangayId);
+    }, [barangayBoundaries, selectedBarangayId]);
+
+    const displayZones = useMemo(() => {
+        if (!selectedBarangayId) return zones;
+        
+        const selectedBarangay = barangayBoundaries.find(b => b.id === selectedBarangayId);
+        if (!selectedBarangay || !selectedBarangay.geometry) return zones;
+
+        const closedBarangayGeometry = ensureClosedPolygon(selectedBarangay.geometry);
+        const barangayFeature = closedBarangayGeometry.type === 'Polygon'
+            ? turf.polygon(closedBarangayGeometry.coordinates)
+            : turf.multiPolygon(closedBarangayGeometry.coordinates);
+        const barangayBbox = turf.bbox(closedBarangayGeometry);
+
+        return zones.filter((zone) => {
+             if (!zone.geometry) return false;
+             
+             // If the zone is a barangay boundary, ONLY include the selected one
+             if (zone.boundary_type === 'barangay') {
+                 return zone.id === selectedBarangayId;
+             }
+             
+             // Always include the overall municipal boundary for context
+             if (zone.boundary_type === 'municipal') {
+                 return true;
+             }
+             
+             try {
+                const closedZoneGeometry = ensureClosedPolygon(zone.geometry);
+                const zoneBbox = turf.bbox(closedZoneGeometry);
+                
+                const bboxesOverlap = !(
+                    zoneBbox[0] > barangayBbox[2] ||
+                    zoneBbox[2] < barangayBbox[0] ||
+                    zoneBbox[1] > barangayBbox[3] ||
+                    zoneBbox[3] < barangayBbox[1]
+                );
+                
+                if (!bboxesOverlap) return false;
+
+                const zoneFeature = closedZoneGeometry.type === 'Polygon'
+                    ? turf.polygon(closedZoneGeometry.coordinates)
+                    : turf.multiPolygon(closedZoneGeometry.coordinates);
+
+                if (turf.booleanIntersects(barangayFeature, zoneFeature)) return true;
+                if (turf.booleanWithin(zoneFeature, barangayFeature)) return true;
+
+                const zoneCentroid = turf.centroid(zoneFeature);
+                if (barangayFeature.geometry.type === 'Polygon') {
+                    if (turf.booleanPointInPolygon(zoneCentroid, barangayFeature.geometry)) return true;
+                } else if (barangayFeature.geometry.type === 'MultiPolygon') {
+                    for (const polygonCoords of barangayFeature.geometry.coordinates) {
+                        const polygon = turf.polygon(polygonCoords);
+                        if (turf.booleanPointInPolygon(zoneCentroid, polygon)) return true;
+                    }
+                }
+                return false;
+             } catch (e) {
+                 return false;
+             }
+        });
+    }, [zones, barangayBoundaries, selectedBarangayId]);
 
     return (
         <div className="flex flex-col bg-background dark:bg-dark-bg w-full min-h-dvh transition-colors">
@@ -587,6 +686,26 @@ export default function ZoningMap() {
                                         className="w-full"
                                     />
                                 </div>
+                                {selectedBarangayId && !searchQuery && (
+                                    <div className="mt-3 p-3 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Filtered by Barangay</span>
+                                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                {barangayBoundaries.find(b => b.id === selectedBarangayId)?.label || 'Selected'}
+                                            </span>
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                setSelectedBarangayId('');
+                                                setSelectedZone(null);
+                                                if (municipalityBoundary) setSelectedZone(municipalityBoundary);
+                                            }}
+                                            className="text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded transition-colors"
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                )}
                                 {searchQuery && (
                                     <div className="bg-white dark:bg-dark-surface mt-2 border border-gray-200 dark:border-gray-700 rounded-lg max-h-60 overflow-y-auto">
                                         {filteredBarangays.length > 0 ? (
@@ -690,11 +809,13 @@ export default function ZoningMap() {
                                     keepBuffer={3}
                                 />
                                 <ZoneLayers
-                                    zones={zones}
-                                    municipalityBoundary={municipalityBoundary}
-                                    barangayBoundaries={barangayBoundaries}
+                                    zones={displayZones}
+                                    municipalityBoundary={selectedBarangayId ? null : municipalityBoundary}
+                                    barangayBoundaries={displayBarangays}
+                                    allBarangays={barangayBoundaries}
                                     selectedZone={selectedZone}
                                     onSelectZone={handleZoneSelect}
+                                    onSelectBarangay={handleBarangaySelect}
                                 />
                             </MapContainer>
                         )}

@@ -52,9 +52,9 @@ export default function ApplicationTimeline({ items, className = '' }: Applicati
                     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-200'
                 };
             case 'status_change':
-                const status = item.status.toLowerCase();
-                const isFinal = status === 'approved';
-                const isDenied = status === 'rejected' || status === 'denied';
+                const statusStr = (item.status || '').toLowerCase();
+                const isFinal = statusStr === 'approved';
+                const isDenied = statusStr === 'rejected' || statusStr === 'denied';
                 return {
                     label: 'Status Changed',
                     icon: isFinal ? <CheckCircle size={16} className="text-green-600" /> : (isDenied ? <XCircle size={16} className="text-red-600" /> : <Clock size={16} className="text-blue-600" />),
@@ -113,12 +113,20 @@ export default function ApplicationTimeline({ items, className = '' }: Applicati
                                     </time>
                                 </div>
                                 
-                                {item.remarks && (
+                                {item.eventType === 'status_change' && item.status && (
+                                    <p className="text-xs font-bold text-gray-900 dark:text-white mb-2">
+                                        Status updated to <span className="text-primary">{item.status.replace(/_/g, ' ')}</span>
+                                    </p>
+                                )}
+                                
+                                {item.remarks ? (
                                     <div className="relative">
-                                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-lg border border-gray-100 dark:border-gray-700/50">
+                                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed bg-gray-50 dark:bg-gray-800/30 p-3 rounded-lg border border-gray-100 dark:border-gray-700/50">
                                             {item.remarks}
                                         </p>
                                     </div>
+                                ) : (
+                                    <p className="text-xs text-gray-400 italic">No additional description provided.</p>
                                 )}
                             </div>
                         </div>

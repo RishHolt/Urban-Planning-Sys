@@ -231,15 +231,19 @@ class ZoneController extends Controller
     /**
      * Get all active zones with geometry for map rendering.
      */
-    public function getAllZones(): JsonResponse
+    public function getAllZones(Request $request): JsonResponse
     {
-        $zones = Zone::with('classification')
+        $zonesQuery = Zone::with('classification')
             ->active()
-            ->zoning() // Only get actual zoning zones, exclude municipal and barangay boundaries
             ->withGeometry()
-            ->orderBy('id', 'desc')
-            ->get()
-            ->map(fn ($zone) => ZoneFormatter::format($zone, false));
+            ->orderBy('id', 'desc');
+            
+        if ($request->has('zoning_only')) {
+            $zonesQuery->zoning();
+        }
+
+        $zones = $zonesQuery->get()
+            ->map(fn (Zone $zone) => ZoneFormatter::format($zone, false));
 
         return response()->json([
             'success' => true,
@@ -254,7 +258,7 @@ class ZoneController extends Controller
     {
         $zones = Zone::with('classification')->active()->get();
 
-        $features = $zones->map(fn ($zone) => ZoneFormatter::formatForGeoJson($zone));
+        $features = $zones->map(fn (Zone $zone) => ZoneFormatter::formatForGeoJson($zone));
 
         $geoJson = [
             'type' => 'FeatureCollection',

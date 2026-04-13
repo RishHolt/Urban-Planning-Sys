@@ -103,7 +103,9 @@ export default function LocationAndProjectInfoStep({
     };
 
     const filteredZones = useMemo(() => {
-        if (!data.barangay || !selectedBarangayZone || !selectedBarangayZone.geometry) return zones;
+        if (!data.barangay || !selectedBarangayZone || !selectedBarangayZone.geometry) {
+            return Array.from(new Map(zones.map(z => [z.id, z])).values());
+        }
 
         const toTurf = (geom: GeoJSON.Polygon | GeoJSON.MultiPolygon) => {
             if (geom.type === 'Polygon') return turf.polygon(closeGeometry(geom) as number[][][]);
@@ -152,10 +154,11 @@ export default function LocationAndProjectInfoStep({
                 }
                 
                 return null;
-            }).filter((z): z is Zone => z !== null);
+            }).filter((z): z is Zone => z !== null)
+              .filter((z, index, self) => self.findIndex(s => s.id === z.id) === index);
         } catch (e) {
             console.error('Error in filteredZones computation:', e);
-            return zones;
+            return Array.from(new Map(zones.map(z => [z.id, z])).values());
         }
     }, [zones, selectedBarangayZone, data.barangay]);
 

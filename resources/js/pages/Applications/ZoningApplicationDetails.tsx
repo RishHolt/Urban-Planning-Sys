@@ -90,6 +90,11 @@ interface Application {
     submittedAt: string | null;
     createdAt: string;
     compliance?: any;
+    issuedClearance?: {
+        id: number;
+        clearance_no: string;
+        issue_date: string;
+    } | null;
 }
 
 interface ApplicationDetailsProps {
@@ -212,7 +217,19 @@ export default function ApplicationDetails({ application }: ApplicationDetailsPr
                                 Reference Number: <span className="font-mono font-semibold">{application.referenceNo}</span>
                             </p>
                         </div>
-                        <StatusBadge status={application.status as any} />
+                        <div className="flex flex-col items-end gap-2">
+                            <StatusBadge status={application.status as any} />
+                            {application.status === 'approved' && application.issuedClearance && (
+                                <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={() => window.open(`/zoning-applications/${application.id}/clearance/download`, '_blank')}
+                                >
+                                    <Download size={16} className="mr-2" />
+                                    Download Clearance
+                                </Button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="grid gap-6 lg:grid-cols-3">
